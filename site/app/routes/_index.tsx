@@ -1,5 +1,5 @@
 // http://localhost:3000/
-// https://sly-cli
+// https://sly-cli.fly.dev/
 
 import type { V2_MetaFunction } from "@remix-run/node"
 
@@ -37,6 +37,8 @@ export default function Index() {
         Sly is a CLI tool to add components, icons, and utilities as code, not
         dependencies.
       </p>
+
+      <InstallExample />
 
       <h2 className="mt-16 font-bold text-3xl text-neutral-600">
         Simple usage
@@ -166,11 +168,21 @@ export default function Index() {
   )
 }
 
+function InstallExample() {
+  return (
+    <pre className="bg-slate-600 px-8 py-4 rounded-lg mt-4">
+      <code className="text-slate-200 text-lg">
+        {">"} npm i --save-dev @sly-cli/sly
+      </code>
+    </pre>
+  )
+}
+
 function AddExample() {
   return (
     <pre className="bg-slate-600 px-8 py-4 rounded-lg mt-4">
       <code className="text-slate-200 text-lg">
-        {">"} npx sly-cmd add
+        {">"} npx @sly-cli/sly add
         <br />
         <br />
         <span className="text-green-400">✔</span>{" "}
