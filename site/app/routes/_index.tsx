@@ -35,7 +35,10 @@ export default function Index() {
 
       <p className="mt-8 max-w-prose text-xl text-neutral-600">
         Sly is a CLI tool to add components, icons, and utilities as code, not
-        dependencies.
+        dependencies.{" "}
+        <a href="https://github.com/jacobparis-insiders/sly/tree/main/cli">
+          View on GitHub
+        </a>
       </p>
 
       <InstallExample />
