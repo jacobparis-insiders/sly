@@ -4,15 +4,14 @@
   "description": "Sly is a CLI tool to add components, icons, and utilities as code, not dependencies.",
   "type": "module",
   "exports": "./dist/index.js",
-  "bin": "./dist/index.js",
+  "bin": {
+    "sly": "dist/index.js"
+  },
   "publishConfig": {
     "access": "public"
   },
   "license": "MIT",
-  "author": {
-    "name": "Jacob Paris",
-    "url": "https://twitter.com/jacobmparis"
-  },
+  "author": "Jacob Paris (https://twitter.com/jacobmparis)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jacobparis-insiders/sly.git",
@@ -32,7 +31,7 @@
     "start:dev": "REGISTRY_URL=http://localhost:3000/registry node dist/index.js",
     "start": "node dist/index.js",
     "release": "changeset version",
-    "pub": "npm build && npm publish --access public",
+    "pub": "npm run build && npm publish --access public",
     "test": "vitest run"
   },
   "dependencies": {
@@ -52,5 +51,11 @@
     "rimraf": "^5.0.1",
     "tsup": "^7.1.0",
     "typescript": "^5.1.6"
-  }
+  },
+  "types": "./index.d.ts",
+  "bugs": {
+    "url": "https://github.com/jacobparis-insiders/sly/issues"
+  },
+  "homepage": "https://github.com/jacobparis-insiders/sly#readme",
+  "main": "index.js"
 }
