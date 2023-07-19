@@ -1,6 +1,6 @@
 import { existsSync, promises as fs } from "fs"
 import path from "path"
-import { Config, LibraryConfig, getConfig } from "~/src/get-config.js"
+import { Config, getConfig } from "~/src/get-config.js"
 import { logger } from "~/src/logger.js"
 import { fetchTree, getLibraryIndex, getRegistryIndex } from "~/src/registry.js"
 import chalk from "chalk"
@@ -11,7 +11,7 @@ import prompts from "prompts"
 import * as z from "zod"
 import { resolveTransformers } from "~/src/transformers.js"
 import { chooseLibrary, configureLibraries, initLibrary } from "./library.js"
-import { confirmationPrompt } from "../prompts.js"
+import { confirmOrQuit, confirm } from "../prompts.js"
 
 function hasLibrary(config: Config, name: string) {
   return config?.libraries.find((lib) => lib.name === name)
@@ -125,13 +125,11 @@ export const add = new Command()
       process.exit(0)
     }
 
-    await confirmationPrompt(
+    await confirmOrQuit(
       `Ready to install ${payload.length} items from ${chalk.cyan(
         library
       )}. Proceed?`
     )
-
-    const spinner = ora(`Installing components...\n`).start()
 
     const libConfig = config.libraries.find(({ name }) => name === library)
     if (!libConfig) {
@@ -143,7 +141,6 @@ export const add = new Command()
     const transformers = await resolveTransformers(libConfig.transformers)
 
     for (const item of payload) {
-      const itemSpinner = ora(`  Installing ${item.name}...\n`).start()
       const targetDir = libConfig.directory
 
       if (!existsSync(targetDir)) {
@@ -166,6 +163,38 @@ export const add = new Command()
 
         continue
       }
+
+      // TODO: support hipster package managers
+      if (item.dependencies?.length || item.devDependencies?.length) {
+        const shouldInstall = await confirm(
+          [
+            `${chalk.cyan(item.name)} requires the following`,
+            item.dependencies.length && "\nDependencies:",
+            ...item.dependencies.map((dep) => `- ${chalk.cyan(dep)}`),
+            item.devDependencies.length && "\nDev Dependencies:",
+            ...item.devDependencies.map((dep) => `\n- ${chalk.cyan(dep)}`),
+            "\nProceed?",
+          ]
+            .filter(Boolean)
+            .join("\n")
+        )
+
+        if (shouldInstall) {
+          if (item.dependencies?.length) {
+            await execa("npm", ["install", ...item.dependencies])
+          }
+
+          if (item.devDependencies?.length) {
+            await execa("npm", [
+              "install",
+              "--save-dev",
+              ...item.devDependencies,
+            ])
+          }
+        }
+      }
+
+      const itemSpinner = ora(`  Installing ${item.name}...\n`).start()
 
       for (const file of item.files) {
         const fileSpinner = ora(`    Installing ${file.name}...\n`).start()
@@ -197,5 +226,4 @@ export const add = new Command()
         await execa(cmd, args)
       }
     }
-    spinner.succeed(`Done.`)
   })

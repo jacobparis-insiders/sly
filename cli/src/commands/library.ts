@@ -9,7 +9,7 @@ import { Command } from "commander"
 import chalk from "chalk"
 import prompts from "prompts"
 import { getRegistryIndex } from "~/src/registry.js"
-import { confirmationPrompt } from "../prompts.js"
+import { confirmOrQuit } from "../prompts.js"
 import { z } from "zod"
 
 export const libraryCommand = new Command()
@@ -94,7 +94,7 @@ export async function configureLibraries() {
   )
 
   if (removedLibraries?.length) {
-    await confirmationPrompt(
+    await confirmOrQuit(
       `Are you sure you want to remove ${removedLibraries
         .map((library) => chalk.cyan(library.name))
         .join(", ")}?`
@@ -181,7 +181,7 @@ export async function initLibrary(name: string) {
     transformers: existingConfig.transformers,
   })
 
-  await confirmationPrompt(`Save settings to ${chalk.cyan("sly.json")}?`)
+  await confirmOrQuit(`Save settings to ${chalk.cyan("sly.json")}?`)
 
   await setConfig((config) => {
     const existingLibraryConfig = config.libraries.find(

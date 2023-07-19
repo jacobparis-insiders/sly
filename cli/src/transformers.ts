@@ -5,7 +5,7 @@ import { logger } from "~/src/logger.js"
 
 export async function resolveTransformers(transformers: string[]) {
   const modules = await Promise.all(
-    transformers.map(async (transformer, i) => {
+    transformers.map(async (transformer) => {
       const transformerPath = path.resolve(process.cwd(), transformer)
       if (!existsSync(transformerPath)) {
         return Promise.reject(`Transformer ${transformer} does not exist.`)

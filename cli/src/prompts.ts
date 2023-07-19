@@ -1,7 +1,15 @@
 import prompts from "prompts"
 
-export async function confirmationPrompt(message: string) {
-  if (process.env.YES) return
+export async function confirmOrQuit(message: string) {
+  const proceed = await confirm(message)
+
+  if (!proceed) {
+    process.exit(0)
+  }
+}
+
+export async function confirm(message: string) {
+  if (process.env.YES) return true
 
   const { proceed } = await prompts({
     type: "confirm",
@@ -10,7 +18,5 @@ export async function confirmationPrompt(message: string) {
     initial: true,
   })
 
-  if (!proceed) {
-    process.exit(0)
-  }
+  return Boolean(proceed)
 }
