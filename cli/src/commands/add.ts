@@ -34,23 +34,22 @@ export const add = new Command()
     let library = z.string().optional().parse(libArg)
     const items = z.array(z.string()).default([]).parse(filesArg)
 
+    // they don't choose library, we ask them to choose
     // TODO: this would be easier with XState
     let config = await getConfig()
-    if (!config) {
-      // they don't have a config, send them to init
-      await configureLibraries()
-      config = await getConfig()
-
-      // if they still don't have a config, something went wrong
-      if (!config) {
-        // XState fixes this
-        logger.error(`Something went wrong. Please try again.`)
-        process.exit(1)
-      }
-    }
-
-    // they don't choose library, we ask them to choose
     if (!library) {
+      if (!config) {
+        // they don't have a config, send them to init
+        await configureLibraries()
+        config = await getConfig()
+
+        // if they still don't have a config, something went wrong
+        if (!config) {
+          // XState fixes this
+          logger.error(`Something went wrong. Please try again.`)
+          process.exit(1)
+        }
+      }
       // This is used in two places, candidate for a function
       const CONFIG_LIBS = "\n    Configure libraries ->"
       library = config
@@ -67,7 +66,7 @@ export const add = new Command()
       }
     } else {
       // they choose library, it's not in their config, we ask them to configure
-      if (!hasLibrary(config, library)) {
+      if (!config || !hasLibrary(config, library)) {
         const { libraries } = await getRegistryIndex()
         if (!libraries.find((lib) => lib.name === library)) {
           logger.error(`Library ${library} not in registry`)
