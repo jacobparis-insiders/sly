@@ -11,6 +11,7 @@ import * as z from "zod"
 
 import { cachified } from "cachified"
 import { cache, dumpCache } from "./cache.js"
+import { logger } from "./logger.js"
 
 const baseUrl = process.env.REGISTRY_URL ?? "https://sly-cli.fly.dev"
 
@@ -39,15 +40,20 @@ export async function fetchTree(
   library: string,
   tree: z.infer<typeof libraryIndexSchema>["resources"]
 ) {
-  try {
-    const result = await fetchRegistry(
-      tree.map((item) => `${library}/${item.name}.json`)
-    )
-
-    return z.array(libraryItemWithContentSchema).parse(result)
-  } catch (error) {
+  const result = await fetchRegistry(
+    tree.map((item) => `${library}/${item.name}.json`)
+  ).catch((error) => {
+    logger.error(error)
     throw new Error(`Failed to fetch tree from registry.`)
-  }
+  })
+
+  return z
+    .array(libraryItemWithContentSchema)
+    .parseAsync(result)
+    .catch((error) => {
+      logger.error(error)
+      throw new Error(`Failed to parse tree from registry.`)
+    })
 }
 
 async function fetchRegistry(paths: string[]) {
@@ -55,7 +61,8 @@ async function fetchRegistry(paths: string[]) {
     const response = await Promise.all(
       paths.map((path) =>
         cachified({
-          key: path,
+          // TODO: add package.json version to key
+          key: `${baseUrl}/registry/${path}`,
           cache,
           async getFreshValue() {
             return fetch(`${baseUrl}/registry/${path}`).then((response) =>
@@ -66,10 +73,13 @@ async function fetchRegistry(paths: string[]) {
       )
     )
 
-    void dumpCache()
+    if (process.env.CACHE) {
+      void dumpCache()
+    }
 
     return response
   } catch (error) {
+    logger.error(error)
     throw new Error(`Failed to fetch registry from ${baseUrl}.`)
   }
 }
