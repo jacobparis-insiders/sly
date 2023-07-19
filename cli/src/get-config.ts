@@ -12,7 +12,7 @@ const explorer = cosmiconfig("sly", {
   searchPlaces: ["/sly.json"],
 })
 
-export const librarySchema = z
+export const libraryConfigSchema = z
   .object({
     name: z.string(),
     directory: z.string(),
@@ -21,12 +21,12 @@ export const librarySchema = z
   })
   .strict()
 
-export type LibrarySchema = z.infer<typeof librarySchema>
+export type LibraryConfig = z.infer<typeof libraryConfigSchema>
 
 export const configSchema = z
   .object({
     $schema: z.string().optional(),
-    libraries: z.array(librarySchema),
+    libraries: z.array(libraryConfigSchema),
   })
   .strict()
 
