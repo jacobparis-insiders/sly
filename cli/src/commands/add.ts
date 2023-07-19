@@ -111,14 +111,40 @@ export const add = new Command()
       selectedComponents = items
     }
 
-    const tree = registryIndex.resources
-      .filter((item) => selectedComponents?.includes(item.name))
-      .filter(
-        (component, index, self) =>
-          self.findIndex((c) => c.name === component.name) === index
+    const treeSet = new Set(
+      registryIndex.resources.filter(
+        (item) => selectedComponents?.includes(item.name)
       )
+    )
 
-    const payload = await fetchTree(library, tree)
+    for (const item of treeSet) {
+      if (item.registryDependencies.length > 0) {
+        const deps = item.registryDependencies.map((dep) =>
+          registryIndex.resources.find((item) => item.name === dep)
+        )
+
+        for (const dep of deps) {
+          if (dep) {
+            treeSet.add(dep)
+          } else {
+            logger.error(`Dependency ${dep} not found in registry`)
+          }
+        }
+      }
+    }
+
+    const treeSetItemsThatAreNotSelected = Array.from(treeSet).filter(
+      (item) => !selectedComponents.includes(item.name)
+    )
+
+    if (treeSetItemsThatAreNotSelected.length > 0) {
+      logger.info(`The selected items depend on these other items:`)
+      for (const item of treeSetItemsThatAreNotSelected) {
+        logger.info(`- ${chalk.cyan(item.name)}`)
+      }
+    }
+
+    const payload = await fetchTree(library, Array.from(treeSet))
 
     if (!payload.length) {
       logger.warn("Selected items not found. Exiting.")
