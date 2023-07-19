@@ -30,6 +30,7 @@ export async function loader({ params }: LoaderArgs) {
     },
     dependencies: component.dependencies ?? [],
     devDependencies: [],
+    registryDependencies: component.registryDependencies ?? [],
     files: component.files.map((file) => ({
       name: file.name,
       content: file.content,

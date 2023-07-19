@@ -19,6 +19,7 @@ export async function loader({ params }: LoaderArgs) {
     meta,
     dependencies: transformer.dependencies,
     devDependencies: transformer.devDependencies,
+    registryDependencies: transformer.registryDependencies,
     files: transformer.files.map((file) => ({
       name: file.name,
       content: file.content,

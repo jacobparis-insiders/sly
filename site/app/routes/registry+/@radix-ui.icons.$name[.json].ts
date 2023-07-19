@@ -22,6 +22,7 @@ export async function loader({ params }: LoaderArgs) {
     },
     dependencies: [],
     devDependencies: [],
+    registryDependencies: [],
     files: [
       {
         name: icon.name,

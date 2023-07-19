@@ -36,6 +36,7 @@ export const libraryIndexSchema = z.object({
 export const libraryItemWithContentSchema = libraryItemSchema.extend({
   dependencies: z.array(z.string()),
   devDependencies: z.array(z.string()),
+  registryDependencies: z.array(z.string()),
   files: z.array(
     z.object({
       name: z.string(),

@@ -3,7 +3,10 @@
 
 import { json, type LoaderArgs } from "@remix-run/node"
 import type { z } from "zod"
-import type { libraryIndexSchema } from "~/schemas"
+import type {
+  libraryIndexSchema,
+  libraryItemWithContentSchema,
+} from "~/schemas"
 
 export const meta = {
   name: "@sly-cli/transformers",
@@ -15,9 +18,9 @@ export const meta = {
 export const transformers = [
   {
     name: "html-meta-comments",
-    url: "https://sly-cli.fly.dev/registry/@sly-cli/transformers/html-meta-comments.json",
     dependencies: [],
     devDependencies: [],
+    registryDependencies: [],
     files: [
       {
         name: "html-meta-comments.js",
@@ -41,9 +44,10 @@ export default function htmlMetaComments(input, meta) {
   },
   {
     name: "html-prettier",
-    url: "https://sly-cli.fly.dev/registry/@sly-cli/transformers/html-prettier.json",
     dependencies: [],
     devDependencies: ["prettier"],
+
+    registryDependencies: [],
     files: [
       {
         name: "html-prettier.js",
@@ -65,9 +69,9 @@ export default function htmlPrettify(input) {
   },
   {
     name: "js-meta-comments",
-    url: "https://sly-cli.fly.dev/registry/@sly-cli/transformers/js-meta-comments.json",
     dependencies: [],
     devDependencies: [],
+    registryDependencies: [],
     files: [
       {
         name: "js-meta-comments.js",
@@ -92,9 +96,9 @@ export default function jsMetaComments(input, meta) {
   },
   {
     name: "svg-remove-dimensions",
-    url: "https://sly-cli.fly.dev/registry/@sly-cli/transformers/svg-remove-dimensions.json",
     dependencies: [],
     devDependencies: ["node-html-parser"],
+    registryDependencies: [],
     files: [
       {
         name: "svg-remove-dimensions.js",
@@ -122,9 +126,9 @@ export default async function svgRemoveDimensions(input) {
   },
   {
     name: "ts-prettier",
-    url: "https://sly-cli.fly.dev/registry/@sly-cli/transformers/ts-prettier.json",
     dependencies: [],
     devDependencies: ["prettier"],
+    registryDependencies: [],
     files: [
       {
         name: "ts-prettier.js",
@@ -146,9 +150,9 @@ export default function tsPrettify(input) {
   },
   {
     name: "js-remove-use-client",
-    url: "https://sly-cli.fly.dev/registry/@sly-cli/transformers/js-remove-use-client.json",
     dependencies: [],
     devDependencies: [],
+    registryDependencies: [],
     files: [
       {
         name: "js-remove-use-client.js",
@@ -165,7 +169,7 @@ export default function removeUseClient(input) {
       },
     ],
   },
-]
+] satisfies Omit<z.infer<typeof libraryItemWithContentSchema>, "meta">[]
 
 export async function loader({ request }: LoaderArgs) {
   return json<z.infer<typeof libraryIndexSchema>>({
