@@ -5,12 +5,20 @@ import { cosmiconfig } from "cosmiconfig"
 import * as z from "zod"
 import ora from "ora"
 
-// ? Do we really need cosmiconfig? We only support .json files
-// Other options would be nice but we need to be able to write to it
-// and other formats are prohibitively hard to write
-const explorer = cosmiconfig("sly", {
-  searchPlaces: ["/sly.json"],
-})
+// Use singleton so we can lazy load the env vars, which might be set as flags
+let explorer: ReturnType<typeof cosmiconfig> | null
+function getExplorer() {
+  // ? Do we really need cosmiconfig? We only support .json files
+  // Other options would be nice but we need to be able to write to it
+  // and other formats are prohibitively hard to write
+  if (!explorer) {
+    explorer = cosmiconfig("sly", {
+      searchPlaces: ["/sly.json"],
+      cache: Boolean(process.env.CACHE),
+    })
+  }
+  return explorer
+}
 
 export const libraryConfigSchema = z
   .object({
@@ -33,7 +41,7 @@ export const configSchema = z
 export type Config = z.infer<typeof configSchema>
 
 export async function getConfig(): Promise<Config | null> {
-  const configResult = await explorer.search("./sly.json")
+  const configResult = await getExplorer().search("./sly.json")
   if (!configResult) {
     return null
   }
@@ -61,7 +69,9 @@ export async function setConfig(fn: (config: Config) => Config) {
   await fs.writeFile(configPath, JSON.stringify(newConfig, null, 2), "utf8")
 
   // future getConfig calls will return stale data if we don't clear it
-  explorer.clearSearchCache()
+  if (process.env.CACHE) {
+    getExplorer().clearSearchCache()
+  }
 
   spinner.succeed()
 }
