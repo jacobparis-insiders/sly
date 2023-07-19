@@ -3,27 +3,36 @@
 
 import { json, type LoaderArgs } from "@remix-run/node"
 import { meta } from "./@shadcn.ui[.json].js"
-import { githubFile } from "../../github.server.js"
+import { z } from "zod"
+import type { libraryItemWithContentSchema } from "../../schemas.js"
+const shadcnFile = z.object({
+  name: z.string(),
+  dependencies: z.array(z.string()).optional(),
+  registryDependencies: z.array(z.string()).optional(),
+  files: z
+    .array(z.object({ name: z.string(), content: z.string() }))
+    .default([]),
+  type: z.string(),
+})
 
 export async function loader({ params }: LoaderArgs) {
-  const icon = await fetch(
-    `https://api.github.com/repos/shadcn/ui/contents/apps/www/registry/default/ui/${params.name}.tsx`
+  const component = await fetch(
+    `https://ui.shadcn.com/registry/styles/default/${params.name}.json`
   )
     .then((res) => res.json())
-    .then(githubFile.parseAsync)
+    .then(shadcnFile.parseAsync)
 
-  return json({
-    name: icon.name.replace(/\.svg$/, ""),
+  return json<z.infer<typeof libraryItemWithContentSchema>>({
+    name: component.name,
     meta: {
       ...meta,
-      source: icon.html_url,
+      source: `https://api.github.com/repos/shadcn/ui/contents/apps/www/registry/default/ui/${params.name}.tsx`,
     },
-    url: icon.download_url,
-    files: [
-      {
-        name: icon.name,
-        content: await fetch(icon.download_url).then((res) => res.text()),
-      },
-    ],
+    dependencies: component.dependencies ?? [],
+    devDependencies: [],
+    files: component.files.map((file) => ({
+      name: file.name,
+      content: file.content,
+    })),
   })
 }

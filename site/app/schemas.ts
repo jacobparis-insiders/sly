@@ -9,6 +9,9 @@ export const metaSchema = z.object({
 
 export type Meta = z.infer<typeof metaSchema>
 
+/**
+ * The response when fetching the root index
+ */
 export const registryIndexSchema = z.object({
   version: z.string(),
   libraries: z.array(metaSchema),
@@ -18,13 +21,21 @@ export const libraryItemSchema = z.object({
   name: z.string(),
 })
 
+/**
+ * The response when fetching a library index
+ */
 export const libraryIndexSchema = z.object({
   version: z.string(),
   meta: metaSchema,
   resources: z.array(libraryItemSchema),
 })
 
+/**
+ * The response when fetching an individual item
+ */
 export const libraryItemWithContentSchema = libraryItemSchema.extend({
+  dependencies: z.array(z.string()),
+  devDependencies: z.array(z.string()),
   files: z.array(
     z.object({
       name: z.string(),
@@ -32,4 +43,21 @@ export const libraryItemWithContentSchema = libraryItemSchema.extend({
     })
   ),
   meta: metaSchema,
+})
+
+/**
+ * Returned from the GitHub API when fetching a file
+ *
+ * @link https://api.github.com/repos/radix-ui/icons/contents/packages/radix-icons/icons/accessibility.svg
+ * */
+export const githubFile = z.object({
+  type: z.literal("file"),
+  name: z.string(),
+  path: z.string(),
+  sha: z.string(),
+  size: z.number(),
+  url: z.string(),
+  html_url: z.string(),
+  git_url: z.string(),
+  download_url: z.string(),
 })

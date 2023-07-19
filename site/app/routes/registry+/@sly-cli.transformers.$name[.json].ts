@@ -4,6 +4,8 @@
 import { json, type LoaderArgs } from "@remix-run/node"
 
 import { meta, transformers } from "./@sly-cli.transformers[.json].js"
+import type { libraryItemWithContentSchema } from "../../schemas.js"
+import type { z } from "zod"
 
 export async function loader({ params }: LoaderArgs) {
   const transformer = transformers.find((t) => t.name === params.name)
@@ -12,10 +14,11 @@ export async function loader({ params }: LoaderArgs) {
     throw new Response("Not found", { status: 404 })
   }
 
-  return json({
+  return json<z.infer<typeof libraryItemWithContentSchema>>({
     name: transformer.name,
     meta,
-    url: meta.source,
+    dependencies: transformer.dependencies,
+    devDependencies: transformer.devDependencies,
     files: transformer.files.map((file) => ({
       name: file.name,
       content: file.content,

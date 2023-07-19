@@ -3,7 +3,7 @@
 
 import { json, type LoaderArgs } from "@remix-run/node"
 import { z } from "zod"
-import { githubFile } from "../../github.server.js"
+import { githubFile, type libraryIndexSchema } from "../../schemas.js"
 
 export const meta = {
   name: "@radix-ui/icons",
@@ -18,10 +18,6 @@ export async function loader({ request }: LoaderArgs) {
     "https://api.github.com/repos/radix-ui/icons/contents/packages/radix-icons/icons"
   )
     .then((res) => res.json())
-    .then((item) => {
-      console.log(item)
-      return item
-    })
     .then(z.array(githubFile).parseAsync)
 
   const icons = radix
@@ -33,10 +29,9 @@ export async function loader({ request }: LoaderArgs) {
     })
     .map((icon) => ({
       name: icon.name.replace(/\.svg$/, ""),
-      url: icon.download_url,
     }))
 
-  return json({
+  return json<z.infer<typeof libraryIndexSchema>>({
     version: "1.0.0",
     meta,
     resources: icons,

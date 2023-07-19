@@ -2,9 +2,10 @@
 // https://sly-cli.fly.dev/registry/@radix-ui/icons/accessibility.json
 
 import { json, type LoaderArgs } from "@remix-run/node"
-import { githubFile } from "../../github.server.js"
 
 import { meta } from "./@radix-ui.icons[.json].js"
+import { githubFile, type libraryItemWithContentSchema } from "../../schemas.js"
+import type { z } from "zod"
 
 export async function loader({ params }: LoaderArgs) {
   const icon = await fetch(
@@ -13,13 +14,14 @@ export async function loader({ params }: LoaderArgs) {
     .then((res) => res.json())
     .then(githubFile.parseAsync)
 
-  return json({
+  return json<z.infer<typeof libraryItemWithContentSchema>>({
     name: icon.name.replace(/\.svg$/, ""),
     meta: {
       ...meta,
       source: icon.html_url,
     },
-    url: icon.download_url,
+    dependencies: [],
+    devDependencies: [],
     files: [
       {
         name: icon.name,

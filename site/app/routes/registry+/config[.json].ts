@@ -3,6 +3,7 @@
 
 import { json, type LoaderArgs } from "@remix-run/node"
 
+// This is the JSON schema for the config file
 export async function loader({ request }: LoaderArgs) {
   return json({
     $schema: "http://json-schema.org/draft-07/schema#",

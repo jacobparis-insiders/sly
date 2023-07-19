@@ -3,12 +3,13 @@
 
 import { json, type LoaderArgs } from "@remix-run/node"
 import { z } from "zod"
+import type { libraryIndexSchema } from "~/schemas"
 
-const shadcnFile = z.object({
+export const shadcnFile = z.object({
   name: z.string(),
   dependencies: z.array(z.string()).optional(),
   registryDependencies: z.array(z.string()).optional(),
-  files: z.array(z.string()),
+  files: z.array(z.string()).default([]),
   type: z.string(),
 })
 
@@ -29,7 +30,7 @@ export async function loader({ request }: LoaderArgs) {
     name: component.name,
   }))
 
-  return json({
+  return json<z.infer<typeof libraryIndexSchema>>({
     version: "1.0.0",
     meta,
     resources: icons,

@@ -2,8 +2,8 @@
 // https://sly-cli.fly.dev/registry/lucide-icons.json
 
 import { json, type LoaderArgs } from "@remix-run/node"
-import { githubFile } from "../../github.server.js"
 import { z } from "zod"
+import { githubFile, type libraryIndexSchema } from "../../schemas.js"
 
 export const meta = {
   name: "lucide-icons",
@@ -33,7 +33,7 @@ export async function loader({ request }: LoaderArgs) {
       url: icon.download_url,
     }))
 
-  return json({
+  return json<z.infer<typeof libraryIndexSchema>>({
     version: "1.0.0",
     meta,
     resources: icons,
