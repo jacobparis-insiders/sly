@@ -7,8 +7,8 @@ import type { libraryIndexSchema } from "~/schemas"
 
 export const shadcnFile = z.object({
   name: z.string(),
-  dependencies: z.array(z.string()).optional(),
-  registryDependencies: z.array(z.string()).optional(),
+  dependencies: z.array(z.string()).default([]),
+  registryDependencies: z.array(z.string()).default([]),
   files: z.array(z.string()).default([]),
   type: z.string(),
 })
@@ -28,6 +28,9 @@ export async function loader({ request }: LoaderArgs) {
 
   const icons = shadcn.map((component) => ({
     name: component.name,
+    dependencies: component.dependencies,
+    devDependencies: [],
+    registryDependencies: component.registryDependencies,
   }))
 
   return json<z.infer<typeof libraryIndexSchema>>({

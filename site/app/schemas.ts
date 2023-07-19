@@ -19,6 +19,9 @@ export const registryIndexSchema = z.object({
 
 export const libraryItemSchema = z.object({
   name: z.string(),
+  dependencies: z.array(z.string()),
+  devDependencies: z.array(z.string()),
+  registryDependencies: z.array(z.string()),
 })
 
 /**
@@ -34,9 +37,6 @@ export const libraryIndexSchema = z.object({
  * The response when fetching an individual item
  */
 export const libraryItemWithContentSchema = libraryItemSchema.extend({
-  dependencies: z.array(z.string()),
-  devDependencies: z.array(z.string()),
-  registryDependencies: z.array(z.string()),
   files: z.array(
     z.object({
       name: z.string(),

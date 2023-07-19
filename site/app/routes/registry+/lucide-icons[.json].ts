@@ -30,7 +30,9 @@ export async function loader({ request }: LoaderArgs) {
     })
     .map((icon) => ({
       name: icon.name.replace(/\.svg$/, ""),
-      url: icon.download_url,
+      dependencies: [],
+      devDependencies: [],
+      registryDependencies: [],
     }))
 
   return json<z.infer<typeof libraryIndexSchema>>({

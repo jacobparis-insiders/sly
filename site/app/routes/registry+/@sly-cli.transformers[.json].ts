@@ -177,6 +177,9 @@ export async function loader({ request }: LoaderArgs) {
     meta,
     resources: transformers.map((transformer) => ({
       name: transformer.name,
+      dependencies: transformer.dependencies,
+      devDependencies: transformer.devDependencies,
+      registryDependencies: transformer.registryDependencies,
     })),
   })
 }
