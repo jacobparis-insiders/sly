@@ -4,6 +4,7 @@
     "module": "NodeNext",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
+    "noUncheckedIndexedAccess": true,
     "strict": true,
     "moduleResolution": "NodeNext",
     "skipLibCheck": true,
