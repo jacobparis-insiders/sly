@@ -1,6 +1,6 @@
 {
   "name": "@sly-cli/sly",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Sly is a CLI tool to add components, icons, and utilities as code, not dependencies.",
   "type": "module",
   "exports": "./dist/index.js",
@@ -27,7 +27,7 @@
     "dev": "tsup --watch",
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "clean": "rimraf dist && rimraf components",
+    "clean": "rimraf dist",
     "start:dev": "REGISTRY_URL=http://localhost:3000/registry node dist/index.js",
     "start": "node dist/index.js",
     "release": "changeset version",
