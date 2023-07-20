@@ -172,7 +172,7 @@ export default function removeUseClient(input) {
 ] satisfies Omit<z.infer<typeof libraryItemWithContentSchema>, "meta">[]
 
 export async function loader({ request }: LoaderArgs) {
-  return json<z.infer<typeof libraryIndexSchema>>({
+  return json<z.input<typeof libraryIndexSchema>>({
     version: "1.1.0",
     meta,
     resources: transformers.map((transformer) => ({

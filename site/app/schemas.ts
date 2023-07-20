@@ -19,9 +19,9 @@ export const registryIndexSchema = z.object({
 
 export const libraryItemSchema = z.object({
   name: z.string(),
-  dependencies: z.array(z.string()),
-  devDependencies: z.array(z.string()),
-  registryDependencies: z.array(z.string()),
+  dependencies: z.array(z.string()).optional().default([]),
+  devDependencies: z.array(z.string()).optional().default([]),
+  registryDependencies: z.array(z.string()).optional().default([]),
 })
 
 /**

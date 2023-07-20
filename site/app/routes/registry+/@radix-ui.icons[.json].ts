@@ -29,12 +29,9 @@ export async function loader({ request }: LoaderArgs) {
     })
     .map((icon) => ({
       name: icon.name.replace(/\.svg$/, ""),
-      dependencies: [],
-      devDependencies: [],
-      registryDependencies: [],
     }))
 
-  return json<z.infer<typeof libraryIndexSchema>>({
+  return json<z.input<typeof libraryIndexSchema>>({
     version: "1.0.0",
     meta,
     resources: icons,

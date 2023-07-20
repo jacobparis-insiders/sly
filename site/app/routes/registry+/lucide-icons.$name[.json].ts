@@ -13,15 +13,12 @@ export async function loader({ params }: LoaderArgs) {
     .then((res) => res.json())
     .then(githubFile.parseAsync)
 
-  return json<z.infer<typeof libraryItemWithContentSchema>>({
+  return json<z.input<typeof libraryItemWithContentSchema>>({
     name: icon.name.replace(/\.svg$/, ""),
     meta: {
       ...meta,
       source: icon.html_url,
     },
-    dependencies: [],
-    devDependencies: [],
-    registryDependencies: [],
     files: [
       {
         name: icon.name,

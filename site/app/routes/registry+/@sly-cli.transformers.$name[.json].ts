@@ -14,7 +14,7 @@ export async function loader({ params }: LoaderArgs) {
     throw new Response("Not found", { status: 404 })
   }
 
-  return json<z.infer<typeof libraryItemWithContentSchema>>({
+  return json<z.input<typeof libraryItemWithContentSchema>>({
     name: transformer.name,
     meta,
     dependencies: transformer.dependencies,

@@ -11,7 +11,7 @@ import { meta as transformersMeta } from "./@sly-cli.transformers[.json].js"
 import type { registryIndexSchema } from "../../schemas.js"
 
 export async function loader({ request }: LoaderArgs) {
-  return json<z.infer<typeof registryIndexSchema>>({
+  return json<z.input<typeof registryIndexSchema>>({
     version: "1.0.0",
     libraries: [radixMeta, lucideMeta, shadcnMeta, transformersMeta],
   })

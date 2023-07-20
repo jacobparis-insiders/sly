@@ -22,14 +22,13 @@ export async function loader({ params }: LoaderArgs) {
     .then((res) => res.json())
     .then(shadcnFile.parseAsync)
 
-  return json<z.infer<typeof libraryItemWithContentSchema>>({
+  return json<z.input<typeof libraryItemWithContentSchema>>({
     name: component.name,
     meta: {
       ...meta,
       source: `https://api.github.com/repos/shadcn/ui/contents/apps/www/registry/default/ui/${params.name}.tsx`,
     },
     dependencies: component.dependencies ?? [],
-    devDependencies: [],
     registryDependencies: component.registryDependencies ?? [],
     files: component.files.map((file) => ({
       name: file.name,
