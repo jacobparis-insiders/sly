@@ -94,7 +94,7 @@ export const add = new Command()
         })
         .parseAsync(
           await prompts({
-            type: "multiselect",
+            type: "autocompleteMultiselect",
             name: "items",
             message: "Which items would you like to add?",
             hint: "Space to select. A to toggle all. Enter to submit.",
@@ -190,7 +190,7 @@ export const add = new Command()
       }
 
       // TODO: support hipster package managers
-      if (item.dependencies?.length || item.devDependencies?.length) {
+      if (item.dependencies.length || item.devDependencies.length) {
         const shouldInstall = await confirm(
           [
             `${chalk.cyan(item.name)} requires the following`,
