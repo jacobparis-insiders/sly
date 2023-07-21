@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env node --experimental-loader @sly-cli/sly/ts-loader
 
 import { add } from "~/src/commands/add.js"
 import { init } from "~/src/commands/init.js"

@@ -1,6 +1,6 @@
 {
   "name": "@sly-cli/sly",
-  "version": "1.4.0",
+  "version": "1.4.2",
   "description": "Sly is a CLI tool to add components, icons, and utilities as code, not dependencies.",
   "type": "module",
   "exports": {
@@ -21,7 +21,8 @@
     "directory": "cli"
   },
   "files": [
-    "dist"
+    "dist",
+    "ts-loader.js"
   ],
   "keywords": [
     "jacobparis"
