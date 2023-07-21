@@ -1,9 +1,9 @@
 import { promises as fs } from "fs"
 
-import path from "path"
 import { cosmiconfig } from "cosmiconfig"
 import * as z from "zod"
 import ora from "ora"
+import { logger } from "./logger.js"
 
 // Use singleton so we can lazy load the env vars, which might be set as flags
 let explorer: ReturnType<typeof cosmiconfig> | null
@@ -12,8 +12,14 @@ function getExplorer() {
   // Other options would be nice but we need to be able to write to it
   // and other formats are prohibitively hard to write
   if (!explorer) {
+    const paths = ["sly.json", "sly/sly.json"]
+    // TODO: submit a PR to add your config dir here
+    const directories = ["", ".config", "config", "other"]
+
     explorer = cosmiconfig("sly", {
-      searchPlaces: ["/sly.json"],
+      searchPlaces: directories.flatMap((dir) =>
+        paths.map((path) => `${dir}/${path}`)
+      ),
       cache: Boolean(process.env.CACHE),
     })
   }
@@ -40,8 +46,21 @@ export const configSchema = z
 
 export type Config = z.infer<typeof configSchema>
 
+export async function getConfigFilepath() {
+  // ? Should this be an environment variable?
+  // We could set it on startup if none is provided
+
+  const configResult = await getExplorer().search()
+  if (!configResult) {
+    logger.error(`Couldn't find sly.json.`)
+    process.exit(1)
+  }
+
+  return configResult.filepath
+}
+
 export async function getConfig(): Promise<Config | null> {
-  const configResult = await getExplorer().search("./sly.json")
+  const configResult = await getExplorer().search()
   if (!configResult) {
     return null
   }
@@ -65,11 +84,19 @@ export async function setConfig(fn: (config: Config) => Config) {
 
   const newConfig = configSchema.parse(fn(config))
 
-  const configPath = path.resolve(process.cwd(), "sly.json")
-  await fs.writeFile(configPath, JSON.stringify(newConfig, null, 2), "utf8")
+  const configFile = await getExplorer().search()
+  if (!configFile) {
+    throw new Error(`Couldn't find sly.json.`)
+  }
 
-  // future getConfig calls will return stale data if we don't clear it
+  await fs.writeFile(
+    configFile.filepath,
+    JSON.stringify(newConfig, null, 2),
+    "utf8"
+  )
+
   if (process.env.CACHE) {
+    // future getConfig calls will return stale data if we don't clear it
     getExplorer().clearSearchCache()
   }
 
