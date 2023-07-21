@@ -22,6 +22,10 @@ export const add = new Command()
   .description("add code to your project")
   .argument("[library]", "the library to add from")
   .argument("[files...]", "the files to add")
+  .option(
+    "-d, --directory [dir], --dir [dir]",
+    "set output directory (override sly.json)"
+  )
   .option("-o, --overwrite", "overwrite existing files.", false)
   .hook("preAction", () => {
     // This runs before every subcommand, so this is our global state
@@ -29,11 +33,11 @@ export const add = new Command()
 
     // Flags override env vars
     process.env.OVERWRITE = options.overwrite ? "true" : ""
+    process.env.DIRECTORY = options.directory ?? ""
   })
   .action(async (libArg, filesArg) => {
     let library = z.string().optional().parse(libArg)
     const items = z.array(z.string()).default([]).parse(filesArg)
-
     // they don't choose library, we ask them to choose
     // TODO: this would be easier with XState
     let config = await getConfig()
@@ -65,8 +69,9 @@ export const add = new Command()
         return configureLibraries()
       }
     } else {
-      // they choose library, it's not in their config, we ask them to configure
-      if (!config || !hasLibrary(config, library)) {
+      // they choose library
+      // they didn't pass the outpath AND it's not in their config -> ask to configure
+      if (!process.env.DIRECTORY && (!config || !hasLibrary(config, library))) {
         const { libraries } = await getRegistryIndex()
         if (!libraries.find((lib) => lib.name === library)) {
           logger.error(`Library ${library} not in registry`)
@@ -78,7 +83,7 @@ export const add = new Command()
       }
     }
 
-    if (!config) {
+    if (!process.env.DIRECTORY && !config) {
       // XState fixes this
       logger.error(`Something went wrong. Please try again.`)
       process.exit(1)
@@ -156,17 +161,22 @@ export const add = new Command()
       )}. Proceed?`
     )
 
-    const libConfig = config.libraries.find(({ name }) => name === library)
-    if (!libConfig) {
+    const libConfig = config?.libraries.find(({ name }) => name === library)
+    if (!process.env.DIRECTORY && !libConfig) {
       // XState fixes this
       logger.error(`Library ${library} not found in config`)
       process.exit(1)
     }
 
-    const transformers = await resolveTransformers(libConfig.transformers)
+    const transformers = libConfig
+      ? await resolveTransformers(libConfig.transformers)
+      : []
 
     for (const item of payload) {
-      const targetDir = libConfig.directory
+      const targetDir = process.env.DIRECTORY ?? libConfig?.directory
+      if (!targetDir) {
+        throw new Error("No target directory found. This shouldn't happen.")
+      }
 
       if (!existsSync(targetDir)) {
         await fs.mkdir(targetDir, { recursive: true })
@@ -237,7 +247,7 @@ export const add = new Command()
       itemSpinner.succeed(`  Installed ${item.name}`)
     }
 
-    if (libConfig.postinstall && libConfig.postinstall.length > 0) {
+    if (libConfig?.postinstall && libConfig.postinstall.length > 0) {
       const cmd =
         typeof libConfig.postinstall === "string"
           ? libConfig.postinstall
