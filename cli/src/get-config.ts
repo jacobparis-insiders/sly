@@ -85,12 +85,9 @@ export async function setConfig(fn: (config: Config) => Config) {
   const newConfig = configSchema.parse(fn(config))
 
   const configFile = await getExplorer().search()
-  if (!configFile) {
-    throw new Error(`Couldn't find sly.json.`)
-  }
 
   await fs.writeFile(
-    configFile.filepath,
+    configFile ? configFile.filepath : "sly.json",
     JSON.stringify(newConfig, null, 2),
     "utf8"
   )
