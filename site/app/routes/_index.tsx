@@ -5,7 +5,7 @@ import type { V2_MetaFunction } from "@remix-run/node"
 
 export const meta: V2_MetaFunction = () => {
   return [
-    { title: "Sly CLI" },
+    { title: "Add code, not dependencies, with Sly CLi" },
     {
       name: "description",
       content: "Add components, icons, and utilities to your app.",
@@ -18,7 +18,7 @@ export default function Index() {
     <div className="flex mx-auto my-24 max-w-4xl px-4 flex-col">
       <div>
         <h1 className="font-bold inline text-5xl drop-shadow-2xl md:text-7xl">
-          Write code, not dependencies
+          Add code, not dependencies
         </h1>
         <a
           className="group inline-block text-xl font-medium mb-4 ml-4 align-middle !no-underline"
@@ -34,32 +34,76 @@ export default function Index() {
       </div>
 
       <p className="mt-8 max-w-prose text-xl text-neutral-600">
-        Sly is a CLI tool to add components, icons, and utilities as code, not
-        dependencies.{" "}
-        <a href="https://github.com/jacobparis-insiders/sly/tree/main/cli">
-          View on GitHub
-        </a>
+        Some code is meant to be customized, duplicated, and rewritten. For all
+        the kinds of code you may find yourself copy/pasting from the internet,
+        or from your other projects, Sly is here to help.
       </p>
 
-      <InstallExample />
+      <p className="mt-8 max-w-prose text-xl text-neutral-600">
+        <strong>
+          Sly is a CLI tool to add components, icons, and utilities as code
+        </strong>
+        , not dependencies.
+      </p>
+
+      <p className="mt-8 max-w-prose text-xl text-neutral-600">
+        With one command, or through an interactive prompt, you can choose a
+        component from Sly's registry and it will appear in your codebase, in
+        exactly the format it would be if you had written it yourself.
+      </p>
+
+      <ul className="mt-4 list-disc ml-8 text-xl text-neutral-600 space-y-2">
+        <li>
+          Automatically customize each component with{" "}
+          <a href="#transformers"> transformers. </a>
+        </li>
+        <li>
+          Write <a href="#transformers"> postinstall</a> scripts that run each
+          time you add a component.
+        </li>
+        <li>Only source code, no minified bundle output. code. </li>
+        <li>
+          Prevent supply chain attacks by detaching from automatic updates.
+        </li>
+        <li>
+          <a href="#self-host">Host your own registry</a> and share code across
+          your organization.
+        </li>
+      </ul>
 
       <h2 className="mt-16 font-bold text-3xl text-neutral-600">
-        Simple usage
+        Seriou<b>sly</b> simple
       </h2>
 
       <p className="mt-8 max-w-prose text-xl text-neutral-600">
-        Choose from a selection of open source libraries and import components
-        directly into your codebase.
+        Run this command and two svg icons will appear in your codebase
+        immediately.
+      </p>
+
+      <AddWithFlagsExample />
+
+      <p className="mt-8 max-w-prose text-xl text-neutral-600">
+        If you install Sly first, you can run `npx sly add` instead.
+      </p>
+
+      <h2 className="mt-16 font-bold text-3xl text-neutral-600">
+        Joyou<b>sly</b> interactive
+      </h2>
+
+      <p className="mt-8 max-w-prose text-xl text-neutral-600">
+        Sly will walk you through choosing which libraries and components to
+        pick
       </p>
 
       <AddExample />
 
       <h2 className="mt-16 font-bold text-3xl text-neutral-600">
-        Available libraries
+        Ambitiou<b>sly</b> growing
       </h2>
 
       <p className="mt-8 max-w-prose text-xl text-neutral-600">
-        There are currently 4 libraries available, but more are coming soon.
+        There are currently 3 libraries available, but <strong>many</strong>{" "}
+        more are coming soon.
       </p>
 
       <ul className="mt-4 list-disc ml-8 text-xl text-neutral-600 space-y-2">
@@ -76,10 +120,6 @@ export default function Index() {
             href: "lucide-icons/lucide",
             name: "lucide-icons",
           },
-          {
-            href: "https://lodash.com/",
-            name: "lodash",
-          },
         ].map(({ href, name }) => (
           <li key={href}>
             <a href={href} target="_blank" rel="noopener  noreferrer">
@@ -89,93 +129,113 @@ export default function Index() {
         ))}
       </ul>
 
-      <h2 className="mt-16 font-bold text-3xl text-neutral-600">Use cases</h2>
-
-      <ul className="mt-8 max-w-prose text-xl text-neutral-600 list-disc ml-8 space-y-2">
-        <li>
-          Add SVG icons and{" "}
-          <a href="https://github.com/epicweb-dev/epic-stack/blob/main/docs/icons.md">
-            run a build command to convert them to sprites
-          </a>
-        </li>
-
-        <li>
-          Insert UI components and transform them to match your project's style
-        </li>
-
-        <li>
-          Prevent supply chain attacks by detaching third party utilities from
-          vulnerable registries.
-        </li>
-
-        <li>
-          Host your own private registry and share code across your
-          organization.
-        </li>
-      </ul>
-
       <h2 className="mt-16 font-bold text-3xl text-neutral-600">
-        Fully configurable
+        Generou<b>sly</b> configurable
       </h2>
-
-      <p className="mt-8 max-w-prose text-xl text-neutral-600">
-        Rather than going into a generic dependencies directory, Sly lets you
-        insert them anywhere you want, so you can commit and modify them as you
-        would any other file.
-      </p>
-
-      <ConfigExample />
 
       <p className="mt-8 max-w-prose text-xl text-neutral-600">
         You can configure each library individually, either via the CLI or by
         editing the config file directly.
       </p>
 
-      <dl>
-        <dt className="mt-8 font-bold text-xl text-neutral-600">name</dt>
-        <dd className="mt-2 text-lg text-neutral-600">
-          The name of the library in Sly's registry.
-        </dd>
+      <ConfigExample />
 
-        <dt className="mt-8 font-bold text-xl text-neutral-600">directory</dt>
-        <dd className="mt-2 text-lg text-neutral-600">
-          The directory where you want to insert the components. If a component
-          with the same name already exists, adding will fail unless you pass
-          the <code>--overwrite</code> flag.
-        </dd>
+      <p className="mt-8 max-w-prose text-xl text-neutral-600">
+        Before a new component is saved, Sly processes it through a pipeline of
+        transformer functions that you can include.
+        <br />
+        <br />
+        For example, you could use a transformer to:
+      </p>
 
-        <dt className="mt-8 font-bold text-xl text-neutral-600">
-          transformers
-        </dt>
-        <dd className="mt-2 text-lg text-neutral-600">
-          You can provide a pipeline of transformer functions to apply to the
-          components before saving them. Each item is a path to a file that
-          looks like{" "}
-          <code>export default async function (input: string): string</code> and
-          they are applied in order.
-          <br />
-          <br />
-          For example, you could use this to format the code with Prettier, to
-          append license information, to remove attributes from SVGs, to enforce
-          opinionated formatting preferences, to replace imports, etc.
-        </dd>
+      <ul className="mt-4 list-disc ml-8 text-xl text-neutral-600 space-y-2">
+        <li>enforce opinionated formatting preferences</li>
+        <li>
+          replace imported util functions with the path to your own utils
+          folder,
+        </li>
+        <li>to remove attributes from SVGs, </li>
+        <li>modify colors to match your brand </li>
+      </ul>
+      <h2 className="mt-16 font-bold text-3xl text-neutral-600">
+        Shameles<b>sly</b> open source
+      </h2>
 
-        <dt className="mt-8 font-bold text-xl text-neutral-600">postinstall</dt>
-        <dd className="mt-2 text-lg text-neutral-600">
-          This is a command that will be executed each time that components are
-          added. If multiple components are added at once, it runs once at the
-          end.
-        </dd>
-      </dl>
+      <p className="mt-8 max-w-prose text-xl text-neutral-600">
+        Sly is{" "}
+        <a
+          href="https://github.com/jacobparis-insiders/sly"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          free and open source.
+        </a>{" "}
+      </p>
+
+      <p className="mt-8 max-w-prose text-xl text-neutral-600">
+        If you have your own proprietary component library, you can host your
+        own registry and share code across your organization using Sly{" "}
+      </p>
+
+      <h2 className="mt-16 font-bold text-3xl text-neutral-600">Get started</h2>
+
+      <p className="mt-8 max-w-prose text-xl text-neutral-600">
+        Add Sly to your project and
+      </p>
+
+      <InstallExample />
+
+      <p className="mt-8 max-w-prose text-xl text-neutral-600 text-center flex items-center justify-center">
+        made&nbsp;&nbsp;&nbsp;&nbsp;with&nbsp;&nbsp;&nbsp;&nbsp;❤️{" "}
+        <a
+          className="group inline-block text-xl font-medium ml-4 align-middle !no-underline"
+          href="https://twitter.com/intent/follow?screen_name=jacobmparis"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <span className="text-neutral-600 group-hover:underline">
+            by <span className="group-hover:opacity-100 opacity-0">@</span>jacob
+            <span className="group-hover:opacity-100 opacity-0">m</span>paris
+          </span>
+        </a>
+      </p>
     </div>
   )
 }
 
 function InstallExample() {
   return (
-    <pre className="bg-slate-600 px-8 py-4 rounded-lg mt-4">
+    <div>
+      <pre className="bg-slate-600 px-8 py-4 rounded-lg mt-4">
+        <code className="text-slate-200 text-lg">
+          {">"} npm i --save-dev @sly-cli/sly
+        </code>
+      </pre>
+      <pre className="bg-slate-600 px-8 py-4 rounded-lg mt-4">
+        <code className="text-slate-200 text-lg">{">"} npx sly add</code>
+      </pre>
+    </div>
+  )
+}
+
+function AddWithFlagsExample() {
+  return (
+    <pre className="bg-slate-600 px-8 py-4 rounded-lg mt-4 overflow-x-scroll">
       <code className="text-slate-200 text-lg">
-        {">"} npm i --save-dev @sly-cli/sly
+        {">"} npx @sly-cli/sly add @radix-ui/icons camera card-stack --yes
+        --directory ./svg-icons
+        <br />
+        <br />
+        <span className="text-slate-400">⠸</span> Adding camera...
+        <br />
+        <span className="text-green-400">✔</span> <strong>Added</strong>{" "}
+        /svg-icons/camera.svg
+        <br />
+        <br />
+        <span className="text-slate-400">⠸</span> Adding card-stack...
+        <br />
+        <span className="text-green-400">✔</span> <strong>Added</strong>{" "}
+        /svg-icons/card-stack.svg
       </code>
     </pre>
   )
@@ -183,7 +243,7 @@ function InstallExample() {
 
 function AddExample() {
   return (
-    <pre className="bg-slate-600 px-8 py-4 rounded-lg mt-4">
+    <pre className="bg-slate-600 px-8 py-4 rounded-lg mt-4 overflow-x-scroll">
       <code className="text-slate-200 text-lg">
         {">"} npx @sly-cli/sly add
         <br />
@@ -202,26 +262,28 @@ function AddExample() {
         <span className="text-slate-400">⠸</span> Adding camera...
         <br />
         <span className="text-green-400">✔</span> <strong>Added</strong>{" "}
-        /other/svg-icons/camera.svg
+        /svg-icons/camera.svg
         <br />
         <br />
         <span className="text-slate-400">⠸</span> Adding card-stack...
         <br />
         <span className="text-green-400">✔</span> <strong>Added</strong>{" "}
-        /other/svg-icons/card-stack.svg
+        /svg-icons/card-stack.svg
       </code>
     </pre>
   )
 }
 function ConfigExample() {
   return (
-    <pre className="bg-slate-600 px-8 py-4 rounded-lg mt-4">
+    <pre className="bg-slate-600 px-8 py-4 rounded-lg mt-4 overflow-x-scroll">
       <code className="text-slate-200 text-lg">
         {"{\n"}
         {"  "}
         <span className="text-orange-300">"$schema"</span>
         {": "}
-        <span className="text-cyan-200">"./sly-schema.json"</span>
+        <span className="text-cyan-200">
+          "https://sly-cli.fly.dev/registry/config.json"
+        </span>
         {",\n"}
         {"  "}
         <span className="text-orange-300">"libraries"</span>
@@ -235,7 +297,7 @@ function ConfigExample() {
         {"      "}
         <span className="text-orange-300">"directory"</span>
         {": "}
-        <span className="text-cyan-200">"./other/svg-icons"</span>
+        <span className="text-cyan-200">"./svg-icons"</span>
         {",\n"}
         {"      "}
         <span className="text-orange-300">"postinstall"</span>
@@ -248,47 +310,18 @@ function ConfigExample() {
         <span className="text-orange-300">"transformers"</span>
         {": [\n"}
         {"        "}
-        <span className="text-cyan-200">"sly/svg-remove-dimensions.js"</span>
+        <span className="text-cyan-200">"sly/svg-remove-dimensions.ts"</span>
         {",\n"}
         {"        "}
-        <span className="text-cyan-200">"sly/html-prettier.js"</span>
+        <span className="text-cyan-200">"sly/html-prettier.ts"</span>
         {",\n"}
         {"        "}
         <span className="text-cyan-200">"sly/html-add-license-info.js"</span>
         {",\n"}
         {"      ]\n"}
-        {"    },\n"}
-        {"    {\n"}
-        {"      "}
-        <span className="text-orange-300">"name"</span>
-        {": "}
-        <span className="text-cyan-200">"@shadcn/ui"</span>
-        {",\n"}
-        {"      "}
-        <span className="text-orange-300">"directory"</span>
-        {": "}
-        <span className="text-cyan-200">"./components"</span>
-        {",\n"}
-        {"      "}
-        <span className="text-orange-300">"postinstall"</span>
-        {": []"}
-        {",\n"}
-        {"      "}
-        <span className="text-orange-300">"transformers"</span>
-        {": [\n"}
-        {"        "}
-        <span className="text-cyan-200">"sly/tsx-remove-use-client.js"</span>
-        {",\n"}
-        {"        "}
-        <span className="text-cyan-200">"sly/tsx-prettier.js"</span>
-        {",\n"}
-        {"        "}
-        <span className="text-cyan-200">"sly/tsx-add-license-info.js"</span>
-        {"\n"}
-        {"      ]\n"}
         {"    }\n"}
         {"  ]\n"}
-        {"}\n"},
+        {"}\n"}
       </code>
     </pre>
   )
