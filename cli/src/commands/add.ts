@@ -172,8 +172,10 @@ export const add = new Command()
       ? await resolveTransformers(libConfig.transformers)
       : []
 
+    console.log(process.env.DIRECTORY)
+
     for (const item of payload) {
-      const targetDir = process.env.DIRECTORY ?? libConfig?.directory
+      const targetDir = process.env.DIRECTORY || libConfig?.directory
       if (!targetDir) {
         throw new Error("No target directory found. This shouldn't happen.")
       }

@@ -13,7 +13,7 @@ import { cachified } from "cachified"
 import { cache, dumpCache } from "./cache.js"
 import { logger } from "./logger.js"
 
-const baseUrl = process.env.REGISTRY_URL ?? "https://sly-cli.fly.dev"
+const baseUrl = process.env.REGISTRY_URL || "https://sly-cli.fly.dev"
 
 export async function getRegistryIndex() {
   try {

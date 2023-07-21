@@ -77,7 +77,7 @@ export async function setConfig(fn: (config: Config) => Config) {
 
   const config = (await getConfig()) ?? {
     $schema: `${
-      process.env.REGISTRY_URL ?? "https://sly-cli.fly.dev"
+      process.env.REGISTRY_URL || "https://sly-cli.fly.dev"
     }/registry/config.json`,
     libraries: [],
   }
