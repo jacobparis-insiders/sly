@@ -5,6 +5,8 @@ import { json, type LoaderArgs } from "@remix-run/node"
 import { meta } from "./@shadcn.ui[.json].js"
 import { z } from "zod"
 import type { libraryItemWithContentSchema } from "../../schemas.js"
+import { cache } from "../../cache.server.js"
+import cachified from "cachified"
 const shadcnFile = z.object({
   name: z.string(),
   dependencies: z.array(z.string()).optional(),
@@ -16,11 +18,19 @@ const shadcnFile = z.object({
 })
 
 export async function loader({ params }: LoaderArgs) {
-  const component = await fetch(
-    `https://ui.shadcn.com/registry/styles/default/${params.name}.json`
-  )
-    .then((res) => res.json())
-    .then(shadcnFile.parseAsync)
+  const component = await cachified({
+    key: `shadcn/registry/styles/default/${params.name}.json`,
+    cache: cache,
+    staleWhileRevalidate: 1000 * 60 * 60, // 1 hour
+    ttl: 1000 * 60 * 60, // 1 hour
+    checkValue: shadcnFile,
+    async getFreshValue() {
+      console.log(`Cache miss for shadcn/${params.name}`)
+      return fetch(
+        `https://ui.shadcn.com/registry/styles/default/${params.name}.json`
+      ).then((res) => res.json())
+    },
+  })
 
   return json<z.input<typeof libraryItemWithContentSchema>>({
     name: component.name,

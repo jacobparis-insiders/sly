@@ -2,8 +2,9 @@
 // https://sly-cli.fly.dev/registry/@radix-ui/icons.json
 
 import { json, type LoaderArgs } from "@remix-run/node"
-import { z } from "zod"
-import { githubFile, type libraryIndexSchema } from "../../schemas.js"
+import type { z } from "zod"
+import { type libraryIndexSchema } from "../../schemas.js"
+import { getGithubDirectory } from "../../github.server.js"
 
 export const meta = {
   name: "@radix-ui/icons",
@@ -14,26 +15,32 @@ export const meta = {
 } as const
 
 export async function loader({ request }: LoaderArgs) {
-  const radix = await fetch(
-    "https://api.github.com/repos/radix-ui/icons/contents/packages/radix-icons/icons"
-  )
-    .then((res) => res.json())
-    .then(z.array(githubFile).parseAsync)
+  const files = await getGithubDirectory({
+    owner: "radix-ui",
+    repo: "icons",
+    path: "packages/radix-icons/icons",
+    ref: "master",
+  })
 
-  const icons = radix
-    .filter((icon) => {
-      if (icon.type !== "file") return false
-      if (!icon.path.endsWith(".svg")) return false
+  const resources = files
+    .filter((file) => {
+      if (!file.path?.endsWith(".svg")) return false
 
       return true
     })
-    .map((icon) => ({
-      name: icon.name.replace(/\.svg$/, ""),
-    }))
+    .map((file) => {
+      if (!file.path) throw new Error("File path is undefined")
+
+      return {
+        name: file.path
+          ?.replace(/^packages\/radix-icons\/icons\//, "")
+          .replace(/\.svg$/, ""),
+      }
+    })
 
   return json<z.input<typeof libraryIndexSchema>>({
     version: "1.0.0",
     meta,
-    resources: icons,
+    resources,
   })
 }

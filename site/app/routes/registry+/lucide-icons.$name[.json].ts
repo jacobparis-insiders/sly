@@ -3,21 +3,30 @@
 
 import { json, type LoaderArgs } from "@remix-run/node"
 import { meta } from "./lucide-icons[.json].js"
-import { githubFile, type libraryItemWithContentSchema } from "../../schemas.js"
+import { type libraryItemWithContentSchema } from "../../schemas.js"
 import type { z } from "zod"
+import { getGithubFile } from "../../github.server.js"
 
 export async function loader({ params }: LoaderArgs) {
-  const icon = await fetch(
-    `https://api.github.com/repos/lucide-icons/lucide/contents/icons/${params.name}.svg`
-  )
-    .then((res) => res.json())
-    .then(githubFile.parseAsync)
+  const icon = await getGithubFile({
+    owner: "lucide-icons",
+    repo: "lucide",
+    path: `icons/${params.name}.svg`,
+  })
+
+  if (!icon) {
+    throw new Response("Not found", { status: 404 })
+  }
+
+  if (!icon.download_url) {
+    throw new Response("Not found", { status: 404 })
+  }
 
   return json<z.input<typeof libraryItemWithContentSchema>>({
     name: icon.name.replace(/\.svg$/, ""),
     meta: {
       ...meta,
-      source: icon.html_url,
+      source: icon.html_url ?? meta.source,
     },
     files: [
       {

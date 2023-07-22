@@ -4,8 +4,7 @@
 import { json, type LoaderArgs } from "@remix-run/node"
 import type { z } from "zod"
 import { type libraryIndexSchema } from "../../schemas.js"
-
-import { Octokit } from "octokit"
+import { getGithubDirectory } from "../../github.server.js"
 
 export const meta = {
   name: "lucide-icons",
@@ -16,30 +15,15 @@ export const meta = {
 } as const
 
 export async function loader({ request }: LoaderArgs) {
-  const octokit = new Octokit()
-
-  // get latest commit for directory path
-  const latestCommit = await octokit.rest.repos.getCommit({
+  const files = await getGithubDirectory({
     owner: "lucide-icons",
     repo: "lucide",
     path: "icons",
-    ref: "main",
   })
 
-  // get tree for latest commit
-  const tree = await octokit.rest.git.getTree({
-    owner: "lucide-icons",
-    repo: "lucide",
-    tree_sha: latestCommit.data.sha,
-    recursive: "true",
-  })
-
-  const files = tree.data.tree
+  const resources = files
     .filter((file) => {
-      if (file.type !== "blob") return false
-      if (!file.path) return false
-      if (!file.path.endsWith(".svg")) return false
-      if (!file.path.startsWith("icons/")) return false
+      if (!file.path?.endsWith(".svg")) return false
 
       return true
     })
@@ -54,6 +38,6 @@ export async function loader({ request }: LoaderArgs) {
   return json<z.input<typeof libraryIndexSchema>>({
     version: "1.0.0",
     meta,
-    resources: files,
+    resources,
   })
 }

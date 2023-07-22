@@ -2,7 +2,9 @@
 // https://sly-cli.fly.dev/registry/@shadcn/ui.json
 
 import { json, type LoaderArgs } from "@remix-run/node"
+import cachified from "cachified"
 import { z } from "zod"
+import { cache } from "~/cache.server"
 import type { libraryIndexSchema } from "~/schemas"
 
 export const shadcnFile = z.object({
@@ -22,9 +24,17 @@ export const meta = {
 } as const
 
 export async function loader({ request }: LoaderArgs) {
-  const shadcn = await fetch("https://ui.shadcn.com/registry")
-    .then((res) => res.json())
-    .then(z.array(shadcnFile).parseAsync)
+  const shadcn = await cachified({
+    key: "shadcn/registry",
+    cache: cache,
+    staleWhileRevalidate: 1000 * 60 * 60, // 1 hour
+    ttl: 1000 * 60 * 60, // 1 hour
+    checkValue: z.array(shadcnFile),
+    async getFreshValue() {
+      console.log(`Cache miss for shadcn/registry`)
+      return fetch("https://ui.shadcn.com/registry").then((res) => res.json())
+    },
+  })
 
   const icons = shadcn.map((component) => ({
     name: component.name,

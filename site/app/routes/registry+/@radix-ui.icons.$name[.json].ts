@@ -4,26 +4,36 @@
 import { json, type LoaderArgs } from "@remix-run/node"
 
 import { meta } from "./@radix-ui.icons[.json].js"
-import { githubFile, type libraryItemWithContentSchema } from "../../schemas.js"
+import { type libraryItemWithContentSchema } from "../../schemas.js"
 import type { z } from "zod"
+import { getGithubFile } from "../../github.server.js"
 
 export async function loader({ params }: LoaderArgs) {
-  const icon = await fetch(
-    `https://api.github.com/repos/radix-ui/icons/contents/packages/radix-icons/icons/${params.name}.svg`
-  )
-    .then((res) => res.json())
-    .then(githubFile.parseAsync)
+  const file = await getGithubFile({
+    owner: "radix-ui",
+    repo: "icons",
+    path: `packages/radix-icons/icons/${params.name}.svg`,
+    ref: "master",
+  })
+
+  if (!file) {
+    throw new Response("Not found", { status: 404 })
+  }
+
+  if (!file.download_url) {
+    throw new Response("Not found", { status: 404 })
+  }
 
   return json<z.input<typeof libraryItemWithContentSchema>>({
-    name: icon.name.replace(/\.svg$/, ""),
+    name: file.name.replace(/\.svg$/, ""),
     meta: {
       ...meta,
-      source: icon.html_url,
+      source: file.html_url ?? meta.source,
     },
     files: [
       {
-        name: icon.name,
-        content: await fetch(icon.download_url).then((res) => res.text()),
+        name: file.name,
+        content: await fetch(file.download_url).then((res) => res.text()),
       },
     ],
   })
