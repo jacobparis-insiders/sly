@@ -7,12 +7,20 @@ import { meta as shadcnMeta } from "./@shadcn.ui[.json].js"
 import { meta as radixMeta } from "./@radix-ui.icons[.json].js"
 import { meta as lucideMeta } from "./lucide-icons[.json].js"
 import { meta as transformersMeta } from "./@sly-cli.transformers[.json].js"
-
+import { meta as simpleIconsMeta } from "./simple-icons[.json].js"
+import { meta as heroiconsMeta } from "./tailwindlabs.heroicons[.json].js"
 import type { registryIndexSchema } from "../../schemas.js"
 
 export async function loader({ request }: LoaderArgs) {
   return json<z.input<typeof registryIndexSchema>>({
     version: "1.0.0",
-    libraries: [radixMeta, lucideMeta, shadcnMeta, transformersMeta],
+    libraries: [
+      heroiconsMeta,
+      lucideMeta,
+      radixMeta,
+      simpleIconsMeta,
+      shadcnMeta,
+      transformersMeta,
+    ],
   })
 }

@@ -1,0 +1,44 @@
+// http://localhost:3000/registry/tailwindlabs/heroicons/heart-solid.json
+// https://sly-cli.fly.dev/registry/tailwindlabs/heroicons/heart-solid.json
+
+import { json, type LoaderArgs } from "@remix-run/node"
+import { meta } from "./tailwindlabs.heroicons[.json].js"
+import { type libraryItemWithContentSchema } from "../../schemas.js"
+import type { z } from "zod"
+import { getGithubFile } from "../../github.server.js"
+
+export async function loader({ params }: LoaderArgs) {
+  const dir = params.name?.endsWith("-outline") ? "outline" : "solid"
+  const trimmedName = params.name
+    ?.replace(/-outline$/, "")
+    .replace(/-solid$/, "")
+
+  const icon = await getGithubFile({
+    owner: "tailwindlabs",
+    repo: "heroicons",
+    path: `src/24/${dir}/${trimmedName}.svg`,
+    ref: "master",
+  })
+
+  if (!icon) {
+    throw new Response("Not found", { status: 404 })
+  }
+
+  if (!icon.download_url) {
+    throw new Response("Not found", { status: 404 })
+  }
+
+  return json<z.input<typeof libraryItemWithContentSchema>>({
+    name: icon.name.replace(/\.svg$/, ""),
+    meta: {
+      ...meta,
+      source: icon.html_url ?? meta.source,
+    },
+    files: [
+      {
+        name: icon.name.replace(".svg", `-${dir}.svg`),
+        content: await fetch(icon.download_url).then((res) => res.text()),
+      },
+    ],
+  })
+}
