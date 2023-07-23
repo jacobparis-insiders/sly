@@ -31,7 +31,6 @@ export async function getLibraryIndex(library: string) {
 
     return libraryIndexSchema.parse(result)
   } catch (error) {
-    console.log(error)
     throw new Error(`Failed to fetch ${library} index from registry.`)
   }
 }
