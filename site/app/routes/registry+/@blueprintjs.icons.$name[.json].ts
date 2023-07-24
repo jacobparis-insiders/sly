@@ -39,8 +39,20 @@ export async function loader({ params }: LoaderArgs) {
         content: [
           `<!-- ${meta.name} -->`,
           `<!-- ${meta.license} -->`,
-          await fetch(file.download_url).then((res) => res.text()).then(svg => optimize(svg).data),
-        ].join("\n"),
+          await fetch(file.download_url).then((res) => res.text())
+            .then(svg => optimize(svg, {
+              plugins: [
+                'preset-default',
+                "removeUselessStrokeAndFill",
+                {
+                  name: 'removeAttrs',
+                  params: {
+                    attrs: 'fill'
+                  }
+                }
+              ],
+            }).data),
+          ].join("\n"),
       },
     ],
   })
