@@ -32,7 +32,11 @@ export async function loader({ params }: LoaderArgs) {
     files: [
       {
         name: icon.name,
-        content: await fetch(icon.download_url).then((res) => res.text()),
+        content: [
+          `<!-- ${meta.name} -->`,
+          `<!-- ${meta.license} -->`,
+          await fetch(icon.download_url).then((res) => res.text()),
+        ].join("\n"),
       },
     ],
   })

@@ -29,15 +29,19 @@ export async function loader({ params }: LoaderArgs) {
   }
 
   return json<z.input<typeof libraryItemWithContentSchema>>({
-    name: icon.name.replace(/\.svg$/, ""),
+    name: icon.name.replace(/\.svg$/, `-${dir}`),
     meta: {
       ...meta,
       source: icon.html_url ?? meta.source,
     },
     files: [
       {
-        name: icon.name.replace(".svg", `-${dir}.svg`),
-        content: await fetch(icon.download_url).then((res) => res.text()),
+        name: icon.name.replace(/\.svg$/, `-${dir}.svg`),
+        content: [
+          `<!-- ${meta.name} -->`,
+          `<!-- ${meta.license} -->`,
+          await fetch(icon.download_url).then((res) => res.text()),
+        ].join("\n"),
       },
     ],
   })
