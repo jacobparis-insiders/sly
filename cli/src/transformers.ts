@@ -3,6 +3,7 @@ import { existsSync } from "fs"
 import { Transformer } from "./index.js"
 import { logger } from "~/src/logger.js"
 import { getConfigFilepath } from "./get-config.js"
+import chalk from "chalk"
 
 export async function resolveTransformers(transformers: string[]) {
   const modules = await Promise.all(
@@ -19,15 +20,10 @@ export async function resolveTransformers(transformers: string[]) {
       return import(transformerPath).catch((error) => {
         logger.error(`Failed to load transformer ${transformer}.`)
         if (error.code === "ERR_UNKNOWN_FILE_EXTENSION") {
-          logger.info(
-            `You will need to enable the typescript loader to use typescript transformers.`
+          logger.warn(
+            `Sly must be installed to your node_modules to use typescript transformers.`
           )
-          logger.info(
-            `npx --node-options='--experimental-loader @sly-cli/sly/ts-loader' sly add`
-          )
-          logger.info(
-            `If that doesn't work, check your node version with node --version to see if it supports --experimental-loader.`
-          )
+          logger.warn(chalk.bold(`npm install --save-dev @sly-cli/sly`))
         } else {
           logger.error(error)
         }
