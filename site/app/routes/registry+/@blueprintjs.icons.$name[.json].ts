@@ -1,5 +1,5 @@
-// http://localhost:3000/registry/@radix-ui/icons/accessibility.json
-// https://sly-cli.fly.dev/registry/@radix-ui/icons/accessibility.json
+// http://localhost:3000/registry/@blueprintjs/icons/add.json
+// https://sly-cli.fly.dev/registry/@blueprintjs/icons/add.json
 
 import { json, type LoaderArgs } from "@remix-run/node"
 
@@ -8,8 +8,6 @@ import { type libraryItemWithContentSchema } from "../../schemas.js"
 import type { z } from "zod"
 import { optimize } from "svgo";
 import { getGithubFile } from "../../github.server.js"
-
-
 
 export async function loader({ params }: LoaderArgs) {
   const file = await getGithubFile({
