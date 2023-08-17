@@ -9,6 +9,8 @@ import { meta as lucideMeta } from "./lucide-icons[.json].js"
 import { meta as transformersMeta } from "./@sly-cli.transformers[.json].js"
 import { meta as simpleIconsMeta } from "./simple-icons[.json].js"
 import { meta as heroiconsMeta } from "./tailwindlabs.heroicons[.json].js"
+import { meta as blueprintIconsMeta } from "./@blueprintjs.icons[.json].js"
+
 import type { registryIndexSchema } from "../../schemas.js"
 import cachified from "cachified"
 import { cache } from "../../cache.server.js"
@@ -35,6 +37,7 @@ export async function loader({ request }: LoaderArgs) {
   return json<z.input<typeof registryIndexSchema>>({
     version: npm["dist-tags"].latest,
     libraries: [
+      blueprintIconsMeta,
       heroiconsMeta,
       lucideMeta,
       radixMeta,
