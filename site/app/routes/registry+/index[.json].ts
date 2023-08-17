@@ -4,6 +4,7 @@
 import { json, type LoaderArgs } from "@remix-run/node"
 import { z } from "zod"
 import { meta as shadcnMeta } from "./@shadcn.ui[.json].js"
+import { meta as iconoirMeta } from "./iconoir[.json].js"
 import { meta as radixMeta } from "./@radix-ui.icons[.json].js"
 import { meta as lucideMeta } from "./lucide-icons[.json].js"
 import { meta as transformersMeta } from "./@sly-cli.transformers[.json].js"
@@ -40,6 +41,7 @@ export async function loader({ request }: LoaderArgs) {
       blueprintIconsMeta,
       heroiconsMeta,
       lucideMeta,
+      iconoirMeta,
       radixMeta,
       simpleIconsMeta,
       shadcnMeta,
