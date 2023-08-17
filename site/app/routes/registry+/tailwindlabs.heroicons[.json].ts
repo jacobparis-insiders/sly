@@ -8,7 +8,7 @@ import { getGithubDirectory } from "../../github.server.js"
 
 export const meta = {
   name: "tailwindlabs/heroicons",
-  source: "https://github.com/tailwindlabs/heroicons/tree/develop/icons",
+  source: "https://github.com/tailwindlabs/heroicons/tree/master/react",
   description:
     "Beautiful hand-crafted SVG icons, by the makers of Tailwind CSS.",
   license: "https://github.com/tailwindlabs/heroicons/blob/master/LICENSE",

@@ -13,6 +13,37 @@ export const meta: V2_MetaFunction = () => {
   ]
 }
 
+const registries = [
+  {
+    href: "https://blueprintjs.com/docs/#icons/icons-list",
+    name: "@blueprintjs/icons"
+  },
+  {
+    href: "https://iconoir.com/",
+    name: 'iconoir',
+  },
+  {
+    href: "https://lucide.dev/",
+    name: "lucide-icons",
+  },
+  {
+    href: "https://icons.radix-ui.com/",
+    name: "@radix-ui/icons",
+  },
+  {
+    href: "https://simpleicons.org/",
+    name: 'simple-icons',
+  },
+  {
+    href: "https://ui.shadcn.com/",
+    name: "@shadcn/ui",
+  },
+  {
+    href: "https://heroicons.com/",
+    name: "tailwindlabs/heroicons",
+  },
+]
+
 export default function Index() {
   return (
     <div className="flex mx-auto my-24 max-w-4xl px-4 flex-col">
@@ -145,25 +176,11 @@ export default function Index() {
       </h2>
 
       <p className="mt-8 max-w-prose text-xl text-neutral-600">
-        There are currently 3 libraries available, but <strong>many</strong>{" "}
-        more are coming soon.
+        There are currently {registries.length} libraries available. If you want to add another, feel free to make a PR.
       </p>
 
       <ul className="mt-4 list-disc ml-8 text-xl text-neutral-600 space-y-2">
-        {[
-          {
-            href: "https://icons.radix-ui.com/",
-            name: "@radix-ui/icons",
-          },
-          {
-            href: "https://ui.shadcn.com/",
-            name: "@shadcn/ui",
-          },
-          {
-            href: "lucide-icons/lucide",
-            name: "lucide-icons",
-          },
-        ].map(({ href, name }) => (
+        {registries.map(({ href, name }) => (
           <li key={href}>
             <a href={href} target="_blank" rel="noopener  noreferrer">
               {name}
