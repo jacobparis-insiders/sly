@@ -42,6 +42,10 @@ const registries = [
     href: "https://heroicons.com/",
     name: "tailwindlabs/heroicons",
   },
+  {
+    href: "https://tabler-icons.io/",
+    name: "tabler-icons",
+  },
 ]
 
 export default function Index() {
