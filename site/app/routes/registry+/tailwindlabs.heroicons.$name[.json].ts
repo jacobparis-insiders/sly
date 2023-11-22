@@ -16,7 +16,7 @@ export async function loader({ params }: LoaderArgs) {
   const icon = await getGithubFile({
     owner: "tailwindlabs",
     repo: "heroicons",
-    path: `src/24/${dir}/${trimmedName}.svg`,
+    path: `optimized/24/${dir}/${trimmedName}.svg`,
     ref: "master",
   })
 
