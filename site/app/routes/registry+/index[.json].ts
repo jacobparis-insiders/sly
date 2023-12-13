@@ -12,6 +12,7 @@ import { meta as simpleIconsMeta } from "./simple-icons[.json].js"
 import { meta as heroiconsMeta } from "./tailwindlabs.heroicons[.json].js"
 import { meta as blueprintIconsMeta } from "./@blueprintjs.icons[.json].js"
 import { meta as tablerIconsMeta } from "./tabler-icons[.json].js";
+import { meta as materialDesignIconsMeta } from "./material-design-icons[.json].js"
 
 import type { registryIndexSchema } from "../../schemas.js"
 import cachified from "cachified"
@@ -47,6 +48,7 @@ export async function loader({ request }: LoaderArgs) {
       simpleIconsMeta,
       shadcnMeta,
       tablerIconsMeta,
+      materialDesignIconsMeta,
       transformersMeta,
     ],
   })

@@ -46,6 +46,10 @@ const registries = [
     href: "https://tabler-icons.io/",
     name: "tabler-icons",
   },
+  {
+    href: "https://marella.me/material-design-icons/demo/svg/",
+    name: "material-design-icons",
+  },
 ]
 
 export default function Index() {
