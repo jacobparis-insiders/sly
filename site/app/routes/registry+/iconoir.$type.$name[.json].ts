@@ -11,7 +11,7 @@ export async function loader({ params }: LoaderArgs) {
   const icon = await getGithubFile({
     owner: "iconoir-icons",
     repo: "iconoir",
-    path: `icons/${params.name}.svg`,
+    path: `icons/${params.type}/${params.name}.svg`,
     ref: "main",
   })
 
