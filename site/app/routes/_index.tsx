@@ -234,7 +234,7 @@ export default function Index() {
 
       <CodeBlock>
         {">"} npx @sly-cli/sly add @radix-ui/icons eraser --directory ./icons
-        --overwrite
+        --overwrite --yes
       </CodeBlock>
 
       <p className="mt-8 max-w-prose text-xl text-neutral-600">

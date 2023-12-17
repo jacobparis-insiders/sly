@@ -2,7 +2,7 @@
 // https://sly-cli.fly.dev/registry/index.json
 
 import { json, type LoaderArgs } from "@remix-run/node"
-import { z } from "zod"
+import type { z } from "zod"
 import { meta as shadcnMeta } from "./@shadcn.ui[.json].js"
 import { meta as iconoirMeta } from "./iconoir[.json].js"
 import { meta as radixMeta } from "./@radix-ui.icons[.json].js"
@@ -11,18 +11,13 @@ import { meta as transformersMeta } from "./@sly-cli.transformers[.json].js"
 import { meta as simpleIconsMeta } from "./simple-icons[.json].js"
 import { meta as heroiconsMeta } from "./tailwindlabs.heroicons[.json].js"
 import { meta as blueprintIconsMeta } from "./@blueprintjs.icons[.json].js"
-import { meta as tablerIconsMeta } from "./tabler-icons[.json].js";
+import { meta as tablerIconsMeta } from "./tabler-icons[.json].js"
 import { meta as materialDesignIconsMeta } from "./material-design-icons[.json].js"
 
 import type { registryIndexSchema } from "../../schemas.js"
 import cachified from "cachified"
 import { cache } from "../../cache.server.js"
-
-const npmSchema = z.object({
-  "dist-tags": z.object({
-    latest: z.string(),
-  }),
-})
+import { npmSchema } from "~/schemas.js"
 
 export async function loader({ request }: LoaderArgs) {
   const npm = await cachified({
