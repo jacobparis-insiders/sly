@@ -1,9 +1,13 @@
 // http://localhost:3000/
 // https://sly-cli.fly.dev/
 
-import type { V2_MetaFunction } from "@remix-run/node"
+import type { MetaFunction, LoaderFunctionArgs } from "@remix-run/node"
+import { useLoaderData } from "@remix-run/react"
+import cachified from "cachified"
+import { cache } from "~/cache.server"
+import { registryIndexSchema } from "~/schemas"
 
-export const meta: V2_MetaFunction = () => {
+export const meta: MetaFunction = () => {
   return [
     { title: "Add code, not dependencies, with Sly CLi" },
     {
@@ -13,46 +17,30 @@ export const meta: V2_MetaFunction = () => {
   ]
 }
 
-const registries = [
-  {
-    href: "https://blueprintjs.com/docs/#icons/icons-list",
-    name: "@blueprintjs/icons",
-  },
-  {
-    href: "https://iconoir.com/",
-    name: "iconoir",
-  },
-  {
-    href: "https://lucide.dev/",
-    name: "lucide-icons",
-  },
-  {
-    href: "https://icons.radix-ui.com/",
-    name: "@radix-ui/icons",
-  },
-  {
-    href: "https://simpleicons.org/",
-    name: "simple-icons",
-  },
-  {
-    href: "https://ui.shadcn.com/",
-    name: "@shadcn/ui",
-  },
-  {
-    href: "https://heroicons.com/",
-    name: "tailwindlabs/heroicons",
-  },
-  {
-    href: "https://tabler-icons.io/",
-    name: "tabler-icons",
-  },
-  {
-    href: "https://marella.me/material-design-icons/demo/svg/",
-    name: "material-design-icons",
-  },
-]
+export async function loader({ request }: LoaderFunctionArgs) {
+  const url = new URL(request.url)
+
+  const registry = await cachified({
+    key: `registry`,
+    cache,
+    staleWhileRevalidate: 1000 * 60 * 60 * 12, // 2 hours
+    ttl: 1000 * 60 * 60 * 12, // 1 hours
+    async getFreshValue() {
+      return fetch(url.origin + "/registry/index.json")
+        .then((response) => response.json())
+        .then((response) => registryIndexSchema.parseAsync(response))
+    },
+  })
+
+  return {
+    version: registry.version,
+    libraries: registry.libraries,
+  }
+}
 
 export default function Index() {
+  const { libraries } = useLoaderData<typeof loader>()
+
   return (
     <div className="flex mx-auto my-24 max-w-4xl px-4 flex-col">
       <div>
@@ -184,14 +172,14 @@ export default function Index() {
       </h2>
 
       <p className="mt-8 max-w-prose text-xl text-neutral-600">
-        There are currently {registries.length} libraries available. If you want
+        There are currently {libraries.length} libraries available. If you want
         to add another, feel free to make a PR.
       </p>
 
       <ul className="mt-4 list-disc ml-8 text-xl text-neutral-600 space-y-2">
-        {registries.map(({ href, name }) => (
-          <li key={href}>
-            <a href={href} target="_blank" rel="noopener  noreferrer">
+        {libraries.map(({ source, name }) => (
+          <li key={source}>
+            <a href={source} target="_blank" rel="noopener  noreferrer">
               {name}
             </a>
           </li>
