@@ -1,9 +1,13 @@
 // http://localhost:3000/
 // https://sly-cli.fly.dev/
 
-import type { V2_MetaFunction } from "@remix-run/node"
+import type { MetaFunction, LoaderFunctionArgs } from "@remix-run/node"
+import { useLoaderData } from "@remix-run/react"
+import cachified from "cachified"
+import { cache } from "~/cache.server"
+import { registryIndexSchema } from "~/schemas"
 
-export const meta: V2_MetaFunction = () => {
+export const meta: MetaFunction = () => {
   return [
     { title: "Add code, not dependencies, with Sly CLi" },
     {
@@ -13,46 +17,30 @@ export const meta: V2_MetaFunction = () => {
   ]
 }
 
-const registries = [
-  {
-    href: "https://blueprintjs.com/docs/#icons/icons-list",
-    name: "@blueprintjs/icons"
-  },
-  {
-    href: "https://iconoir.com/",
-    name: 'iconoir',
-  },
-  {
-    href: "https://lucide.dev/",
-    name: "lucide-icons",
-  },
-  {
-    href: "https://icons.radix-ui.com/",
-    name: "@radix-ui/icons",
-  },
-  {
-    href: "https://simpleicons.org/",
-    name: 'simple-icons',
-  },
-  {
-    href: "https://ui.shadcn.com/",
-    name: "@shadcn/ui",
-  },
-  {
-    href: "https://heroicons.com/",
-    name: "tailwindlabs/heroicons",
-  },
-  {
-    href: "https://tabler-icons.io/",
-    name: "tabler-icons",
-  },
-  {
-    href: "https://marella.me/material-design-icons/demo/svg/",
-    name: "material-design-icons",
-  },
-]
+export async function loader({ request }: LoaderFunctionArgs) {
+  const url = new URL(request.url)
+
+  const registry = await cachified({
+    key: `registry`,
+    cache,
+    staleWhileRevalidate: 1000 * 60 * 60 * 12, // 2 hours
+    ttl: 1000 * 60 * 60 * 12, // 1 hours
+    async getFreshValue() {
+      return fetch(url.origin + "/registry/index.json")
+        .then((response) => response.json())
+        .then((response) => registryIndexSchema.parseAsync(response))
+    },
+  })
+
+  return {
+    version: registry.version,
+    libraries: registry.libraries,
+  }
+}
 
 export default function Index() {
+  const { libraries } = useLoaderData<typeof loader>()
+
   return (
     <div className="flex mx-auto my-24 max-w-4xl px-4 flex-col">
       <div>
@@ -184,13 +172,14 @@ export default function Index() {
       </h2>
 
       <p className="mt-8 max-w-prose text-xl text-neutral-600">
-        There are currently {registries.length} libraries available. If you want to add another, feel free to make a PR.
+        There are currently {libraries.length} libraries available. If you want
+        to add another, feel free to make a PR.
       </p>
 
       <ul className="mt-4 list-disc ml-8 text-xl text-neutral-600 space-y-2">
-        {registries.map(({ href, name }) => (
-          <li key={href}>
-            <a href={href} target="_blank" rel="noopener  noreferrer">
+        {libraries.map(({ source, name }) => (
+          <li key={source}>
+            <a href={source} target="_blank" rel="noopener  noreferrer">
               {name}
             </a>
           </li>
@@ -225,6 +214,100 @@ export default function Index() {
         <li>to remove attributes from SVGs, </li>
         <li>modify colors to match your brand </li>
       </ul>
+
+      <h2 className="mt-16 font-bold text-3xl text-neutral-600">
+        Instructions
+      </h2>
+
+      <p className="mt-8 max-w-prose text-xl text-neutral-600">
+        Sly does <strong>not</strong> require a config file{" "}
+        <strong> IF </strong> you provide enough information in the command, so
+        instead of telling you what each option does, let's go through what
+        happens if you **don't** include each option
+      </p>
+
+      <p className="mt-8 max-w-prose text-xl text-neutral-600">
+        As an example, we'll install `eraser` icon from `@radix-ui/icons`.
+      </p>
+
+      <h3 className="mt-16 font-bold text-2xl text-neutral-600">--overwrite</h3>
+
+      <CodeBlock>
+        {">"} npx @sly-cli/sly add @radix-ui/icons eraser --directory ./icons
+        --overwrite
+      </CodeBlock>
+
+      <p className="mt-8 max-w-prose text-xl text-neutral-600">
+        If you don't provide `--overwrite`, the installation will fail if the
+        file already exists.
+      </p>
+
+      <h3 className="mt-16 font-bold text-2xl text-neutral-600">--yes</h3>
+
+      <CodeBlock>
+        {">"} npx @sly-cli/sly add @radix-ui/icons eraser --directory ./icons
+        --yes
+      </CodeBlock>
+
+      <p className="mt-8 max-w-prose text-xl text-neutral-600">
+        If you don't provide `--yes`, you will be prompted to confirm the
+        installation before a file is written.
+      </p>
+
+      <h3 className="mt-16 font-bold text-2xl text-neutral-600">--directory</h3>
+
+      <CodeBlock>
+        {">"} npx @sly-cli/sly add @radix-ui/icons eraser --directory ./icons
+      </CodeBlock>
+
+      <p className="mt-8 max-w-prose text-xl text-neutral-600">
+        If you don't provide `--directory`, Sly will look for your `sly.json`
+        file and look for the directory field under `@radix-ui/icons` in the
+        config. **If Sly can't find that config file, you will be asked which
+        directory you want to install the icon to** and Sly will create a
+        `sly.json` file for you.
+      </p>
+
+      <h3 className="mt-16 font-bold text-2xl text-neutral-600">component</h3>
+
+      <CodeBlock>{">"} npx @sly-cli/sly add @radix-ui/icons eraser</CodeBlock>
+
+      <p className="mt-8 max-w-prose text-xl text-neutral-600">
+        If you don't provide a component name like `eraser`, **Sly will show you
+        a list of all the icons available** in `@radix-ui/icons` and ask you to
+        select the ones you want.
+      </p>
+
+      <h3 className="mt-16 font-bold text-2xl text-neutral-600">library</h3>
+
+      <CodeBlock>{">"} npx @sly-cli/sly add @radix-ui/icons</CodeBlock>
+
+      <p className="mt-8 max-w-prose text-xl text-neutral-600">
+        If you don't provide `@radix-ui/icons`, Sly will show you a list of all
+        the libraries you've configured and ask you to select the one you want
+        before proceeding to show you the list of icons.
+      </p>
+
+      <h3 className="mt-16 font-bold text-2xl text-neutral-600">add</h3>
+
+      <CodeBlock>{">"} npx @sly-cli/sly add</CodeBlock>
+
+      <p className="mt-8 max-w-prose text-xl text-neutral-600">
+        If you don't provide add, you're at the root of the CLI and will get a
+        help menu
+      </p>
+
+      <h3 className="mt-16 font-bold text-2xl text-neutral-600">
+        npx @sly-cli/sly
+      </h3>
+
+      <CodeBlock>{">"} npx @sly-cli/sly</CodeBlock>
+
+      <p className="mt-8 max-w-prose text-xl text-neutral-600">
+        If you don't provide `@sly-cli/sly`, it might be because you've
+        installed Sly already and you can just run `sly` directly.
+      </p>
+
       <h2 className="mt-16 font-bold text-3xl text-neutral-600">
         Shameles<b>sly</b> open source
       </h2>
@@ -271,126 +354,121 @@ export default function Index() {
   )
 }
 
+function CodeBlock({ children }: { children: React.ReactNode }) {
+  return (
+    <pre className="bg-slate-600 px-8 py-4 rounded-lg mt-4 overflow-x-scroll">
+      <code className="text-slate-200 text-lg">{children}</code>
+    </pre>
+  )
+}
 function InstallExample() {
   return (
     <div>
-      <pre className="bg-slate-600 px-8 py-4 rounded-lg mt-4">
-        <code className="text-slate-200 text-lg">
-          {">"} npm i --save-dev @sly-cli/sly
-        </code>
-      </pre>
-      <pre className="bg-slate-600 px-8 py-4 rounded-lg mt-4">
-        <code className="text-slate-200 text-lg">{">"} npx sly add</code>
-      </pre>
+      <CodeBlock>{">"} npm i --save-dev @sly-cli/sly</CodeBlock>
+      <CodeBlock>{">"} npx sly add</CodeBlock>
     </div>
   )
 }
 
 function AddWithFlagsExample() {
   return (
-    <pre className="bg-slate-600 px-8 py-4 rounded-lg mt-4 overflow-x-scroll">
-      <code className="text-slate-200 text-lg">
-        {">"} npx @sly-cli/sly add @radix-ui/icons camera card-stack --yes
-        --directory ./svg-icons
-        <br />
-        <br />
-        <span className="text-slate-400">⠸</span> Adding camera...
-        <br />
-        <span className="text-green-400">✔</span> <strong>Added</strong>{" "}
-        /svg-icons/camera.svg
-        <br />
-        <br />
-        <span className="text-slate-400">⠸</span> Adding card-stack...
-        <br />
-        <span className="text-green-400">✔</span> <strong>Added</strong>{" "}
-        /svg-icons/card-stack.svg
-      </code>
-    </pre>
+    <CodeBlock>
+      {">"} npx @sly-cli/sly add @radix-ui/icons camera card-stack --yes
+      --directory ./svg-icons
+      <br />
+      <br />
+      <span className="text-slate-400">⠸</span> Adding camera...
+      <br />
+      <span className="text-green-400">✔</span> <strong>Added</strong>{" "}
+      /svg-icons/camera.svg
+      <br />
+      <br />
+      <span className="text-slate-400">⠸</span> Adding card-stack...
+      <br />
+      <span className="text-green-400">✔</span> <strong>Added</strong>{" "}
+      /svg-icons/card-stack.svg
+    </CodeBlock>
   )
 }
 
 function AddExample() {
   return (
-    <pre className="bg-slate-600 px-8 py-4 rounded-lg mt-4 overflow-x-scroll">
-      <code className="text-slate-200 text-lg">
-        {">"} npx @sly-cli/sly add
-        <br />
-        <br />
-        <span className="text-green-400">✔</span>{" "}
-        <strong>Which library would you like to use?</strong> › @radix-ui/icons
-        <br />
-        <span className="text-green-400">✔</span>{" "}
-        <strong>Which components would you like to add?</strong> › camera,
-        card-stack
-        <br />
-        <span className="text-green-400">✔</span>{" "}
-        <strong>Add 2 components? </strong>… yes
-        <br />
-        <br />
-        <span className="text-slate-400">⠸</span> Adding camera...
-        <br />
-        <span className="text-green-400">✔</span> <strong>Added</strong>{" "}
-        /svg-icons/camera.svg
-        <br />
-        <br />
-        <span className="text-slate-400">⠸</span> Adding card-stack...
-        <br />
-        <span className="text-green-400">✔</span> <strong>Added</strong>{" "}
-        /svg-icons/card-stack.svg
-      </code>
-    </pre>
+    <CodeBlock>
+      {">"} npx @sly-cli/sly add
+      <br />
+      <br />
+      <span className="text-green-400">✔</span>{" "}
+      <strong>Which library would you like to use?</strong> › @radix-ui/icons
+      <br />
+      <span className="text-green-400">✔</span>{" "}
+      <strong>Which components would you like to add?</strong> › camera,
+      card-stack
+      <br />
+      <span className="text-green-400">✔</span>{" "}
+      <strong>Add 2 components? </strong>… yes
+      <br />
+      <br />
+      <span className="text-slate-400">⠸</span> Adding camera...
+      <br />
+      <span className="text-green-400">✔</span> <strong>Added</strong>{" "}
+      /svg-icons/camera.svg
+      <br />
+      <br />
+      <span className="text-slate-400">⠸</span> Adding card-stack...
+      <br />
+      <span className="text-green-400">✔</span> <strong>Added</strong>{" "}
+      /svg-icons/card-stack.svg
+    </CodeBlock>
   )
 }
 function ConfigExample() {
   return (
-    <pre className="bg-slate-600 px-8 py-4 rounded-lg mt-4 overflow-x-scroll">
-      <code className="text-slate-200 text-lg">
-        {"{\n"}
-        {"  "}
-        <span className="text-orange-300">"$schema"</span>
-        {": "}
-        <span className="text-cyan-200">
-          "https://sly-cli.fly.dev/registry/config.json"
-        </span>
-        {",\n"}
-        {"  "}
-        <span className="text-orange-300">"libraries"</span>
-        {": [\n"}
-        {"    {\n"}
-        {"      "}
-        <span className="text-orange-300">"name"</span>
-        {": "}
-        <span className="text-cyan-200">"@radix-ui/icons"</span>
-        {",\n"}
-        {"      "}
-        <span className="text-orange-300">"directory"</span>
-        {": "}
-        <span className="text-cyan-200">"./svg-icons"</span>
-        {",\n"}
-        {"      "}
-        <span className="text-orange-300">"postinstall"</span>
-        {": ["}
-        <span className="text-cyan-200">"npm"</span>{" "}
-        <span className="text-cyan-200">"run"</span>{" "}
-        <span className="text-cyan-200">"build:icons"</span>
-        {"],\n"}
-        {"      "}
-        <span className="text-orange-300">"transformers"</span>
-        {": [\n"}
-        {"        "}
-        <span className="text-cyan-200">"sly/svg-remove-dimensions.ts"</span>
-        {",\n"}
-        {"        "}
-        <span className="text-cyan-200">"sly/html-prettier.ts"</span>
-        {",\n"}
-        {"        "}
-        <span className="text-cyan-200">"sly/html-add-license-info.js"</span>
-        {",\n"}
-        {"      ]\n"}
-        {"    }\n"}
-        {"  ]\n"}
-        {"}\n"}
-      </code>
-    </pre>
+    <CodeBlock>
+      {"{\n"}
+      {"  "}
+      <span className="text-orange-300">"$schema"</span>
+      {": "}
+      <span className="text-cyan-200">
+        "https://sly-cli.fly.dev/registry/config.json"
+      </span>
+      {",\n"}
+      {"  "}
+      <span className="text-orange-300">"libraries"</span>
+      {": [\n"}
+      {"    {\n"}
+      {"      "}
+      <span className="text-orange-300">"name"</span>
+      {": "}
+      <span className="text-cyan-200">"@radix-ui/icons"</span>
+      {",\n"}
+      {"      "}
+      <span className="text-orange-300">"directory"</span>
+      {": "}
+      <span className="text-cyan-200">"./svg-icons"</span>
+      {",\n"}
+      {"      "}
+      <span className="text-orange-300">"postinstall"</span>
+      {": ["}
+      <span className="text-cyan-200">"npm"</span>{" "}
+      <span className="text-cyan-200">"run"</span>{" "}
+      <span className="text-cyan-200">"build:icons"</span>
+      {"],\n"}
+      {"      "}
+      <span className="text-orange-300">"transformers"</span>
+      {": [\n"}
+      {"        "}
+      <span className="text-cyan-200">"sly/svg-remove-dimensions.ts"</span>
+      {",\n"}
+      {"        "}
+      <span className="text-cyan-200">"sly/html-prettier.ts"</span>
+      {",\n"}
+      {"        "}
+      <span className="text-cyan-200">"sly/html-add-license-info.js"</span>
+      {",\n"}
+      {"      ]\n"}
+      {"    }\n"}
+      {"  ]\n"}
+      {"}\n"}
+    </CodeBlock>
   )
 }
