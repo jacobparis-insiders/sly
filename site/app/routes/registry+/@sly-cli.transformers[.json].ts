@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/@sly-cli/transformers.json
 // https://sly-cli.fly.dev/registry/@sly-cli/transformers.json
 
-import { json, type LoaderArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from "@remix-run/node"
 import type { z } from "zod"
 import type {
   libraryIndexSchema,
@@ -171,7 +171,7 @@ export default function removeUseClient(input) {
   },
 ] satisfies Omit<z.infer<typeof libraryItemWithContentSchema>, "meta">[]
 
-export async function loader({ request }: LoaderArgs) {
+export async function loader({ request }: LoaderFunctionArgs) {
   return json<z.input<typeof libraryIndexSchema>>({
     version: "1.1.0",
     meta,

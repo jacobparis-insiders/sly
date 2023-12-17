@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/@shadcn/ui.json
 // https://sly-cli.fly.dev/registry/@shadcn/ui.json
 
-import { json, type LoaderArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from "@remix-run/node"
 import cachified from "cachified"
 import { z } from "zod"
 import { cache } from "~/cache.server"
@@ -23,7 +23,7 @@ export const meta = {
   license: "https://github.com/shadcn/ui/blob/main/LICENSE.md",
 } as const
 
-export async function loader({ request }: LoaderArgs) {
+export async function loader({ request }: LoaderFunctionArgs) {
   const shadcn = await cachified({
     key: "shadcn/registry",
     cache: cache,

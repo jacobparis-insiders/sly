@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/index.json
 // https://sly-cli.fly.dev/registry/index.json
 
-import { json, type LoaderArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from "@remix-run/node"
 import type { z } from "zod"
 import { meta as shadcnMeta } from "./@shadcn.ui[.json].js"
 import { meta as iconoirMeta } from "./iconoir[.json].js"
@@ -19,7 +19,7 @@ import cachified from "cachified"
 import { cache } from "../../cache.server.js"
 import { npmSchema } from "~/schemas.js"
 
-export async function loader({ request }: LoaderArgs) {
+export async function loader({ request }: LoaderFunctionArgs) {
   const npm = await cachified({
     key: `npm/@sly-cli/sly`,
     cache,

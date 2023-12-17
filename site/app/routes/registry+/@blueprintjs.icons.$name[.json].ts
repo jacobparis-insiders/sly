@@ -1,15 +1,15 @@
 // http://localhost:3000/registry/@blueprintjs/icons/add.json
 // https://sly-cli.fly.dev/registry/@blueprintjs/icons/add.json
 
-import { json, type LoaderArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from "@remix-run/node"
 
 import { meta } from "./@blueprintjs.icons[.json].js"
 import { type libraryItemWithContentSchema } from "../../schemas.js"
 import type { z } from "zod"
-import { optimize } from "svgo";
+import { optimize } from "svgo"
 import { getGithubFile } from "../../github.server.js"
 
-export async function loader({ params }: LoaderArgs) {
+export async function loader({ params }: LoaderFunctionArgs) {
   const file = await getGithubFile({
     owner: "palantir",
     repo: "blueprint",
@@ -37,20 +37,24 @@ export async function loader({ params }: LoaderArgs) {
         content: [
           `<!-- ${meta.name} -->`,
           `<!-- ${meta.license} -->`,
-          await fetch(file.download_url).then((res) => res.text())
-            .then(svg => optimize(svg, {
-              plugins: [
-                'preset-default',
-                "removeUselessStrokeAndFill",
-                {
-                  name: 'removeAttrs',
-                  params: {
-                    attrs: 'fill'
-                  }
-                }
-              ],
-            }).data),
-          ].join("\n"),
+          await fetch(file.download_url)
+            .then((res) => res.text())
+            .then(
+              (svg) =>
+                optimize(svg, {
+                  plugins: [
+                    "preset-default",
+                    "removeUselessStrokeAndFill",
+                    {
+                      name: "removeAttrs",
+                      params: {
+                        attrs: "fill",
+                      },
+                    },
+                  ],
+                }).data
+            ),
+        ].join("\n"),
       },
     ],
   })

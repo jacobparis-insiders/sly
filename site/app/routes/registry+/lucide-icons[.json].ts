@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/lucide-icons.json
 // https://sly-cli.fly.dev/registry/lucide-icons.json
 
-import { json, type LoaderArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from "@remix-run/node"
 import type { z } from "zod"
 import { type libraryIndexSchema } from "../../schemas.js"
 import { getGithubDirectory } from "../../github.server.js"
@@ -14,7 +14,7 @@ export const meta = {
   license: "https://github.com/lucide-icons/lucide/blob/main/LICENSE",
 } as const
 
-export async function loader({ request }: LoaderArgs) {
+export async function loader({ request }: LoaderFunctionArgs) {
   const files = await getGithubDirectory({
     owner: "lucide-icons",
     repo: "lucide",

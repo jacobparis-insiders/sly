@@ -1,13 +1,13 @@
 // http://localhost:3000/registry/iconoir/globe.json
 // https://sly-cli.fly.dev/registry/iconoir/globe.json
 
-import { json, type LoaderArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from "@remix-run/node"
 import { meta } from "./iconoir[.json].js"
 import { type libraryItemWithContentSchema } from "../../schemas.js"
 import type { z } from "zod"
 import { getGithubFile } from "../../github.server.js"
 
-export async function loader({ params }: LoaderArgs) {
+export async function loader({ params }: LoaderFunctionArgs) {
   const icon = await getGithubFile({
     owner: "iconoir-icons",
     repo: "iconoir",

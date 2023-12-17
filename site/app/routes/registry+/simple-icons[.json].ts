@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/simple-icons.json
 // https://sly-cli.fly.dev/registry/simple-icons.json
 
-import { json, type LoaderArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from "@remix-run/node"
 import type { z } from "zod"
 import { type libraryIndexSchema } from "../../schemas.js"
 import { getGithubDirectory } from "../../github.server.js"
@@ -14,7 +14,7 @@ export const meta = {
     "https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md",
 } as const
 
-export async function loader({ request }: LoaderArgs) {
+export async function loader({ request }: LoaderFunctionArgs) {
   const files = await getGithubDirectory({
     owner: "simple-icons",
     repo: "simple-icons",

@@ -1,10 +1,10 @@
 // http://localhost:3000/registry/config.json
 // https://sly-cli.fly.dev/registry/config.json
 
-import { json, type LoaderArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from "@remix-run/node"
 
 // This is the JSON schema for the config file
-export async function loader({ request }: LoaderArgs) {
+export async function loader({ request }: LoaderFunctionArgs) {
   return json({
     $schema: "http://json-schema.org/draft-07/schema#",
     type: "object",
