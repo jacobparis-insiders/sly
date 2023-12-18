@@ -17,7 +17,7 @@ import { meta as materialDesignIconsMeta } from "./material-design-icons[.json].
 import type { registryIndexSchema } from "../../schemas.js"
 import cachified from "cachified"
 import { cache } from "../../cache.server.js"
-import { npmSchema } from "~/schemas.js"
+import { npmSchema } from "../../schemas.js"
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const npm = await cachified({
