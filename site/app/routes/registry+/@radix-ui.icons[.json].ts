@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/@radix-ui/icons.json
 // https://sly-cli.fly.dev/registry/@radix-ui/icons.json
 
-import { json, type LoaderArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from "@remix-run/node"
 import type { z } from "zod"
 import { type libraryIndexSchema } from "../../schemas.js"
 import { getGithubDirectory } from "../../github.server.js"
@@ -14,7 +14,7 @@ export const meta = {
   license: "https://github.com/radix-ui/icons/blob/master/LICENSE",
 } as const
 
-export async function loader({ request }: LoaderArgs) {
+export async function loader({ request }: LoaderFunctionArgs) {
   const files = await getGithubDirectory({
     owner: "radix-ui",
     repo: "icons",

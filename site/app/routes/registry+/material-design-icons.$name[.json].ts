@@ -1,13 +1,13 @@
 // http://localhost:3000/registry/material-design-icons/mobile_friendly-filled.json
 // https://sly-cli.fly.dev/registry/material-design-icons/mobile_friendly-filled.json
 
-import { json, type LoaderArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from "@remix-run/node"
 import { meta } from "./material-design-icons[.json].js"
 import { type libraryItemWithContentSchema } from "../../schemas.js"
 import type { z } from "zod"
 import { getGithubFile } from "../../github.server.js"
 
-export async function loader({ params }: LoaderArgs) {
+export async function loader({ params }: LoaderFunctionArgs) {
   if (!params.name) {
     throw new Response("Not found", { status: 404 })
   }

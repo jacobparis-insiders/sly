@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/material-design-icons.json
 // https://sly-cli.fly.dev/registry/material-design-icons.json
 
-import { json, type LoaderArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from "@remix-run/node"
 import type { z } from "zod"
 import { type libraryIndexSchema } from "../../schemas.js"
 import { getGithubDirectory } from "../../github.server.js"
@@ -14,7 +14,7 @@ export const meta = {
     "https://github.com/google/material-design-icons/blob/master/LICENSE",
 } as const
 
-export async function loader({ request }: LoaderArgs) {
+export async function loader({ request }: LoaderFunctionArgs) {
   const allFiles = await getGithubDirectory({
     owner: "marella",
     repo: "material-design-icons",

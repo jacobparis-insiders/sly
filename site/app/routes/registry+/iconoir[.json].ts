@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/iconoir.json
 // https://sly-cli.fly.dev/registry/iconoir.json
 
-import { json, type LoaderArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from "@remix-run/node"
 import type { z } from "zod"
 import { type libraryIndexSchema } from "../../schemas.js"
 import { getGithubDirectory } from "../../github.server.js"
@@ -10,11 +10,10 @@ export const meta = {
   name: "iconoir",
   source: "https://github.com/iconoir-icons/iconoir/tree/main/icons",
   description: "An open source icons library with 1300+ icons.",
-  license:
-    "https://github.com/iconoir-icons/iconoir/blob/main/LICENSE",
+  license: "https://github.com/iconoir-icons/iconoir/blob/main/LICENSE",
 } as const
 
-export async function loader({ request }: LoaderArgs) {
+export async function loader({ request }: LoaderFunctionArgs) {
   const files = await getGithubDirectory({
     owner: "iconoir-icons",
     repo: "iconoir",

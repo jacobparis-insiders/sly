@@ -62,3 +62,14 @@ export const githubFile = z.object({
   git_url: z.string(),
   download_url: z.string(),
 })
+
+export const npmSchema = z.object({
+  versions: z.record(
+    z.object({
+      version: z.string(),
+    })
+  ),
+  "dist-tags": z.object({
+    latest: z.string(),
+  }),
+})

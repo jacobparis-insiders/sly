@@ -5,7 +5,10 @@
   "scripts": {
     "build": "remix build",
     "dev": "remix dev",
+    "start-server": "npm start",
     "start": "remix-serve build/index.js",
+    "pretest": "node tests/list-versions.js",
+    "test": "start-server-and-test start-server http://localhost:3000 vitest",
     "typecheck": "tsc"
   },
   "dependencies": {
@@ -14,6 +17,7 @@
     "@remix-run/react": "^2.4.0",
     "@remix-run/serve": "^2.4.0",
     "cachified": "^3.5.4",
+    "compare-versions": "^6.1.0",
     "execa": "^7.1.1",
     "isbot": "^3.6.8",
     "lru-cache": "^10.0.0",
@@ -26,13 +30,17 @@
     "zod": "^3.21.4"
   },
   "devDependencies": {
+    "@gmrchk/cli-testing-library": "github:jpulec/cli-testing-library#patch-1",
     "@remix-run/dev": "^2.4.0",
     "@remix-run/eslint-config": "^2.4.0",
+    "@sly-cli/sly": "^1.5.0",
     "@types/react": "^18.0.35",
     "@types/react-dom": "^18.0.11",
     "eslint": "^8.38.0",
     "eslint-plugin-no-template-curly-in-string-fix": "^1.0.4",
-    "typescript": "^5.0.4"
+    "start-server-and-test": "^2.0.3",
+    "typescript": "^5.0.4",
+    "vitest": "^1.0.4"
   },
   "engines": {
     "node": ">=14.0.0"

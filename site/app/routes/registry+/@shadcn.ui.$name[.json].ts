@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/@shadcn/ui/avatar.json
 // https://sly-cli.fly.dev/registry/@shadcn/ui/avatar.json
 
-import { json, type LoaderArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from "@remix-run/node"
 import { meta } from "./@shadcn.ui[.json].js"
 import { z } from "zod"
 import type { libraryItemWithContentSchema } from "../../schemas.js"
@@ -17,7 +17,7 @@ const shadcnFile = z.object({
   type: z.string(),
 })
 
-export async function loader({ params }: LoaderArgs) {
+export async function loader({ params }: LoaderFunctionArgs) {
   const component = await cachified({
     key: `shadcn/registry/styles/default/${params.name}.json`,
     cache: cache,
