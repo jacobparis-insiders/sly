@@ -30,7 +30,7 @@
     "zod": "^3.21.4"
   },
   "devDependencies": {
-    "@gmrchk/cli-testing-library": "^0.1.2",
+    "@gmrchk/cli-testing-library": "github:jpulec/cli-testing-library#patch-1",
     "@remix-run/dev": "^2.4.0",
     "@remix-run/eslint-config": "^2.4.0",
     "@sly-cli/sly": "^1.5.0",
