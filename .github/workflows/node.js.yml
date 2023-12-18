@@ -5,13 +5,12 @@ name: Node.js CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     strategy:
@@ -20,12 +19,20 @@ jobs:
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    - run: npm ci -w site
-    - run: npm run build --if-present -w site
-    - run: npm test -w site
+      - name: Checkout ⬇️
+        uses: actions/checkout@v3.2.0
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          check-latest: true
+
+      - name: Install dependencies 📦
+        run: npm ci --no-audit -w site
+
+      - name: Build site 🛠️
+        run: npm run build -w site
+
+      - name: Test site 🧪
+        run: npm test -w site
