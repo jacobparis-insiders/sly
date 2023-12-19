@@ -8,7 +8,7 @@
     "./ts-loader": "./ts-loader.js"
   },
   "bin": {
-    "sly": "start.sh"
+    "sly": "start.js"
   },
   "publishConfig": {
     "access": "public"
