@@ -40,6 +40,7 @@
     "eslint-plugin-no-template-curly-in-string-fix": "^1.0.4",
     "start-server-and-test": "^2.0.3",
     "typescript": "^5.0.4",
+    "vite": "^5.0.10",
     "vitest": "^1.0.4"
   },
   "engines": {

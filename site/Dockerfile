@@ -18,10 +18,11 @@ FROM base as build
 
 # Install packages needed to build node modules
 RUN apt-get update -qq && \
-    apt-get install -y python-is-python3 pkg-config build-essential 
+    apt-get install -y python-is-python3 pkg-config build-essential git openssh-client
 
 # Install node modules
 COPY --link package.json ./
+COPY --link setup-swap.js ./
 RUN npm install --include=dev
 
 # Copy application code
@@ -39,6 +40,7 @@ FROM base
 
 # Copy built application
 COPY --from=build /app /app
+COPY --from=build /app/setup-swap.js /app/
 
 # Start the server by default, this can be overwritten at runtime
 EXPOSE 3000
