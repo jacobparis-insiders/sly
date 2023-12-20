@@ -2,7 +2,7 @@ import type { TestContext, TaskContext } from "vitest"
 import { prepareEnvironment } from "@gmrchk/cli-testing-library"
 import chalk from "chalk"
 import { rmSync, existsSync } from "fs"
-
+import { spawn } from "child_process"
 export async function spawnSly(
   test: TaskContext & TestContext,
   command: string
@@ -23,6 +23,19 @@ export async function spawnSly(
 
   const [runner, ...args] = command.split(" ")
   if (!runner) throw new Error(`No runner specified`)
+
+  const fakeProcess = spawn(runner, args)
+  fakeProcess.on("error", (error) => {
+    console.log("error", error)
+  })
+
+  fakeProcess.on("exit", (code) => {
+    console.log("exit", code)
+  })
+
+  fakeProcess.on("message", (message) => {
+    console.log("message", message)
+  })
 
   try {
     var lib = await env.spawn(runner, args.join(" "))
