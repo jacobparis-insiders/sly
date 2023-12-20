@@ -16,28 +16,27 @@ jobs:
   check_changes:
     runs-on: ubuntu-latest
     outputs:
-      cli_changed: ${{ steps.set_outputs.outputs.cli_changed }}
-      site_changed: ${{ steps.set_outputs.outputs.site_changed }}
+      cli_changed: ${{ steps.set_env.outputs.cli_changed }}
+      site_changed: ${{ steps.set_env.outputs.site_changed }}
     steps:
       - name: Checkout ⬇️
         uses: actions/checkout@v3.2.0
 
-      - name: Check for CLI changes
-        id: set_outputs
+      - name: Check for CLI and Site changes
+        id: set_env
         run: |
           echo "Checking changed files"
-          CLI_CHANGED=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep 'cli/' | wc -l)
-          SITE_CHANGED=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep 'site/' | wc -l)
-          if [ $CLI_CHANGED -gt 0 ]; then
-            echo "::set-output name=cli_changed::true"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
           else
-            echo "::set-output name=cli_changed::false"
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.sha }}"
           fi
-          if [ $SITE_CHANGED -gt 0 ]; then
-            echo "::set-output name=site_changed::true"
-          else
-            echo "::set-output name=site_changed::false"
-          fi
+          CLI_CHANGED=$(git diff --name-only $BASE_SHA $HEAD_SHA | grep 'cli/' | wc -l)
+          SITE_CHANGED=$(git diff --name-only $BASE_SHA $HEAD_SHA | grep 'site/' | wc -l)
+          echo "cli_changed=$CLI_CHANGED" >> $GITHUB_ENV
+          echo "site_changed=$SITE_CHANGED" >> $GITHUB_ENV
 
   build_and_test_cli:
     runs-on: ubuntu-latest
