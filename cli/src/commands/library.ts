@@ -64,7 +64,7 @@ export async function configureLibraries() {
         {
           type: "multiselect",
           name: "libraries",
-          message: `Which libraries would you like to use?`,
+          message: `Which lirbaries would you like to use?`,
           choices: libraries.map((library) => ({
             title: library.name,
             description: library.description,
