@@ -38,17 +38,16 @@ jobs:
           CLI_CHANGED=$(git diff --name-only $BASE_SHA $HEAD_SHA | grep 'cli/' | wc -l)
           SITE_CHANGED=$(git diff --name-only $BASE_SHA $HEAD_SHA | grep 'site/' | wc -l)
           if [ $CLI_CHANGED -gt 0 ]; then
-            echo "cli_changed=true" >> $GITHUB_ENV
+            echo "cli_changed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "cli_changed=false" >> $GITHUB_ENV
+            echo "cli_changed=false" >> "$GITHUB_OUTPUT"
           fi
           if [ $SITE_CHANGED -gt 0 ]; then
-            echo "site_changed=true" >> $GITHUB_ENV
+            echo "site_changed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "site_changed=false" >> $GITHUB_ENV
+            echo "site_changed=false" >> "$GITHUB_OUTPUT"
           fi
-          echo "cli_changed=$CLI_CHANGED"
-          echo "site_changed=$SITE_CHANGED"
+          echo "$GITHUB_OUTPUT"
 
   build_and_test_cli:
     runs-on: ubuntu-latest
