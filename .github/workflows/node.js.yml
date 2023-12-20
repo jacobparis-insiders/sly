@@ -88,7 +88,7 @@ jobs:
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git add -w cli/package.json
+          git add cli/package.json
           git commit -m "chore: bump version to ${{ env.NEW_VERSION }}"
           git push
 
