@@ -90,7 +90,7 @@ jobs:
           git config user.email github-actions@github.com
           git add cli/package.json
           git commit -m "chore: bump version to ${{ env.NEW_VERSION }}"
-          git push https://${{ secrets.DEPLOY_TOKEN }}@github.com/jacobparis-insiders/sly.git HEAD:main
+          git push https://${{ secrets.COMMIT_TOKEN }}@github.com/jacobparis-insiders/sly.git HEAD:main
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
