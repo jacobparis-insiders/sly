@@ -2,14 +2,14 @@ import type { TestContext, TaskContext } from "vitest"
 import { prepareEnvironment } from "@gmrchk/cli-testing-library"
 import chalk from "chalk"
 import { rmSync, existsSync } from "fs"
-
-export async function spawnSly(test: TaskContext & TestContext, args: string) {
+export async function spawnSly(
+  test: TaskContext & TestContext,
+  command: string
+) {
   test.onTestFailed((result) => {
     result.errors?.forEach((error) => {
-      // Timeouts are not very helpful, so we'll replace them with the output
-      if (error.message.includes("Test timed out")) {
-        error.message = getOutput()
-      }
+      flushOutput(error.message)
+      error.message = getOutput()
     })
   })
 
@@ -18,15 +18,12 @@ export async function spawnSly(test: TaskContext & TestContext, args: string) {
   let previousStdout = [""]
   let previousStderr = [""]
 
-  const command = `@sly-cli/sly@${test.task.suite.name} ${args}`
-  try {
-    var lib = await env.spawn("npx", command)
-  } catch (error) {
-    console.log("failed")
-  }
+  const [runner, ...args] = command.split(" ")
+  if (!runner) throw new Error(`No runner specified`)
 
-  const output = ["", chalk.magentaBright("> npx " + command)]
-  flushOutput()
+  const lib = await env.spawn(runner, args.join(" "))
+
+  const output = ["", chalk.magentaBright(`> ${command}`)]
 
   function wait(delay: number) {
     flushOutput(`⏰ ${chalk.cyan(`wait(${chalk.white(delay)})`)}`)
