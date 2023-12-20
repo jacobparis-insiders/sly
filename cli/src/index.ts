@@ -7,6 +7,7 @@ import { restoreCache } from "./cache.js"
 import { refresh } from "./commands/refresh.js"
 import { libraryCommand } from "./commands/library.js"
 import { checkVersion } from "./check-version.js"
+import packageJson from "../package.json"
 
 process.on("SIGINT", () => process.exit(0))
 process.on("SIGTERM", () => process.exit(0))
@@ -20,7 +21,7 @@ const program = new Command()
   .option("-y, --yes", "skip confirmation prompt.", false)
   // flags with --no are inverted, so this is yes-cache by default
   .option("--no-cache", "disable caching.", true)
-  .version("1.0.0", "-v, --version", "display the version number")
+  .version(packageJson.version, "-v, --version", "display the version number")
   .hook("preAction", () => {
     // This runs before every command, so this is our global state
     const options = program.optsWithGlobals()

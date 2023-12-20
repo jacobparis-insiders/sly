@@ -3,7 +3,10 @@ import { prepareEnvironment } from "@gmrchk/cli-testing-library"
 import chalk from "chalk"
 import { rmSync, existsSync } from "fs"
 
-export async function spawnSly(test: TaskContext & TestContext, args: string) {
+export async function spawnSly(
+  test: TaskContext & TestContext,
+  command: string
+) {
   test.onTestFailed((result) => {
     result.errors?.forEach((error) => {
       // Timeouts are not very helpful, so we'll replace them with the output
@@ -18,14 +21,16 @@ export async function spawnSly(test: TaskContext & TestContext, args: string) {
   let previousStdout = [""]
   let previousStderr = [""]
 
-  const command = `@sly-cli/sly@${test.task.suite.name} ${args}`
+  const [runner, ...args] = command.split(" ")
+  if (!runner) throw new Error(`No runner specified`)
+
   try {
-    var lib = await env.spawn("npx", command)
+    var lib = await env.spawn(runner, args.join(" "))
   } catch (error) {
     console.log("failed")
   }
 
-  const output = ["", chalk.magentaBright("> npx " + command)]
+  const output = ["", chalk.magentaBright(`> ${command}`)]
   flushOutput()
 
   function wait(delay: number) {

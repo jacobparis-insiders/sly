@@ -1,22 +1,26 @@
-# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
-
 name: Node.js CI
 
 on:
   push:
     branches: ["main"]
+    paths:
+      - "cli/**"
+      - "site/**"
   pull_request:
     branches: ["main"]
+    paths:
+      - "cli/**"
+      - "site/**"
 
 jobs:
-  build:
+  build_and_test_cli:
     runs-on: ubuntu-latest
-
+    if: |
+      github.event_name == 'push' && contains(github.event.commits[*].added, 'cli/') ||
+      github.event_name == 'pull_request' && contains(github.event.pull_request.head_commit.modified, 'cli/')
     strategy:
       matrix:
         node-version: [20.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
       - name: Checkout ⬇️
@@ -28,7 +32,35 @@ jobs:
           node-version: ${{ matrix.node-version }}
           check-latest: true
 
-      - name: Install dependencies 📦
+      - name: Install CLI dependencies 📦
+        run: npm ci --no-audit -w cli
+
+      - name: Build CLI 🛠️
+        run: npm run build -w cli
+
+      - name: Test CLI 🧪
+        run: npm test -w cli
+
+  build_and_test_site:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' && contains(github.event.commits[*].added, 'site/') ||
+      github.event_name == 'pull_request' && contains(github.event.pull_request.head_commit.modified, 'site/')
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+      - name: Checkout ⬇️
+        uses: actions/checkout@v3.2.0
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          check-latest: true
+
+      - name: Install site dependencies 📦
         run: npm ci --no-audit -w site
 
       - name: Build site 🛠️
