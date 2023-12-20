@@ -10,7 +10,8 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "paths": {
-      "~/*": ["./*"]
+      "~/*": ["./*"],
+      "site/*": ["../site/*"]
     }
   }
 }
