@@ -24,6 +24,23 @@ export async function spawnSly(
   const [runner, ...args] = command.split(" ")
   if (!runner) throw new Error(`No runner specified`)
 
+  const fakeProcess = spawn(runner, args)
+  fakeProcess.on("error", (error) => {
+    console.log("error", error)
+  })
+
+  fakeProcess.on("exit", (code) => {
+    console.log("exit", code)
+  })
+
+  fakeProcess.on("message", (message) => {
+    console.log("message", message)
+  })
+
+  fakeProcess.stdout?.on("data", (data) => {
+    console.log("stdout", data.toString())
+  })
+
   try {
     var lib = await env.spawn(runner, args.join(" "))
   } catch (error) {
