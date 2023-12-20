@@ -1,11 +1,5 @@
 {
-  "include": [
-    "remix.env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    "../test/spawnSly.ts",
-    "../vitest.config.ts"
-  ],
+  "include": ["remix.env.d.ts", "**/*.ts", "**/*.tsx", "../test/spawnSly.ts"],
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2019"],
     "isolatedModules": true,
