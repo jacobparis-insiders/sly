@@ -7,6 +7,5 @@ export default defineConfig({
       showDiff: false,
       truncateThreshold: 1000,
     },
-    bail: 1,
   },
 })

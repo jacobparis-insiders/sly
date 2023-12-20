@@ -11,6 +11,7 @@ export async function spawnSly(
     result.errors?.forEach((error) => {
       // Timeouts are not very helpful, so we'll replace them with the output
       if (error.message.includes("Test timed out")) {
+        flushOutput(error.message)
         error.message = getOutput()
       }
     })
