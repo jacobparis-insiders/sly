@@ -106,6 +106,9 @@ jobs:
           draft: false
           prerelease: false
 
+      - name: Set up .npmrc
+        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
+
       - name: Publish to npm
         if: github.ref == 'refs/heads/main'
         run: npm publish -w cli
