@@ -13,6 +13,7 @@ import { meta as heroiconsMeta } from "./tailwindlabs.heroicons[.json].js"
 import { meta as blueprintIconsMeta } from "./@blueprintjs.icons[.json].js"
 import { meta as tablerIconsMeta } from "./tabler-icons[.json].js"
 import { meta as materialDesignIconsMeta } from "./material-design-icons[.json].js"
+import { meta as draftUiMeta } from "./draft-ui[.json].js"
 
 import type { registryIndexSchema } from "../../schemas.js"
 import cachified from "cachified"
@@ -36,6 +37,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     version: npm["dist-tags"].latest,
     libraries: [
       blueprintIconsMeta,
+      draftUiMeta,
       heroiconsMeta,
       lucideMeta,
       iconoirMeta,
