@@ -36,7 +36,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
     name: component.name,
     meta: {
       ...meta,
-      source: `https://api.github.com/repos/shadcn-aria/apps/docs/registry/default/ui/${params.name}.tsx`,
+      source: `https://api.github.com/repos/jolly-ui/apps/docs/registry/default/ui/${params.name}.tsx`,
     },
     dependencies: component.dependencies ?? [],
     registryDependencies: component.registryDependencies ?? [],
