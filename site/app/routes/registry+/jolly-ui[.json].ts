@@ -17,10 +17,10 @@ export const jollyFile = z.object({
 
 export const meta = {
   name: "jolly-ui",
-  source: "https://github.com/jolbol1/shadcn-aria",
+  source: "https://github.com/jolbol1/jolly-ui",
   description:
     "shadcn/ui compatible react aria components that you can copy and paste into your apps. Accessible. Customizable. Open Source.",
-  license: "https://github.com/jolbol1/shadcn-aria/blob/main/LICENSE.md",
+  license: "https://github.com/jolbol1/jolly-ui/blob/main/LICENSE.md",
 } as const
 
 export async function loader({ request }: LoaderFunctionArgs) {
