@@ -32,6 +32,34 @@ export async function spawnSly(
 
   function waitForText(text: string) {
     flushOutput(`⏰ ${chalk.cyan(`waitForText(${chalk.green(`"${text}"`)})`)}`)
+    // Sometimes the CLI is too fast and the text we're waiting for has already printed
+    // Check to see if the text printed since our last assertion (so we know it's in order)
+    let previousWaitForText
+    let previousWaitForTextIndex
+    for (let i = output.length - 2; i >= 0; i--) {
+      // maybe check all assertions here and not just these? 🤔
+      // that would make it easier to reuse this logic
+      if (output[i].includes(`waitForText`)) {
+        // '⏰ \x1B[36mwaitForText(\x1B[32m"Installing camera.svg"\x1B[39m\x1B[36m)\x1B[39m'
+        previousWaitForText = output[i].match(/"(.*)"/)?.[1]
+        previousWaitForTextIndex = i
+        break
+      }
+    }
+
+    if (previousWaitForTextIndex !== undefined) {
+      const previousWaitForTextOutput = output.slice(previousWaitForTextIndex)
+
+      for (const line of previousWaitForTextOutput) {
+        if (line.includes(text)) {
+          return {
+            line,
+            type: "stdout",
+          }
+        }
+      }
+    }
+
     return lib.waitForText(text)
   }
 
