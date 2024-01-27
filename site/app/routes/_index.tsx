@@ -3,8 +3,11 @@
 
 import type { MetaFunction, LoaderFunctionArgs } from "@remix-run/node"
 import { useLoaderData } from "@remix-run/react"
+import copy from "copy-to-clipboard"
 import cachified from "cachified"
+import { useMemo, useState } from "react"
 import { cache } from "~/cache.server"
+import { Icon } from "~/components/icon"
 import { registryIndexSchema } from "~/schemas"
 
 export const meta: MetaFunction = () => {
@@ -21,7 +24,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url)
 
   const registry = await cachified({
-    key: `registry`,
+    key: "registry",
     cache,
     staleWhileRevalidate: 1000 * 60 * 60 * 12, // 2 hours
     ttl: 1000 * 60 * 60 * 12, // 1 hours
@@ -41,30 +44,52 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export default function Index() {
   const { libraries } = useLoaderData<typeof loader>()
 
+  const iconLibraries = useMemo(
+    () => libraries.filter(({ tags }) => tags.includes("icons")),
+    [libraries]
+  )
+
+  const uiLibraries = useMemo(
+    () => libraries.filter(({ tags }) => tags.includes("ui")),
+    [libraries]
+  )
+
+  const [isCopied, setIsCopied] = useState(false)
+
   return (
-    <div className="flex mx-auto my-24 max-w-4xl px-4 flex-col">
+    <div className="flex mx-auto my-24 max-w-5xl px-4 flex-col text-neutral-600">
       <div>
-        <h1 className="font-bold inline text-5xl drop-shadow-2xl md:text-7xl">
+        <h1 className="font-bold inline text-5xl drop-shadow-2xl md:text-8xl text-neutral-800">
           Add code, not dependencies
         </h1>
-        <a
-          className="group inline-block text-xl font-medium mb-4 ml-4 align-middle !no-underline"
-          href="https://twitter.com/intent/follow?screen_name=jacobmparis"
-          target="_blank"
-          rel="noopener noreferrer"
+      </div>
+
+      <div className="mt-8">
+        <button
+          className="group gap-x-2 rounded-3xl bg-neutral-800 text-white px-8 py-3 font-bold text-lg flex items-center hover:scale-[102%] duration-75"
+          type="button"
+          onClick={() => {
+            copy(
+              "npx @sly-cli/sly add @radix-ui/icons eraser --directory ./icons --overwrite --yes"
+            )
+            setIsCopied(true)
+          }}
+          onMouseOut={() => setIsCopied(false)}
         >
-          <span className="text-neutral-600 group-hover:underline">
-            by <span className="group-hover:opacity-100 opacity-0">@</span>jacob
-            <span className="group-hover:opacity-100 opacity-0">m</span>paris
-          </span>
-        </a>
+          Copy to clipboard
+          <Icon
+            name={isCopied ? "copy-check" : "copy"}
+            className="w-6 h-6 group-hover:scale-110 group-hover:rotate-6 duration-150"
+          />
+        </button>
       </div>
 
       <p className="mt-8 max-w-prose text-xl text-neutral-600">
-        Some code is meant to be customized, duplicated, and rewritten. For all
-        the kinds of code you may find yourself copy/pasting from the internet,
-        or from your other projects, Sly is here to help.
+        Run this command and two svg icons will appear in your codebase
+        immediately.
       </p>
+
+      <AddWithFlagsExample />
 
       <p className="mt-8 max-w-prose text-xl text-neutral-600">
         <strong>
@@ -98,7 +123,75 @@ export default function Index() {
         </li>
       </ul>
 
-      <p className="mt-8 max-w-prose text-xl text-neutral-600">Used by</p>
+      <h2 className="mt-16 font-bold text-3xl text-neutral-600">
+        Joyou<b>sly</b> interactive
+      </h2>
+
+      <p className="mt-8 max-w-prose text-xl text-neutral-600">
+        If you don't provide any flags to the CLI, Sly will walk you through
+        choosing which libraries and components you want to add
+      </p>
+
+      <AddExample />
+
+      <h3 className="mt-16 font-bold text-2xl text-neutral-600">
+        Icon libraries
+      </h3>
+
+      <p className="mt-4 max-w-prose text-xl text-neutral-600">
+        Sly can add SVG files to your project, and automatically kick off a
+        postinstall script that{" "}
+        <a
+          href="https://www.jacobparis.com/content/svg-icons"
+          target="_blank"
+          rel="noopener  noreferrer"
+          className="hover:underline"
+        >
+          generates an SVG spritesheet and updates the types for your Icon
+          component.
+        </a>
+      </p>
+
+      <ul className="mt-8 flex flex-wrap text-xl text-neutral-600 gap-x-4 gap-y-2">
+        {iconLibraries.map(({ source, name }) => (
+          <li key={source}>
+            <a
+              href={source}
+              target="_blank"
+              rel="noopener  noreferrer"
+              className="block shadow-sm px-4 py-2 bg-neutral-100 rounded-3xl no-underline hover:bg-neutral-200"
+            >
+              {name}
+            </a>
+          </li>
+        ))}
+      </ul>
+
+      <h3 className="mt-16 font-bold text-2xl text-neutral-600">
+        UI component libraries
+      </h3>
+
+      <p className="mt-4 max-w-prose text-xl text-neutral-600">
+        Use Sly to add UI components into your codebase, then run transformer
+        functions on each to customize their colors, import paths, and more.
+      </p>
+
+      <ul className="mt-8 flex flex-wrap text-xl text-neutral-600 gap-x-4 gap-y-2">
+        {uiLibraries.map(({ source, name }) => (
+          <li key={source}>
+            <a
+              href={source}
+              target="_blank"
+              rel="noopener  noreferrer"
+              className="block shadow-sm px-4 py-2 bg-neutral-100 rounded-3xl no-underline hover:bg-neutral-200"
+            >
+              {name}
+            </a>
+          </li>
+        ))}
+      </ul>
+
+      <h3 className="mt-16 font-bold text-2xl text-neutral-600">Used by</h3>
 
       <div className="mt-4 max-w-prose">
         <a
@@ -141,50 +234,16 @@ export default function Index() {
         </a>
       </div>
 
-      <h2 className="mt-16 font-bold text-3xl text-neutral-600">
-        Seriou<b>sly</b> simple
-      </h2>
+      <div className="mt-16 bg-neutral-200 rounded-3xl p-8 -mx-8">
+        <h2 className="font-bold text-3xl text-neutral-600">
+          Seriou<b>sly</b> simple
+        </h2>
 
-      <p className="mt-8 max-w-prose text-xl text-neutral-600">
-        Run this command and two svg icons will appear in your codebase
-        immediately.
-      </p>
-
-      <AddWithFlagsExample />
-
-      <p className="mt-8 max-w-prose text-xl text-neutral-600">
-        If you install Sly first, you can run `npx sly add` instead.
-      </p>
-
-      <h2 className="mt-16 font-bold text-3xl text-neutral-600">
-        Joyou<b>sly</b> interactive
-      </h2>
-
-      <p className="mt-8 max-w-prose text-xl text-neutral-600">
-        Sly will walk you through choosing which libraries and components to
-        pick
-      </p>
-
-      <AddExample />
-
-      <h2 className="mt-16 font-bold text-3xl text-neutral-600">
-        Ambitiou<b>sly</b> growing
-      </h2>
-
-      <p className="mt-8 max-w-prose text-xl text-neutral-600">
-        There are currently {libraries.length} libraries available. If you want
-        to add another, feel free to make a PR.
-      </p>
-
-      <ul className="mt-4 list-disc ml-8 text-xl text-neutral-600 space-y-2">
-        {libraries.map(({ source, name }) => (
-          <li key={source}>
-            <a href={source} target="_blank" rel="noopener  noreferrer">
-              {name}
-            </a>
-          </li>
-        ))}
-      </ul>
+        <p className="mt-8  max-w-prose text-xl text-neutral-600">
+          If you install Sly first, run <Code>npx sly</Code> instead of{" "}
+          <Code>npx @sly-cli/sly</Code>
+        </p>
+      </div>
 
       <h2 className="mt-16 font-bold text-3xl text-neutral-600">
         Generou<b>sly</b> configurable
@@ -216,18 +275,19 @@ export default function Index() {
       </ul>
 
       <h2 className="mt-16 font-bold text-3xl text-neutral-600">
-        Instructions
+        Instructions in reverse
       </h2>
 
       <p className="mt-8 max-w-prose text-xl text-neutral-600">
         Sly does <strong>not</strong> require a config file{" "}
         <strong> IF </strong> you provide enough information in the command, so
         instead of telling you what each option does, let's go through what
-        happens if you **don't** include each option
+        happens if you <strong>don&rsquo;t</strong> include each option
       </p>
 
       <p className="mt-8 max-w-prose text-xl text-neutral-600">
-        As an example, we'll install `eraser` icon from `@radix-ui/icons`.
+        As an example, we'll install <Code>eraser</Code> icon from
+        <Code>@radix-ui/icons</Code>.
       </p>
 
       <h3 className="mt-16 font-bold text-2xl text-neutral-600">--overwrite</h3>
@@ -238,8 +298,8 @@ export default function Index() {
       </CodeBlock>
 
       <p className="mt-8 max-w-prose text-xl text-neutral-600">
-        If you don't provide `--overwrite`, the installation will fail if the
-        file already exists.
+        If you don't provide <Code>--overwrite</Code>, the installation will
+        fail if the file already exists.
       </p>
 
       <h3 className="mt-16 font-bold text-2xl text-neutral-600">--yes</h3>
@@ -250,8 +310,8 @@ export default function Index() {
       </CodeBlock>
 
       <p className="mt-8 max-w-prose text-xl text-neutral-600">
-        If you don't provide `--yes`, you will be prompted to confirm the
-        installation before a file is written.
+        If you don't provide <Code>--yes</Code>, you will be prompted to confirm
+        the installation before a file is written.
       </p>
 
       <h3 className="mt-16 font-bold text-2xl text-neutral-600">--directory</h3>
@@ -261,11 +321,14 @@ export default function Index() {
       </CodeBlock>
 
       <p className="mt-8 max-w-prose text-xl text-neutral-600">
-        If you don't provide `--directory`, Sly will look for your `sly.json`
-        file and look for the directory field under `@radix-ui/icons` in the
-        config. **If Sly can't find that config file, you will be asked which
-        directory you want to install the icon to** and Sly will create a
-        `sly.json` file for you.
+        If you don't provide <Code>--directory</Code>, Sly will look for your{" "}
+        <Code>sly.json</Code>
+        file and look for the directory field under <Code>
+          @radix-ui/icons
+        </Code>{" "}
+        in the config. **If Sly can't find that config file, you will be asked
+        which directory you want to install the icon to** and Sly will create a
+        <Code>sly.json</Code> file for you.
       </p>
 
       <h3 className="mt-16 font-bold text-2xl text-neutral-600">component</h3>
@@ -273,9 +336,9 @@ export default function Index() {
       <CodeBlock>{">"} npx @sly-cli/sly add @radix-ui/icons eraser</CodeBlock>
 
       <p className="mt-8 max-w-prose text-xl text-neutral-600">
-        If you don't provide a component name like `eraser`, **Sly will show you
-        a list of all the icons available** in `@radix-ui/icons` and ask you to
-        select the ones you want.
+        If you don't provide a component name like <Code>eraser</Code>, **Sly
+        will show you a list of all the icons available** in{" "}
+        <Code>@radix-ui/icons</Code> and ask you to select the ones you want.
       </p>
 
       <h3 className="mt-16 font-bold text-2xl text-neutral-600">library</h3>
@@ -283,9 +346,9 @@ export default function Index() {
       <CodeBlock>{">"} npx @sly-cli/sly add @radix-ui/icons</CodeBlock>
 
       <p className="mt-8 max-w-prose text-xl text-neutral-600">
-        If you don't provide `@radix-ui/icons`, Sly will show you a list of all
-        the libraries you've configured and ask you to select the one you want
-        before proceeding to show you the list of icons.
+        If you don't provide <Code>@radix-ui/icons</Code>, Sly will show you a
+        list of all the libraries you've configured and ask you to select the
+        one you want before proceeding to show you the list of icons.
       </p>
 
       <h3 className="mt-16 font-bold text-2xl text-neutral-600">add</h3>
@@ -304,8 +367,9 @@ export default function Index() {
       <CodeBlock>{">"} npx @sly-cli/sly</CodeBlock>
 
       <p className="mt-8 max-w-prose text-xl text-neutral-600">
-        If you don't provide `@sly-cli/sly`, it might be because you've
-        installed Sly already and you can just run `sly` directly.
+        If you don't provide <Code>@sly-cli/sly</Code>, it might be because
+        you've installed Sly already and you can just run <Code>sly</Code>{" "}
+        directly.
       </p>
 
       <h2 className="mt-16 font-bold text-3xl text-neutral-600">
@@ -356,7 +420,7 @@ export default function Index() {
 
 function CodeBlock({ children }: { children: React.ReactNode }) {
   return (
-    <pre className="bg-slate-600 px-8 py-4 rounded-lg mt-4 overflow-x-scroll">
+    <pre className="bg-neutral-800 px-10 py-8 -mx-10 rounded-3xl mt-4 overflow-x-auto">
       <code className="text-slate-200 text-lg">{children}</code>
     </pre>
   )
@@ -470,5 +534,13 @@ function ConfigExample() {
       {"  ]\n"}
       {"}\n"}
     </CodeBlock>
+  )
+}
+
+function Code({ children }: { children: React.ReactNode }) {
+  return (
+    <code className="font-sans font-medium bg-neutral-100 rounded-md px-1 -z-10 inline-block">
+      {children}
+    </code>
   )
 }
