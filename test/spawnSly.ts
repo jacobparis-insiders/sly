@@ -72,10 +72,15 @@ export async function spawnSly(
     flushOutput(`🔍 ${chalk.yellow(`readFile(${chalk.green(`"${path}"`)})`)}`)
 
     if (!existsSync(path)) {
-      const error = new Error(`File "${path}" does not exist`)
-      // Throw the error from the test file, not this file
-      error.stack = error.stack?.split("\n").slice(2).join("\n")
-      throw error
+      // Try again in half a second
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      if (!existsSync(path)) {
+        const error = new Error(`File "${path}" does not exist`)
+        // Throw the error from the test file, not this file
+        error.stack = error.stack?.split("\n").slice(2).join("\n")
+        throw error
+      }
     }
   }
 
