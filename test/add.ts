@@ -1,5 +1,5 @@
 import { execSync } from "child_process"
-import { test, afterAll, describe, vi } from "vitest"
+import { test, afterAll, describe } from "vitest"
 import { compareVersions } from "compare-versions"
 
 import { rmSync } from "fs"
@@ -114,7 +114,7 @@ export function sharedTests(context: {
 
         await waitForFinish()
 
-        // await cleanup()
+        await cleanup()
       }
     )
 

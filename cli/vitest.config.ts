@@ -9,5 +9,6 @@ export default defineConfig({
       showDiff: false,
       truncateThreshold: 1000,
     },
+    globalSetup: "../test/setup.ts",
   },
 })
