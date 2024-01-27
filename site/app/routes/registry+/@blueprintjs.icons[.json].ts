@@ -3,7 +3,7 @@
 
 import { json, type LoaderFunctionArgs } from "@remix-run/node"
 import type { z } from "zod"
-import { type libraryIndexSchema } from "../../schemas.js"
+import type { Meta, libraryIndexSchema } from "../../schemas.js"
 import { getGithubDirectory } from "../../github.server.js"
 
 export const meta = {
@@ -12,7 +12,8 @@ export const meta = {
     "https://github.com/palantir/blueprint/tree/develop/resources/icons/16px",
   description: "Blueprint is a React UI toolkit for the web.",
   license: "https://github.com/palantir/blueprint/blob/develop/LICENSE",
-} as const
+  tags: ["icons"],
+} as const satisfies Meta
 
 export async function loader({ request }: LoaderFunctionArgs) {
   // TODO: include 20px icons?

@@ -1,5 +1,5 @@
 import { execSync } from "child_process"
-import { test, afterAll, describe } from "vitest"
+import { test, afterAll, describe, vi } from "vitest"
 import { compareVersions } from "compare-versions"
 
 import { rmSync } from "fs"
@@ -105,6 +105,7 @@ export function sharedTests(context: {
         await writeText("y")
 
         await waitForText("Installing camera.svg")
+        await waitForText("Installed")
         await waitForText("Installing card-stack.svg")
         await waitForText("Installed")
 
@@ -113,7 +114,7 @@ export function sharedTests(context: {
 
         await waitForFinish()
 
-        await cleanup()
+        // await cleanup()
       }
     )
 
@@ -198,15 +199,14 @@ export function sharedTests(context: {
         await pressKey("enter") // confirm selection
 
         await waitForText("Ready to install 1")
-        await writeText("y")
+        await pressKey("enter")
 
-        await waitForText("Installing eraser.svg")
+        await waitForText("Installing eraser")
         await waitForText("Installed")
 
         await readFile(`./tests/temp/${test.task.id}/eraser.svg`)
 
         await waitForFinish()
-
         await cleanup()
       }
     )

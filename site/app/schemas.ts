@@ -5,6 +5,10 @@ export const metaSchema = z.object({
   source: z.string(),
   description: z.string().optional(),
   license: z.string(),
+  tags: z
+    .array(z.enum(["icons", "ui"]))
+    .optional()
+    .default([]),
 })
 
 export type Meta = z.infer<typeof metaSchema>

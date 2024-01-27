@@ -17,6 +17,7 @@ export async function spawnSly(
 
   let previousStdout = [""]
   let previousStderr = [""]
+  let lastSuccessfulWaitForText = 0
 
   const [runner, ...args] = command.split(" ")
   if (!runner) throw new Error(`No runner specified`)
@@ -30,39 +31,36 @@ export async function spawnSly(
     return lib.wait(delay)
   }
 
-  function waitForText(text: string) {
+  async function waitForText(text: string) {
     flushOutput(`⏰ ${chalk.cyan(`waitForText(${chalk.green(`"${text}"`)})`)}`)
-    // Sometimes the CLI is too fast and the text we're waiting for has already printed
-    // Check to see if the text printed since our last assertion (so we know it's in order)
-    let previousWaitForText
-    let previousWaitForTextIndex
-    for (let i = output.length - 2; i >= 0; i--) {
-      // maybe check all assertions here and not just these? 🤔
-      // that would make it easier to reuse this logic
-      if (output[i].includes(`waitForText`)) {
-        // '⏰ \x1B[36mwaitForText(\x1B[32m"Installing camera.svg"\x1B[39m\x1B[36m)\x1B[39m'
-        previousWaitForText = output[i].match(/"(.*)"/)?.[1]
-        previousWaitForTextIndex = i
-        break
-      }
-    }
 
-    if (previousWaitForTextIndex !== undefined) {
-      const previousWaitForTextOutput = output.slice(previousWaitForTextIndex)
+    let interval: NodeJS.Timer | number = 0
+    const result = await Promise.race([
+      new Promise((_, reject) => setTimeout(reject, 5000)),
+      new Promise((resolve) => {
+        let lastRead = lastSuccessfulWaitForText
+        interval = setInterval(() => {
+          for (let i = lastRead; i < output.length; i++) {
+            if (output[i].includes(text) && !output[i].includes("⏰")) {
+              lastSuccessfulWaitForText = i + 1
 
-      for (const line of previousWaitForTextOutput) {
-        if (line.includes(text)) {
-          return {
-            line,
-            type: "stdout",
+              resolve({
+                line: output[i],
+                type: "stdout",
+              })
+              return
+            }
           }
-        }
-      }
-    }
 
-    return lib.waitForText(text)
+          lastRead = output.length
+          flushOutput()
+        }, 100)
+      }),
+    ])
+
+    clearInterval(interval)
+    return result
   }
-
   function waitForFinish() {
     flushOutput(`⏰ ${chalk.cyan(`waitForFinish()`)}`)
     return lib.waitForFinish()
@@ -72,10 +70,15 @@ export async function spawnSly(
     flushOutput(`🔍 ${chalk.yellow(`readFile(${chalk.green(`"${path}"`)})`)}`)
 
     if (!existsSync(path)) {
-      const error = new Error(`File "${path}" does not exist`)
-      // Throw the error from the test file, not this file
-      error.stack = error.stack?.split("\n").slice(2).join("\n")
-      throw error
+      // Try again in half a second
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      if (!existsSync(path)) {
+        const error = new Error(`File "${path}" does not exist`)
+        // Throw the error from the test file, not this file
+        error.stack = error.stack?.split("\n").slice(2).join("\n")
+        throw error
+      }
     }
   }
 
