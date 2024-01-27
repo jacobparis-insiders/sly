@@ -36,7 +36,7 @@ export async function spawnSly(
 
     let interval: NodeJS.Timer | number = 0
     const result = await Promise.race([
-      new Promise((_, reject) => setTimeout(reject, 5000)),
+      new Promise((_, reject) => setTimeout(reject, 15000)),
       new Promise((resolve) => {
         let lastRead = lastSuccessfulWaitForText
         interval = setInterval(() => {

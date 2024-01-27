@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     // Site tests involve installing different CLIs from npm
     // so they need a longer timeout
-    testTimeout: 15000,
+    testTimeout: 30000,
     // run tests in sequence instead of parallel
     chaiConfig: {
       showDiff: false,
@@ -14,5 +14,6 @@ export default defineConfig({
     env: {
       REGISTRY_URL: "http://localhost:3000",
     },
+    globalSetup: "../test/setup.ts",
   },
 })
