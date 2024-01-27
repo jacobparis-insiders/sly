@@ -1,0 +1,15 @@
+{
+  "$schema": "https://sly-cli.fly.dev/registry/config.json",
+  "libraries": [
+    {
+      "name": "tabler-icons",
+      "directory": "./svg-icons",
+      "postinstall": [
+        "npm",
+        "run",
+        "build:icons"
+      ],
+      "transformers": []
+    }
+  ]
+}

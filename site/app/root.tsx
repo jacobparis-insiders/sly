@@ -1,3 +1,5 @@
+// http://localhost:3000
+
 import tailwindStylesheet from "./tailwind.css"
 import type { LinksFunction } from "@remix-run/node"
 import {
@@ -8,6 +10,8 @@ import {
   Scripts,
   ScrollRestoration,
 } from "@remix-run/react"
+import { ButtonLink } from "./components/ButtonLink"
+import { Icon } from "./components/icon"
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: tailwindStylesheet },
@@ -21,9 +25,63 @@ export default function App() {
         <meta name="viewport" content="width=device-width,initial-scale=1" />
         <Meta />
         <Links />
+        <style>
+          {`.bg-light {
+          -webkit-backdrop-filter: blur(1.5rem) saturate(200%) contrast(50%) brightness(130%);
+          backdrop-filter: blur(1.5rem) saturate(200%) contrast(50%) brightness(130%);
+          background-color: rgba(255, 255, 255, 0.2);
+        }`}
+        </style>
       </head>
-      <body className="[&_a]:underline [&_a:hover]:no-underline [&_a]:text-black">
-        <Outlet />
+      <body className="[&_a]:font-bold [&_a]:text-black">
+        <div>
+          <div className="sticky top-0 z-30 mb-8 h-16">
+            <div
+              className="bg-light absolute inset-0 bottom-4"
+              style={{
+                WebkitMaskImage:
+                  "linear-gradient(to bottom, black 0, black 3rem, transparent 3rem)",
+              }}
+            />
+            <div className="py-1 relative z-10">
+              <div className="max-w-5xl mx-auto px-4 flex justify-between">
+                <div className="flex items-center">
+                  <a href="/" className="text-2xl font-bold">
+                    Sly CLI
+                  </a>
+                </div>
+                <ul className="flex flex-row flex-wrap justify-center print:flex-col print:gap-2">
+                  <li>
+                    <ButtonLink
+                      className="flex items-center rounded-3xl px-4 py-2"
+                      to="https://github.com/jacobparis-insiders/sly"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Icon name="brand-github" className="h-6 w-6">
+                        <span className="hidden sm:inline">Github</span>
+                      </Icon>
+                    </ButtonLink>
+                  </li>
+
+                  <li>
+                    <ButtonLink
+                      className="flex items-center rounded-3xl px-4 py-2"
+                      to="https://twitter.com/jacobmparis"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Icon name="brand-twitter" className="h-6 w-6">
+                        <span className="hidden sm:inline">Twitter</span>
+                      </Icon>
+                    </ButtonLink>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <Outlet />
+        </div>
         <ScrollRestoration />
         <Scripts />
         <LiveReload />
