@@ -3,7 +3,7 @@
 
 import { json, type LoaderFunctionArgs } from "@remix-run/node"
 import type { z } from "zod"
-import { type libraryIndexSchema } from "../../schemas.js"
+import type { Meta, libraryIndexSchema } from "../../schemas.js"
 import { getGithubDirectory } from "../../github.server.js"
 
 export const meta = {
@@ -12,7 +12,8 @@ export const meta = {
     "https://github.com/radix-ui/icons/tree/master/packages/radix-icons/icons",
   description: "A crisp set of 15×15 icons designed by the WorkOS team.",
   license: "https://github.com/radix-ui/icons/blob/master/LICENSE",
-} as const
+  tags: ["icons"],
+} as const satisfies Meta
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const files = await getGithubDirectory({

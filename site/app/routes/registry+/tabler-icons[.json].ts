@@ -3,7 +3,7 @@
 
 import { json, type LoaderFunctionArgs } from "@remix-run/node"
 import type { z } from "zod"
-import { type libraryIndexSchema } from "../../schemas.js"
+import type { Meta, libraryIndexSchema } from "../../schemas.js"
 import { getGithubDirectory } from "../../github.server.js"
 
 export const meta = {
@@ -11,7 +11,8 @@ export const meta = {
   source: "https://github.com/tabler/tabler-icons/tree/master/icons",
   description: "A set of over 4800 free MIT-licensed high-quality SVG icons.",
   license: "https://github.com/tabler/tabler-icons/blob/master/LICENSE",
-} as const
+  tags: ["icons"],
+} as const satisfies Meta
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const files = await getGithubDirectory({

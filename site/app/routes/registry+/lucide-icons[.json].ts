@@ -3,7 +3,7 @@
 
 import { json, type LoaderFunctionArgs } from "@remix-run/node"
 import type { z } from "zod"
-import { type libraryIndexSchema } from "../../schemas.js"
+import type { Meta, libraryIndexSchema } from "../../schemas.js"
 import { getGithubDirectory } from "../../github.server.js"
 
 export const meta = {
@@ -12,7 +12,8 @@ export const meta = {
   description:
     "Community-run fork of Feather Icons, open for anyone to contribute icons.",
   license: "https://github.com/lucide-icons/lucide/blob/main/LICENSE",
-} as const
+  tags: ["icons"],
+} as const satisfies Meta
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const files = await getGithubDirectory({

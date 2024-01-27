@@ -3,7 +3,7 @@
 
 import { json, type LoaderFunctionArgs } from "@remix-run/node"
 import type { z } from "zod"
-import { type libraryIndexSchema } from "../../schemas.js"
+import type { Meta, libraryIndexSchema } from "../../schemas.js"
 import { getGithubDirectory } from "../../github.server.js"
 
 export const meta = {
@@ -12,7 +12,8 @@ export const meta = {
   description:
     "Draft UI is a collection of simply designed React components focused on making web accessibility as easy as copy & paste.",
   license: "https://github.com/IHIutch/draft-ui",
-} as const
+  tags: ["ui"],
+} as const satisfies Meta
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const files = await getGithubDirectory({

@@ -4,8 +4,8 @@
 import { json, type LoaderFunctionArgs } from "@remix-run/node"
 import cachified from "cachified"
 import { z } from "zod"
-import { cache } from "~/cache.server"
-import type { libraryIndexSchema } from "~/schemas"
+import { cache } from "../../cache.server"
+import type { libraryIndexSchema, Meta } from "../../schemas"
 
 export const jollyFile = z.object({
   name: z.string(),
@@ -21,7 +21,8 @@ export const meta = {
   description:
     "shadcn/ui compatible react aria components that you can copy and paste into your apps. Accessible. Customizable. Open Source.",
   license: "https://github.com/jolbol1/jolly-ui/blob/main/LICENSE.md",
-} as const
+  tags: ["ui"],
+} as const satisfies Meta
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const jolly = await cachified({
