@@ -6,7 +6,7 @@ export const metaSchema = z.object({
   description: z.string().optional(),
   license: z.string(),
   tags: z
-    .array(z.enum(["icons", "ui"]))
+    .array(z.enum(["icons", "ui", "utilities"]))
     .optional()
     .default([]),
 })
