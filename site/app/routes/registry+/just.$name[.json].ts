@@ -1,5 +1,5 @@
-// http://localhost:3000/registry/just/breadcrumbs.json
-// https://sly-cli.fly.dev/registry/just/breadcrumbs.json
+// http://localhost:3000/registry/just/array-flatten.json
+// https://sly-cli.fly.dev/registry/just/array-flatten.json
 
 import { json, type LoaderFunctionArgs } from "@remix-run/node"
 
