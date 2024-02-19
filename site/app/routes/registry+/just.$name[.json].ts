@@ -24,18 +24,21 @@ export async function loader({ params }: LoaderFunctionArgs) {
     throw new Response("Not found", { status: 404 })
   }
 
+  const itemMeta = {
+    ...meta,
+    license: `https://github.com/angus-c/just/blob/master/packages/${params.name}/LICENSE`,
+    source: `https://github.com/angus-c/just/tree/master/packages/${params.name}/index.mjs`,
+  }
+    
   return json<z.input<typeof libraryItemWithContentSchema>>({
     name: file.name,
-    meta: {
-      ...meta,
-      source: file.html_url ?? meta.source,
-    },
+    meta: itemMeta,
     files: [
       {
-        name: file.name,
+        name: `${params.name}.mjs`,
         content: [
-          `// ${meta.name}`,
-          `// ${meta.license}`,
+          `// just/${params.name}`,
+          `// ${itemMeta.license}`,
           await fetch(file.download_url).then((res) => res.text()),
         ].join("\n"),
       },
