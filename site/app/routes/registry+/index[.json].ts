@@ -15,6 +15,7 @@ import { meta as blueprintIconsMeta } from "./@blueprintjs.icons[.json].js"
 import { meta as tablerIconsMeta } from "./tabler-icons[.json].js"
 import { meta as materialDesignIconsMeta } from "./material-design-icons[.json].js"
 import { meta as draftUiMeta } from "./draft-ui[.json].js"
+import { meta as justMeta } from './just[.json].js'
 
 import type { registryIndexSchema } from "../../schemas.js"
 import cachified from "cachified"
@@ -43,6 +44,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       lucideMeta,
       iconoirMeta,
       jollyUiMeta,
+      justMeta,
       radixMeta,
       simpleIconsMeta,
       shadcnMeta,
