@@ -95,6 +95,9 @@ jobs:
           git commit -m "chore: bump version to ${{ env.NEW_VERSION }}"
           git push https://${{ secrets.GITHUB_TOKEN }}@github.com/jacobparis-insiders/sly.git HEAD:main
 
+      - name: Rebuild CLI with new version
+        run: npm run build -w cli
+
       - name: Create GitHub Release
         uses: actions/create-release@v1
         if: github.ref == 'refs/heads/main'
