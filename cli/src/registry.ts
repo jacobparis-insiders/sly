@@ -9,8 +9,7 @@ import {
 } from "site/app/schemas.js"
 import * as z from "zod"
 
-import { cachified } from "cachified"
-import { cache, dumpCache } from "./cache.js"
+import { cachified, dumpCache } from "./cache.js"
 import { logger } from "./logger.js"
 
 const baseUrl = process.env.REGISTRY_URL || "https://sly-cli.fly.dev"
@@ -62,7 +61,6 @@ async function fetchRegistry(paths: string[]) {
         cachified({
           // TODO: add package.json version to key
           key: `${baseUrl}/registry/${path}`,
-          cache,
           async getFreshValue() {
             return fetch(`${baseUrl}/registry/${path}`).then((response) =>
               response.json()
