@@ -8,10 +8,12 @@ import { refresh } from "./commands/refresh.js"
 import { libraryCommand } from "./commands/library.js"
 import { checkVersion } from "./check-version.js"
 import packageJson from "../package.json"
+import { healthcheck } from "./healthcheck.js"
 
 process.on("SIGINT", () => process.exit(0))
 process.on("SIGTERM", () => process.exit(0))
 
+await healthcheck()
 await checkVersion()
 void restoreCache()
 
