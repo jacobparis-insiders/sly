@@ -8,34 +8,62 @@ import { getGithubDirectory } from "../../github.server.js"
 
 export const meta = {
   name: "tabler-icons",
-  source: "https://github.com/tabler/tabler-icons/tree/master/icons",
+  source: "https://github.com/tabler/tabler-icons/tree/main/icons",
   description: "A set of over 4800 free MIT-licensed high-quality SVG icons.",
-  license: "https://github.com/tabler/tabler-icons/blob/master/LICENSE",
+  license: "https://github.com/tabler/tabler-icons/blob/main/LICENSE",
   tags: ["icons"],
 } as const satisfies Meta
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const files = await getGithubDirectory({
+  const whenOutlines = getGithubDirectory({
     owner: "tabler",
     repo: "tabler-icons",
-    path: "icons",
-    ref: "master",
-  })
+    path: "icons/outline",
+    ref: "main",
+  }).then((resources) =>
+    resources
+      .filter((file) => {
+        if (!file.path?.endsWith(".svg")) return false
 
-  const resources = files
-    .filter((file) => {
-      if (!file.path?.endsWith(".svg")) return false
+        return true
+      })
+      .map((file) => {
+        if (!file.path) throw new Error("File path is undefined")
 
-      return true
-    })
-    .map((file) => {
-      if (!file.path) throw new Error("File path is undefined")
+        return {
+          name: file.path
+            ?.replace(/^icons\/outline\//, "")
+            .replace(/\.svg$/, "-outline"),
+        }
+      })
+  )
 
-      return {
-        name: file.path?.replace(/^icons\//, "").replace(/\.svg$/, ""),
-      }
-    })
+  const whenFilled = getGithubDirectory({
+    owner: "tabler",
+    repo: "tabler-icons",
+    path: "icons/filled",
+    ref: "main",
+  }).then((resources) =>
+    resources
+      .filter((file) => {
+        if (!file.path?.endsWith(".svg")) return false
 
+        return true
+      })
+      .map((file) => {
+        if (!file.path) throw new Error("File path is undefined")
+
+        return {
+          name: file.path
+            ?.replace(/^icons\/filled\//, "")
+            .replace(/\.svg$/, "-filled"),
+        }
+      })
+  )
+
+  const resources = [...(await whenOutlines), ...(await whenFilled)].sort(
+    (a, b) => a.name.localeCompare(b.name)
+  )
   return json<z.input<typeof libraryIndexSchema>>({
     version: "1.0.0",
     meta,
