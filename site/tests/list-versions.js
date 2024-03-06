@@ -1,5 +1,4 @@
 import fs from "fs"
-import fetch from "node-fetch"
 
 const versions = await fetchSupportedVersions()
 
