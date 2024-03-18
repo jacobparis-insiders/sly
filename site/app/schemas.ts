@@ -77,3 +77,27 @@ export const npmSchema = z.object({
     latest: z.string(),
   }),
 })
+export const libraryConfigSchema = z
+  .object({
+    name: z.string(),
+    directory: z.string(),
+    postinstall: z.union([z.string().optional(), z.array(z.string())]),
+    transformers: z.array(z.string()),
+  })
+  .strict()
+
+export type LibraryConfig = z.infer<typeof libraryConfigSchema>
+
+export const configSchema = z
+  .object({
+    $schema: z.string().optional(),
+    libraries: z.array(libraryConfigSchema),
+  })
+  .strict()
+
+export type Config = z.infer<typeof configSchema>
+
+export const ConfigResponseSchema = z.object({
+  type: z.literal("config-response"),
+  value: configSchema,
+})

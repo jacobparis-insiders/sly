@@ -8,4 +8,5 @@ export default defineConfig({
   sourcemap: true,
   target: "esnext",
   outDir: "dist",
+  platform: "node",
 })

@@ -1,9 +1,5 @@
-import {
-  LibraryConfig,
-  getConfig,
-  libraryConfigSchema,
-  setConfig,
-} from "~/src/get-config.js"
+import { getConfig, setConfig } from "~/src/get-config.js"
+import { LibraryConfig, libraryConfigSchema } from "site/app/schemas.js"
 import { logger } from "~/src/logger.js"
 import { Command } from "commander"
 import chalk from "chalk"

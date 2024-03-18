@@ -1,9 +1,9 @@
 import { promises as fs } from "fs"
 
 import { cosmiconfig } from "cosmiconfig"
-import * as z from "zod"
 import ora from "ora"
 import { logger } from "./logger.js"
+import { Config, configSchema } from "site/app/schemas.js"
 
 // Use singleton so we can lazy load the env vars, which might be set as flags
 let explorer: ReturnType<typeof cosmiconfig> | null
@@ -25,26 +25,6 @@ function getExplorer() {
   }
   return explorer
 }
-
-export const libraryConfigSchema = z
-  .object({
-    name: z.string(),
-    directory: z.string(),
-    postinstall: z.union([z.string().optional(), z.array(z.string())]),
-    transformers: z.array(z.string()),
-  })
-  .strict()
-
-export type LibraryConfig = z.infer<typeof libraryConfigSchema>
-
-export const configSchema = z
-  .object({
-    $schema: z.string().optional(),
-    libraries: z.array(libraryConfigSchema),
-  })
-  .strict()
-
-export type Config = z.infer<typeof configSchema>
 
 export async function getConfigFilepath() {
   // ? Should this be an environment variable?

@@ -1,0 +1,9 @@
+{
+  "$schema": "https://www.partykit.io/schema.json",
+  "name": "sly",
+  "main": "party/server.ts",
+  "compatibilityDate": "2024-01-28",
+  "parties": {
+    "cli": "party/cli.ts"
+  }
+}

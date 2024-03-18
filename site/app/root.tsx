@@ -1,23 +1,58 @@
 // http://localhost:3000
 
-import tailwindStylesheet from "./tailwind.css"
-import type { LinksFunction } from "@remix-run/node"
+import "./tailwind.css"
+import type { LinksFunction, LoaderFunctionArgs } from "@remix-run/node"
 import {
+  Link,
   Links,
   LiveReload,
   Meta,
   Outlet,
   Scripts,
   ScrollRestoration,
+  json,
+  redirect,
+  useLoaderData,
+  useRouteLoaderData,
 } from "@remix-run/react"
 import { ButtonLink } from "./components/ButtonLink"
 import { Icon } from "./components/icon"
+import usePartySocket from "partysocket/react"
+import { useState } from "react"
+import { getValueFromCookie } from "./misc"
 
-export const links: LinksFunction = () => [
-  { rel: "stylesheet", href: tailwindStylesheet },
-]
+export async function loader({ request }: LoaderFunctionArgs) {
+  const url = new URL(request.url)
+  let connectionId = url.searchParams.get("connectionId")
+  if (connectionId) {
+    throw redirect(url.pathname, {
+      headers: {
+        "Set-Cookie": `connectionId=${connectionId}; Path=/; HttpOnly; SameSite=Strict;`,
+      },
+    })
+  } else {
+    connectionId = getValueFromCookie(
+      request.headers.get("Cookie"),
+      "connectionId"
+    )
+  }
+
+  return json({
+    connectionId,
+  })
+}
+
+export function useRootLoaderData() {
+  const data = useRouteLoaderData<typeof loader>("root")
+
+  if (!data) throw new Error("Missing root loader data")
+
+  return data
+}
 
 export default function App() {
+  const { connectionId } = useLoaderData<typeof loader>()
+
   return (
     <html lang="en">
       <head>
@@ -78,6 +113,11 @@ export default function App() {
                   </li>
                 </ul>
               </div>
+              {connectionId ? (
+                <div className="bg-white text-sm py-1 px-4 ">
+                  <ConnectionStatus />
+                </div>
+              ) : null}
             </div>
           </div>
           <Outlet />
@@ -87,5 +127,61 @@ export default function App() {
         <LiveReload />
       </body>
     </html>
+  )
+}
+function ConnectionStatus() {
+  const { connectionId } = useRootLoaderData()
+  const [connectionState, setConnectionState] = useState<
+    "idle" | "connected" | "disconnected"
+  >("idle")
+
+  const ws = usePartySocket({
+    host: "127.0.0.1:1999",
+    room: `${connectionId}`,
+    party: "cli",
+    startClosed: !connectionId,
+
+    // in addition, you can provide socket lifecycle event handlers
+    // (equivalent to using ws.addEventListener in an effect hook)
+    onOpen() {
+      console.log("connected")
+    },
+    onMessage(e) {
+      const message = JSON.parse(e.data)
+      if (message.type === "connected") {
+        setConnectionState("connected")
+      } else if (message.type === "disconnected") {
+        setConnectionState("disconnected")
+      }
+      console.log("message", e.data)
+    },
+    onClose() {
+      console.log("closed")
+    },
+    onError(e) {
+      console.log("error")
+    },
+  })
+
+  return (
+    <span className="flex items-center gap-x-2">
+      {connectionState === "connected" ? (
+        <>
+          <span className="inline-block w-2 h-2 rounded-full bg-green-700" />{" "}
+          Connected to CLI
+          <Link to="/icons" className="ml-2 text-blue-600">
+            Icons
+          </Link>
+          <Link to="/config" className="ml-2 text-blue-600">
+            Config
+          </Link>
+        </>
+      ) : (
+        <>
+          <span className="inline-block w-2 h-2 rounded-full bg-red-700" /> Not
+          connected
+        </>
+      )}
+    </span>
   )
 }
