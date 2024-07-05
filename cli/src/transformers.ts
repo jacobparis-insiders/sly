@@ -4,7 +4,7 @@ import { Transformer } from "./index.js"
 import { logger } from "~/src/logger.js"
 import { getConfigFilepath } from "./get-config.js"
 import chalk from "chalk"
-import { pathToFileURL } from "url";
+import { pathToFileURL } from "url"
 
 export async function resolveTransformers(transformers: string[]) {
   const modules = await Promise.all(

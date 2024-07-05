@@ -42,7 +42,8 @@ export async function cachified<Value>(
 }
 
 const CACHE_DIRECTORY =
-  process.env.CACHE_DIRECTORY || "node_modules/.cache/@sly-cli"
+  process.env.CACHE_DIRECTORY ||
+  path.join(process.env.CWD || process.cwd(), "node_modules/.cache/@sly-cli")
 const CACHE_FILENAME = path.join(CACHE_DIRECTORY, "sly.json")
 
 export function dumpCache() {

@@ -23,6 +23,7 @@ const program = new Command()
   .option("-y, --yes", "skip confirmation prompt.", false)
   // flags with --no are inverted, so this is yes-cache by default
   .option("--no-cache", "disable caching.", true)
+  .option("--cwd <path>", "the current working directory.")
   .version(packageJson.version, "-v, --version", "display the version number")
   .hook("preAction", () => {
     // This runs before every command, so this is our global state
@@ -31,6 +32,7 @@ const program = new Command()
     // Flags override env vars
     process.env.YES = options.yes ? "true" : ""
     process.env.CACHE = options.cache ? "true" : ""
+    process.env.CWD = options.cwd
   })
 
 program
