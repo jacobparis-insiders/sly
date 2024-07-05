@@ -23,7 +23,8 @@
   },
   "files": [
     "dist",
-    "ts-loader.js"
+    "ts-loader.js",
+    "register.js"
   ],
   "keywords": [
     "jacobparis"
