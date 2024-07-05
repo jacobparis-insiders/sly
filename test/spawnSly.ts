@@ -14,6 +14,7 @@ export async function spawnSly(
   })
 
   const env = await prepareEnvironment()
+  env.writeFile("package.json", JSON.stringify({ name: "sly-test-app" }))
 
   let previousStdout = [""]
   let previousStderr = [""]

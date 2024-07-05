@@ -57,4 +57,8 @@ async function getProjectRoot() {
     }
     dir = dirname(dir)
   }
+
+  throw new Error(
+    "No package.json found in any parent directory. To set the project root explicitly, use the flag `--cwd <path>`"
+  )
 }
