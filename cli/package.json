@@ -1,6 +1,6 @@
 {
   "name": "@sly-cli/sly",
-  "version": "1.11.0",
+  "version": "1.12.0",
   "description": "Sly is a CLI tool to add components, icons, and utilities as code, not dependencies.",
   "type": "module",
   "exports": {
