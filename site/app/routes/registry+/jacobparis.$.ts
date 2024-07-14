@@ -29,7 +29,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
       checkValue: libraryIndexSchema,
       getFreshValue: async () => {
         // handle root index / and specific items
-        return fetch(`http://localhost:3003/registry/${slug}`).then(
+        return fetch(`http://www.jacobparis.com/registry/${slug}`).then(
           (response) => response.json()
         )
       },
@@ -43,7 +43,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
       forceFresh: true,
       checkValue: libraryItemWithContentSchema,
       getFreshValue: async () => {
-        return fetch(`http://localhost:3003/registry/${slug}`).then(
+        return fetch(`http://www.jacobparis.com/registry/${slug}`).then(
           (response) => response.json()
         )
       },
