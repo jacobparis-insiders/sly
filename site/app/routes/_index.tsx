@@ -54,6 +54,11 @@ export default function Index() {
     [libraries]
   )
 
+  const utilLibraries = useMemo(
+    () => libraries.filter(({ tags }) => tags.includes("utilities")),
+    [libraries]
+  )
+
   const [isCopied, setIsCopied] = useState(false)
 
   return (
@@ -178,6 +183,29 @@ export default function Index() {
 
       <ul className="mt-8 flex flex-wrap text-xl text-neutral-600 gap-x-4 gap-y-2">
         {uiLibraries.map(({ source, name }) => (
+          <li key={source}>
+            <a
+              href={source}
+              target="_blank"
+              rel="noopener  noreferrer"
+              className="block shadow-sm px-4 py-2 bg-neutral-100 rounded-3xl no-underline hover:bg-neutral-200"
+            >
+              {name}
+            </a>
+          </li>
+        ))}
+      </ul>
+
+      <h3 className="mt-16 font-bold text-2xl text-neutral-600">
+        Utility functions
+      </h3>
+
+      <p className="mt-4 max-w-prose text-xl text-neutral-600">
+        Grab one-off functions instead of installing a full-featured library.
+      </p>
+
+      <ul className="mt-8 flex flex-wrap text-xl text-neutral-600 gap-x-4 gap-y-2">
+        {utilLibraries.map(({ source, name }) => (
           <li key={source}>
             <a
               href={source}

@@ -8,8 +8,7 @@ import { getGithubDirectory } from "../../github.server.js"
 
 export const meta = {
   name: "@blueprintjs/icons",
-  source:
-    "https://github.com/palantir/blueprint/tree/develop/resources/icons/16px",
+  source: "https://blueprintjs.com/docs/#icons/icons-list",
   description: "Blueprint is a React UI toolkit for the web.",
   license: "https://github.com/palantir/blueprint/blob/develop/LICENSE",
   tags: ["icons"],

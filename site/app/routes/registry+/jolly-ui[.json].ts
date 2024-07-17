@@ -17,7 +17,7 @@ export const jollyFile = z.object({
 
 export const meta = {
   name: "jolly-ui",
-  source: "https://github.com/jolbol1/jolly-ui",
+  source: "https://www.jollyui.dev/",
   description:
     "shadcn/ui compatible react aria components that you can copy and paste into your apps. Accessible. Customizable. Open Source.",
   license: "https://github.com/jolbol1/jolly-ui/blob/main/LICENSE.md",

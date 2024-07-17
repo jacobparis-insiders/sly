@@ -8,7 +8,7 @@ import { getGithubDirectory } from "../../github.server.js"
 
 export const meta = {
   name: "just",
-  source: "https://github.com/angus-c/just",
+  source: "https://anguscroll.com/just/",
   description:
     "A library of dependency-free JavaScript utilities that do just one thing.",
   license: "https://github.com/angus-c/just",
@@ -32,10 +32,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     .map((file) => {
       if (!file.path) throw new Error("File path is undefined")
 
-      const regex = /packages\/([^\/]+)\//;
-      const match = file.path.match(regex);
+      const regex = /packages\/([^\/]+)\//
+      const match = file.path.match(regex)
       return {
-        name: match ? match[1] : 'unknown'
+        name: match ? match[1] : "unknown",
       }
     })
 

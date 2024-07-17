@@ -8,7 +8,7 @@ import { getGithubDirectory } from "../../github.server.js"
 
 export const meta = {
   name: "iconoir",
-  source: "https://github.com/iconoir-icons/iconoir/tree/main/icons",
+  source: "https://iconoir.com/",
   description: "An open source icons library with 1300+ icons.",
   license: "https://github.com/iconoir-icons/iconoir/blob/main/LICENSE",
   tags: ["icons"],

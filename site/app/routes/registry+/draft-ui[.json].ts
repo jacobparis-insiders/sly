@@ -8,7 +8,7 @@ import { getGithubDirectory } from "../../github.server.js"
 
 export const meta = {
   name: "draft-ui",
-  source: "https://github.com/IHIutch/draft-ui",
+  source: "https://draft-ui.com/",
   description:
     "Draft UI is a collection of simply designed React components focused on making web accessibility as easy as copy & paste.",
   license: "https://github.com/IHIutch/draft-ui",

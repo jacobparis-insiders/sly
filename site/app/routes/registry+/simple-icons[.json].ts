@@ -8,7 +8,7 @@ import { getGithubDirectory } from "../../github.server.js"
 
 export const meta = {
   name: "simple-icons",
-  source: "https://github.com/simple-icons/simple-icons/tree/develop/icons",
+  source: "https://simpleicons.org/",
   description: "Over 2500 Free SVG icons for popular brands",
   license:
     "https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md",

@@ -8,7 +8,7 @@ import { getGithubDirectory } from "../../github.server.js"
 
 export const meta = {
   name: "material-design-icons",
-  source: "https://github.com/marella/material-design-icons/tree/main/svg",
+  source: "https://marella.me/material-design-icons/demo/font/",
   description: "Material Design icons by Google",
   license:
     "https://github.com/google/material-design-icons/blob/master/LICENSE",

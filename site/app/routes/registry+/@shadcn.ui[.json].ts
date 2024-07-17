@@ -17,7 +17,7 @@ export const shadcnFile = z.object({
 
 export const meta = {
   name: "@shadcn/ui",
-  source: "https://github.com/shadcn/ui",
+  source: "https://ui.shadcn.com/",
   description:
     "Beautifully designed components that you can copy and paste into your apps.",
   license: "https://github.com/shadcn/ui/blob/main/LICENSE.md",

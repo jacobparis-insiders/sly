@@ -9,7 +9,7 @@ import {
 
 export const meta = {
   name: "jacobparis/ui",
-  source: "https://github.com/jacobparis-insiders/jacobparis.com",
+  source: "https://www.jacobparis.com/ui",
   description: "UI components, compatible with shadcn/ui design systems.",
   license: "https://github.com/jacobparis-insiders/jacobparis.com",
   tags: ["ui"],

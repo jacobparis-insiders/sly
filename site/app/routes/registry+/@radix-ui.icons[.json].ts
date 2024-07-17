@@ -8,8 +8,7 @@ import { getGithubDirectory } from "../../github.server.js"
 
 export const meta = {
   name: "@radix-ui/icons",
-  source:
-    "https://github.com/radix-ui/icons/tree/master/packages/radix-icons/icons",
+  source: "https://www.radix-ui.com/icons",
   description: "A crisp set of 15×15 icons designed by the WorkOS team.",
   license: "https://github.com/radix-ui/icons/blob/master/LICENSE",
   tags: ["icons"],

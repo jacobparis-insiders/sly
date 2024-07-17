@@ -8,7 +8,7 @@ import { getGithubDirectory } from "../../github.server.js"
 
 export const meta = {
   name: "tabler-icons",
-  source: "https://github.com/tabler/tabler-icons/tree/main/icons",
+  source: "https://tablericons.com/",
   description: "A set of over 4800 free MIT-licensed high-quality SVG icons.",
   license: "https://github.com/tabler/tabler-icons/blob/main/LICENSE",
   tags: ["icons"],

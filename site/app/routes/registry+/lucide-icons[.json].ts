@@ -8,7 +8,7 @@ import { getGithubDirectory } from "../../github.server.js"
 
 export const meta = {
   name: "lucide-icons",
-  source: "https://github.com/lucide-icons/lucide/tree/main/icons",
+  source: "https://lucide.dev/icons/",
   description:
     "Community-run fork of Feather Icons, open for anyone to contribute icons.",
   license: "https://github.com/lucide-icons/lucide/blob/main/LICENSE",
