@@ -98,6 +98,10 @@ jobs:
       - name: Rebuild CLI with new version
         run: npm run build -w cli
 
+      - name: Publish to pkg.pr.new
+        if: github.ref != 'refs/heads/main'
+        run: npx -w cli pkg-pr-new publish
+
       - name: Create GitHub Release
         uses: actions/create-release@v1
         if: github.ref == 'refs/heads/main'
@@ -110,6 +114,7 @@ jobs:
           prerelease: false
 
       - name: Set up .npmrc
+        if: github.ref == 'refs/heads/main'
         run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
 
       - name: Publish to npm

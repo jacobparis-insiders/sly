@@ -20,7 +20,7 @@ function getExplorer() {
       searchPlaces: directories.flatMap((dir) =>
         paths.map((path) => `${dir}/${path}`)
       ),
-      cache: Boolean(process.env.CACHE),
+      cache: false,
     })
   }
   return explorer
@@ -91,11 +91,6 @@ export async function setConfig(fn: (config: Config) => Config) {
     JSON.stringify(newConfig, null, 2),
     "utf8"
   )
-
-  if (process.env.CACHE) {
-    // future getConfig calls will return stale data if we don't clear it
-    getExplorer().clearSearchCache()
-  }
 
   spinner.succeed()
 }

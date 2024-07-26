@@ -3,8 +3,6 @@
 import { add } from "~/src/commands/add.js"
 import { init } from "~/src/commands/init.js"
 import { Command } from "commander"
-import { restoreCache } from "./cache.js"
-import { refresh } from "./commands/refresh.js"
 import { libraryCommand } from "./commands/library.js"
 import { checkVersion } from "./check-version.js"
 import packageJson from "../package.json"
@@ -15,14 +13,11 @@ process.on("SIGTERM", () => process.exit(0))
 
 await healthcheck()
 await checkVersion()
-void restoreCache()
 
 const program = new Command()
   .name("sly")
   .description("add components, icons, and utilities as code, not dependencies")
   .option("-y, --yes", "skip confirmation prompt.", false)
-  // flags with --no are inverted, so this is yes-cache by default
-  .option("--no-cache", "disable caching.", true)
   .option("--cwd <path>", "the current working directory.")
   .version(packageJson.version, "-v, --version", "display the version number")
   .hook("preAction", () => {
@@ -31,15 +26,10 @@ const program = new Command()
 
     // Flags override env vars
     process.env.YES = options.yes ? "true" : ""
-    process.env.CACHE = options.cache ? "true" : ""
     process.env.CWD = options.cwd
   })
 
-program
-  .addCommand(init)
-  .addCommand(add)
-  .addCommand(refresh)
-  .addCommand(libraryCommand)
+program.addCommand(init).addCommand(add).addCommand(libraryCommand)
 
 program.parse()
 

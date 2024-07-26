@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { fileURLToPath } from "node:url"
-import { dirname, join } from "node:path"
+import { dirname, join, parse } from "node:path"
 import { existsSync } from "node:fs"
 import { spawn } from "node:child_process"
 
@@ -28,9 +28,10 @@ if (existsSync(slyPath)) {
 const argsWithoutCwdAndValue = args.filter(
   (arg) => arg !== "--cwd" && arg !== projectRoot
 )
+
 // Execute the real Sly CLI with the provided arguments
 const child = spawn(
-  "node",
+  process.execPath, // Use process.execPath instead of "node"
   [
     join(__dirname, "dist", "index.js"),
     "--cwd",
@@ -39,7 +40,7 @@ const child = spawn(
   ],
   {
     stdio: "inherit",
-    shell: true,
+    shell: false,
     cwd: projectRoot,
     env,
   }
@@ -49,9 +50,21 @@ child.on("error", (err) => {
   console.error(`Failed to start subprocess: ${err.message}`)
 })
 
+child.on("exit", (code, signal) => {
+  if (signal) {
+    console.log(
+      `Child process was terminated due to receipt of signal ${signal}`
+    )
+    process.exit(1)
+  } else {
+    process.exit(code)
+  }
+})
+
 async function getProjectRoot() {
   let dir = process.cwd()
-  while (dir !== "/") {
+  const root = parse(dir).root
+  while (dir !== root) {
     if (existsSync(join(dir, "package.json"))) {
       return dir
     }
