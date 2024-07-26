@@ -33,8 +33,6 @@ export async function cachified<Value>(
     cache,
     staleWhileRevalidate: Infinity,
     ttl: 0,
-    // If the user has disabled the cache, force a fresh value
-    forceFresh: process.env.CACHE !== "true",
     ...options,
     // When they update the CLI, get fresh values
     key: `${packageJson.version}-${options.key}`,
