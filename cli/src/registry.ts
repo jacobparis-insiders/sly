@@ -9,7 +9,7 @@ import {
 } from "site/app/schemas.js"
 import * as z from "zod"
 
-import { cachified, dumpCache } from "./cache.js"
+import { cachified } from "./cache.js"
 import { logger } from "./logger.js"
 import { CachifiedOptions } from "@epic-web/cachified"
 
@@ -80,10 +80,6 @@ async function fetchRegistry<Value>(
         })
       )
     )
-
-    if (process.env.CACHE) {
-      void dumpCache()
-    }
 
     return response
   } catch (error) {
