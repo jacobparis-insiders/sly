@@ -19,7 +19,7 @@ import { meta as justMeta } from "./just[.json].js"
 import { meta as jacobparisUiMeta } from "./jacobparis.$.js"
 
 import type { registryIndexSchema } from "../../schemas.js"
-import cachified from "cachified"
+import cachified from "@epic-web/cachified"
 import { cache } from "../../cache.server.js"
 import { npmSchema } from "../../schemas.js"
 
