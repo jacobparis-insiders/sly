@@ -1,16 +1,62 @@
 import { Octokit } from "octokit"
-import cachified from "cachified"
+import cachified from "@epic-web/cachified"
 import { cache } from "./cache.server.js"
+import { remember } from "@epic-web/remember"
 
-declare global {
-  var __octokit: Octokit
+export const octokit = remember(
+  "__octokit",
+  () =>
+    new Octokit({
+      auth: process.env.GITHUB_PAT,
+    })
+)
+// return a list of folder names
+export async function getGithubIndex<Path extends string>({
+  owner,
+  repo,
+  path,
+  ref = "main",
+}: {
+  owner: string
+  repo: string
+  path: Path
+  ref?: string
+}) {
+  return cachified({
+    cache,
+    key: `github/${owner}/${repo}/${path}`,
+    staleWhileRevalidate: Infinity, // 1 hour
+    ttl: 1000 * 60 * 60, // 1 hour
+    forceFresh: false,
+    async getFreshValue() {
+      console.log(`Cache miss for github index ${owner}/${repo}/${path}`)
+
+      const latestCommit = await octokit.rest.repos.getCommit({
+        owner,
+        repo,
+        path,
+        ref,
+      })
+
+      const tree = await octokit.rest.git.getTree({
+        owner,
+        repo,
+        tree_sha: latestCommit.data.sha,
+        recursive: "true",
+      })
+
+      const files = tree.data.tree.flatMap((file) => {
+        if (file.type !== "tree") return []
+        if (!file.path) return []
+        if (!file.path.startsWith(`${path}/`)) return []
+
+        return [file.path]
+      })
+
+      return files
+    },
+  })
 }
-
-if (!globalThis.__octokit) {
-  globalThis.__octokit = new Octokit()
-}
-
-export const octokit = globalThis.__octokit
 
 export async function getGithubDirectory<Path extends string>({
   owner,
@@ -26,15 +72,16 @@ export async function getGithubDirectory<Path extends string>({
   return cachified({
     cache,
     key: `github/${owner}/${repo}/${path}`,
-    staleWhileRevalidate: 1000 * 60 * 60, // 1 hour
+    staleWhileRevalidate: Infinity,
     ttl: 1000 * 60 * 60, // 1 hour
+    forceFresh: false,
     async getFreshValue() {
       console.log(`Cache miss for github directory ${owner}/${repo}/${path}`)
       // get latest commit for directory path
       const latestCommit = await octokit.rest.repos.getCommit({
         owner,
         repo,
-        path: "icons",
+        path,
         ref,
       })
 
@@ -81,6 +128,7 @@ export async function getGithubFile<Path extends string>({
     key: `github/${owner}/${repo}/${path}`,
     staleWhileRevalidate: 1000 * 60 * 60, // 1 hour
     ttl: 1000 * 60 * 60, // 1 hour
+    forceFresh: false,
     async getFreshValue() {
       console.log(`Cache miss for github file ${owner}/${repo}/${path}`)
 

@@ -2,7 +2,7 @@
 // https://sly-cli.fly.dev/registry/jolly-ui.json
 
 import { json, type LoaderFunctionArgs } from "@remix-run/node"
-import cachified from "cachified"
+import cachified from "@epic-web/cachified"
 import { z } from "zod"
 import { cache } from "../../cache.server"
 import type { libraryIndexSchema, Meta } from "../../schemas"

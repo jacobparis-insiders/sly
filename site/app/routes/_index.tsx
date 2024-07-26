@@ -4,7 +4,7 @@
 import type { MetaFunction, LoaderFunctionArgs } from "@remix-run/node"
 import { useLoaderData } from "@remix-run/react"
 import copy from "copy-to-clipboard"
-import cachified from "cachified"
+import cachified from "@epic-web/cachified"
 import { useMemo, useState } from "react"
 import { cache } from "~/cache.server"
 import { Icon } from "~/components/icon"

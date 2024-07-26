@@ -13,11 +13,12 @@
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@epic-web/cachified": "^5.2.0",
+    "@epic-web/remember": "^1.1.0",
     "@remix-run/css-bundle": "^2.4.0",
     "@remix-run/node": "^2.4.0",
     "@remix-run/react": "^2.4.0",
     "@remix-run/serve": "^2.4.0",
-    "cachified": "^3.5.4",
     "compare-versions": "^6.1.0",
     "execa": "^7.1.1",
     "isbot": "^3.6.8",

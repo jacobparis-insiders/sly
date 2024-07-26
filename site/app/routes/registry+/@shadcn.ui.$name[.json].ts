@@ -6,7 +6,7 @@ import { meta } from "./@shadcn.ui[.json].js"
 import { z } from "zod"
 import type { libraryItemWithContentSchema } from "../../schemas.js"
 import { cache } from "../../cache.server.js"
-import cachified from "cachified"
+import cachified from "@epic-web/cachified"
 const shadcnFile = z.object({
   name: z.string(),
   dependencies: z.array(z.string()).optional(),

@@ -1,5 +1,5 @@
 import { type LoaderFunctionArgs } from "@remix-run/node"
-import cachified from "cachified"
+import cachified from "@epic-web/cachified"
 import { cache } from "~/cache.server"
 import {
   libraryItemWithContentSchema,

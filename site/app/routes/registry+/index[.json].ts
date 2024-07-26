@@ -17,9 +17,10 @@ import { meta as materialDesignIconsMeta } from "./material-design-icons[.json].
 import { meta as draftUiMeta } from "./draft-ui[.json].js"
 import { meta as justMeta } from "./just[.json].js"
 import { meta as jacobparisUiMeta } from "./jacobparis.$.js"
+import { meta as remixiconMeta } from "./remixicon[.json].js"
 
 import type { registryIndexSchema } from "../../schemas.js"
-import cachified from "cachified"
+import cachified from "@epic-web/cachified"
 import { cache } from "../../cache.server.js"
 import { npmSchema } from "../../schemas.js"
 
@@ -49,6 +50,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       lucideMeta,
       materialDesignIconsMeta,
       radixMeta,
+      remixiconMeta,
       shadcnMeta,
       simpleIconsMeta,
       tablerIconsMeta,
