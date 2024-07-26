@@ -100,7 +100,7 @@ jobs:
 
       - name: Publish to pkg.pr.new
         if: github.ref != 'refs/heads/main'
-        run: npx pkg-pr-new publish
+        run: npx -w cli pkg-pr-new publish
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
