@@ -12,7 +12,7 @@ import { registryIndexSchema } from "~/schemas"
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "Add code, not dependencies, with Sly CLi" },
+    { title: "Add code, not dependencies, with Sly CLI" },
     {
       name: "description",
       content: "Add components, icons, and utilities to your app.",
