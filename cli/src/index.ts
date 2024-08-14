@@ -7,6 +7,7 @@ import { libraryCommand } from "./commands/library.js"
 import { checkVersion } from "./check-version.js"
 import packageJson from "../package.json"
 import { healthcheck } from "./healthcheck.js"
+import { template } from "./commands/template.js"
 
 process.on("SIGINT", () => process.exit(0))
 process.on("SIGTERM", () => process.exit(0))
@@ -29,7 +30,11 @@ const program = new Command()
     process.env.CWD = options.cwd
   })
 
-program.addCommand(init).addCommand(add).addCommand(libraryCommand)
+program
+  .addCommand(init)
+  .addCommand(add)
+  .addCommand(libraryCommand)
+  .addCommand(template)
 
 program.parse()
 

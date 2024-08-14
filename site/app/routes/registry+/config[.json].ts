@@ -10,6 +10,21 @@ export async function loader({ request }: LoaderFunctionArgs) {
     type: "object",
     required: ["libraries"],
     properties: {
+      template: {
+        type: "object",
+        properties: {
+          repository: {
+            type: "string",
+            description: "The repository to use as a template",
+            format: "uri",
+          },
+          head: {
+            type: "string",
+            description:
+              "The commit from which you forked the template or last updated from it.",
+          },
+        },
+      },
       libraries: {
         type: "array",
         items: {

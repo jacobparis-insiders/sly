@@ -40,6 +40,13 @@ export type LibraryConfig = z.infer<typeof libraryConfigSchema>
 export const configSchema = z
   .object({
     $schema: z.string().optional(),
+    template: z
+      .object({
+        repo: z.string().url("Repo must be a valid GitHub URL").optional(),
+        head: z.string().optional(),
+        ignore: z.array(z.string()).optional(),
+      })
+      .optional(),
     libraries: z.array(libraryConfigSchema),
   })
   .strict()
