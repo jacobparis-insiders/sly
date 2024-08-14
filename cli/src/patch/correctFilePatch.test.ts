@@ -1082,3 +1082,47 @@ async function generateIconFiles() {
      	)
   `)
 })
+
+test("doesn't retain additions if it's just a symbol", () => {
+  const patchText = `diff --git a/vite.config.ts b/vite.config.ts
+index 3bebdb3..ff10d2e 100644
+--- a/vite.config.ts
++++ b/vite.config.ts
+@@ -0,5 +0,10 @@ export default defineConfig({
+ 		rollupOptions: {
+ 			external: [/node:.*/, 'stream', 'crypto', 'fsevents'],
+ 		},
++		assetsInlineLimit: (source: string) => {
++			if (source.endsWith('sprite.svg')) {
++				return false
++			}
++		},
+ 	},
+`
+
+  const targetFileContent = `
+export default defineConfig({
+	build: {
+		cssMinify: MODE === 'production',
+		rollupOptions: {
+			external: [/node:.*/, 'stream', 'crypto', 'fsevents'],
+		},
+	},
+	plugins: [
+})`
+
+  expect(correctFilePatch(patchText, targetFileContent)).toMatchInlineSnapshot(`
+    --- a/vite.config.ts
+    +++ b/vite.config.ts
+    @@ -5,4 +5,9 @@
+     		rollupOptions: {
+     			external: [/node:.*/, 'stream', 'crypto', 'fsevents'],
+     		},
+    +		assetsInlineLimit: (source: string) => {
+    +			if (source.endsWith('sprite.svg')) {
+    +				return false
+    +			}
+    +		},
+     	},
+  `)
+})

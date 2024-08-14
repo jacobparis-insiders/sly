@@ -36,8 +36,6 @@ export function intersectPatches(patchA: string, patchB: string): string {
       candidates.set(hunk, score)
     }
 
-    console.log({ candidates })
-
     // return highest scoring candidate
     const bestMatch = Array.from(candidates.entries()).sort(
       (a, b) => b[1] - a[1]

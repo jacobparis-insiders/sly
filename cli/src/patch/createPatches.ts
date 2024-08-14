@@ -70,6 +70,7 @@ export async function createPatches({
               fs.writeFileSync(patchPath, minifyPatch(correctedPatch))
               fs.writeFileSync(patchPath + ".verbose", correctedPatch)
               fs.writeFileSync(patchPath + ".orig", diff)
+              console.log(chalk.cyan("M"), `${file}`)
             } else {
               console.log(chalk.yellow("SKIP M"), `${file} (no changes)`)
               continue

@@ -71,9 +71,10 @@ export function correctFilePatch(patchText: string, targetFileContent: string) {
 
       if (!line) continue
 
-      const exactMatchLine = Object.values(linesDict).find(
-        (content) => content === line.content
-      )
+      // line isn't just braces, and whitespace
+      const exactMatchLine =
+        !line.content.match(/^[{},\s]+$/) &&
+        Object.values(linesDict).find((content) => content === line.content)
 
       if (line.type === "add") {
         if (exactMatchLine) {
@@ -84,21 +85,15 @@ export function correctFilePatch(patchText: string, targetFileContent: string) {
             // instead of retaining we drop the removal entirely
 
             if (!Object.values(linesDict).includes(previousLine.content)) {
-              console.log("dropping removal", previousLine)
               hunk.lines.splice(hunkInd - 1, 1)
               hunk.categoryCounts.remove--
               hunkInd--
-              continue
             }
+
+            line.type = "retain"
+            hunk.categoryCounts.retain++
+            hunk.categoryCounts.add--
           }
-
-          console.log("retaining", line)
-          line.type = "retain"
-          hunk.categoryCounts.retain++
-          hunk.categoryCounts.add--
-          hunkInd++
-
-          continue
         }
       }
 

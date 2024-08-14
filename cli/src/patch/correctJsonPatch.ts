@@ -1,7 +1,11 @@
 import detectIndent from "detect-indent"
 import { Diff, Hunk } from "./Diff.js"
 
-export function correctJsonPatch(patchText: string, targetFileContent: string) {
+export function correctJsonPatch(
+  patchText: string,
+  targetFileContent: string,
+  options: { excludeKeys?: Array<string> } = {}
+) {
   const indent = detectIndent(targetFileContent).indent
   const linesDict = targetFileContent.split("\n").reduce(
     (acc, line, index) => {
@@ -122,6 +126,12 @@ export function correctJsonPatch(patchText: string, targetFileContent: string) {
                   batch.push(hunk.lines[j])
                   hunk.lines.splice(j, 1)
                 }
+
+                if (options?.excludeKeys?.includes(key)) {
+                  while (batch.pop()) {
+                    // this line intentionally left blank
+                  }
+                }
                 break
               }
             }
@@ -219,9 +229,6 @@ export function correctJsonPatch(patchText: string, targetFileContent: string) {
 
       // traverse in reverse to deal with adds first
       if (line.type === "add") {
-        if (lineKey === "jsdom") {
-          console.log(line)
-        }
         // if (!lineWithSameKey) {
         //   hunkInd--
         //   continue
@@ -309,8 +316,6 @@ export function correctJsonPatch(patchText: string, targetFileContent: string) {
       }
       hunkInd++
     }
-
-    console.log(hunk.startLinePostEdit)
   }
 
   diff.hunks = diff.hunks.filter(
