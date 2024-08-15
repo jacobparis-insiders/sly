@@ -24,11 +24,12 @@ export function correctJsonPatch(
     const extraHunks: Array<typeof rootHunk> = []
 
     let i = 0
+    const batch = []
     while (i < hunk.lines.length) {
       if (hunk.lines[i]?.type === "retain" || hunk.lines[i]?.type === "add") {
         let foundActionableLine = false
         const batchStartIndex = i
-        const batch = []
+        let lastRetainBeforeActionable
 
         for (; i < hunk.lines.length; i++) {
           if (hunk.lines[i].type === "remove") {
@@ -37,9 +38,20 @@ export function correctJsonPatch(
 
           if (hunk.lines[i].type === "add") {
             foundActionableLine = true
+            if (lastRetainBeforeActionable) {
+              batch.push(lastRetainBeforeActionable)
+              lastRetainBeforeActionable = undefined
+            }
+            batch.push(hunk.lines[i])
           }
 
-          batch.push(hunk.lines[i])
+          if (hunk.lines[i].type === "retain") {
+            if (!foundActionableLine) {
+              lastRetainBeforeActionable = hunk.lines[i]
+            } else {
+              batch.push(hunk.lines[i])
+            }
+          }
         }
 
         if (batch.length > 0 && foundActionableLine) {
@@ -50,13 +62,17 @@ export function correctJsonPatch(
           )
           newHunk.addLines(batch)
           extraHunks.push(newHunk)
+
+          if (batch.at(-1)?.type === "retain") {
+            batch.splice(0, batch.length - 1)
+          } else {
+            batch.length = 0
+          }
         }
       }
 
       if (hunk.lines[i]?.type === "remove") {
-        // add/remove pairs get their own batch
         const batchStartIndex = i
-        const batch = []
 
         const kvMatch =
           // "key": "value",
@@ -70,8 +86,12 @@ export function correctJsonPatch(
 
         if (!kvMatch || !kvMatch.groups) {
           batch.push(hunk.lines[i])
+          i++
+          continue
         } else {
+          let foundMatchingPair = false
           const key = kvMatch.groups.key
+          const value = kvMatch.groups.value
           for (let j = i; j < hunk.lines.length; j++) {
             if (hunk.lines[j].type === "add") {
               // TODO: I need an adult
@@ -91,32 +111,25 @@ export function correctJsonPatch(
                   ))
 
               if (kvMatch && kvMatch.groups?.key === key) {
+                if (kvMatch.groups?.value === value) {
+                  break
+                }
+                foundMatchingPair = true
+                // add/remove pairs get their own batch
+                batch.length = 0
                 batch.push(hunk.lines[i])
+
                 if (kvMatch.groups?.value.endsWith("{")) {
                   let linesToDelete = 1
-                  let isCooldown = false
                   for (let k = j; k < hunk.lines.length; k++) {
-                    if (!isCooldown) {
-                      batch.push(hunk.lines[k])
-                      linesToDelete++
+                    batch.push(hunk.lines[k])
+                    linesToDelete++
 
-                      if (
-                        hunk.lines[k].type === "add" &&
-                        (hunk.lines[k].content.endsWith("}") ||
-                          hunk.lines[k].content.endsWith("},"))
-                      ) {
-                        isCooldown = true
-                      }
-                    } else if (
-                      (isCooldown && hunk.lines[k].type === "retain") ||
-                      // is not a key
-                      !hunk.lines[k].content.match(
-                        /^\s*"[^"]*"\s*:\s*"?[^"]*"?,?$/
-                      )
+                    if (
+                      hunk.lines[k].type === "add" &&
+                      (hunk.lines[k].content.endsWith("}") ||
+                        hunk.lines[k].content.endsWith("},"))
                     ) {
-                      batch.push(hunk.lines[k])
-                      linesToDelete++
-                    } else {
                       break
                     }
                   }
@@ -128,13 +141,18 @@ export function correctJsonPatch(
                 }
 
                 if (options?.excludeKeys?.includes(key)) {
-                  while (batch.pop()) {
-                    // this line intentionally left blank
-                  }
+                  batch.length = 0
                 }
                 break
               }
             }
+          }
+
+          if (!foundMatchingPair) {
+            // there's no add with the same key, so just add this to the batch
+            batch.push(hunk.lines[i])
+            i++
+            continue
           }
         }
 
@@ -146,6 +164,12 @@ export function correctJsonPatch(
           )
           newHunk.addLines(batch)
           extraHunks.push(newHunk)
+
+          if (batch.at(-1)?.type === "retain") {
+            batch.splice(0, batch.length - 1)
+          } else {
+            batch.length = 0
+          }
         }
       }
 
@@ -157,12 +181,12 @@ export function correctJsonPatch(
 
   for (const hunk of diff.hunks) {
     let foundMatch = false
-    // this is called a spiral search
     for (let lineNumber = 0; lineNumber < hunk.lines.length; lineNumber++) {
       const hunkLine = hunk.lines[lineNumber].content
       const key = hunkLine.split(":")[0]
       if (!key) continue
 
+      // this is called a spiral search
       for (let index = 0; index <= Object.keys(linesDict).length * 2; index++) {
         const i = index % 2 === 0 ? index / 2 : -(Math.floor(index / 2) + 1)
         const adjustedStartLine = hunk.startLinePreEdit + i
@@ -235,9 +259,21 @@ export function correctJsonPatch(
         // }
 
         // find out if there's a remove that matches the key
-        let matchingRemove = hunk.lines.find(
-          (line) => line.type === "remove" && hasKey(lineKey, line.content)
-        )
+        const previousLine = hunk.lines[hunkInd - 1]
+        let matchingRemove =
+          previousLine &&
+          previousLine.type === "remove" &&
+          hasKey(lineKey, previousLine.content)
+            ? previousLine
+            : undefined
+        // if (matchingRemove) {
+        //   hunk.lines[hunkInd - 1].type = "retain"
+        //   hunk.categoryCounts.retain++
+        //   hunk.categoryCounts.remove--
+        //   hunk.popLine(line, hunkInd)
+        //   hunkInd--
+        //   continue
+        // }
 
         // if the line is already present in the file, retain it
 
@@ -270,6 +306,11 @@ export function correctJsonPatch(
         // if there is, update the remove to match the file
         if (matchingRemove) {
           matchingRemove.content = lineWithSameKey
+          // update indent for other one
+          line.content = line.content.replace(
+            /^\s*/,
+            lineWithSameKey.match(/^\s*/)?.[0] || ""
+          )
         }
       }
 

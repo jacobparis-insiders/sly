@@ -127,7 +127,7 @@ export class Hunk {
     this.startLinePreEdit = startLinePreEdit
     this.startLinePostEdit = startLinePostEdit
     this.categoryCounts = { retain: 0, add: 0, remove: 0 }
-    this.lines = lines
+    this.lines = []
     this.addLines(lines)
   }
 

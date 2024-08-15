@@ -1,7 +1,7 @@
 import { Diff, Hunk } from "./Diff.js"
 
 /**
- * Returns patchA with only hunks that are present in patchB
+ * Returns patchA with only changes that are present in patchB and all other changes retained
  *
  * @example
  * ```ts
@@ -12,14 +12,10 @@ export function intersectPatches(patchA: string, patchB: string): string {
   const diffA = Diff.fromString(patchA)
   const diffB = Diff.fromString(patchB)
 
-  const usedHunks = new Set<Hunk>()
-
   diffA.hunks = diffB.hunks.map((rejectHunk) => {
     const candidates = new Map<Hunk, number>()
-    candidates.set(rejectHunk, 1)
+    candidates.set(rejectHunk, 0.5)
     for (const hunk of diffA.hunks) {
-      if (usedHunks.has(hunk)) continue
-
       let score = 0
 
       for (const rejectLine of rejectHunk.lines) {
@@ -39,11 +35,26 @@ export function intersectPatches(patchA: string, patchB: string): string {
     // return highest scoring candidate
     const bestMatch = Array.from(candidates.entries()).sort(
       (a, b) => b[1] - a[1]
+    )[0][0]
+
+    const newHunk = new Hunk(
+      bestMatch.startLinePostEdit,
+      bestMatch.startLinePostEdit,
+      bestMatch.lines.map((line) => {
+        if (
+          rejectHunk.lines.some(
+            (rejectLine) =>
+              rejectLine.type === line.type &&
+              rejectLine.content === line.content
+          )
+        ) {
+          return { type: "retain", content: line.content }
+        }
+        return line
+      })
     )
 
-    usedHunks.add(bestMatch[0][0])
-
-    return bestMatch[0][0]
+    return newHunk
   })
 
   return diffA.toString().trim() + "\n"

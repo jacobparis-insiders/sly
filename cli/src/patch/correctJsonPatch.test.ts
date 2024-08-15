@@ -53,12 +53,11 @@ test("deletes adds if already present", () => {
     .toMatchInlineSnapshot(`
     --- a/file
     +++ b/file
-    @@ -3,4 +3,4 @@
+    @@ -2,1 +2,1 @@
     -    "execa": "^8.0.1",
-    -    "express": "^4.18.3",
-         "better-sqlite3": "^11.1.2",
-         "clsx": "^2.1.1",
     +    "execa": "^9.3.0",
+    @@ -3,1 +3,1 @@
+    -    "express": "^4.18.3",
     +    "express": "^4.19.2",
   `)
 })
@@ -79,7 +78,7 @@ test("matches indents", () => {
     .toMatchInlineSnapshot(`
     --- a/file
     +++ b/file
-    @@ -2,1 +2,1 @@
+    @@ -1,1 +1,1 @@
     -		"key": "hello"
     +		"key": "hello world"
   `)
@@ -103,7 +102,7 @@ test("matches indent when diff is deep", () => {
     .toMatchInlineSnapshot(`
     --- a/file
     +++ b/file
-    @@ -3,1 +3,1 @@
+    @@ -1,1 +1,1 @@
     -		"key": "hello"
     +		"key": "hello world"
   `)
@@ -143,7 +142,7 @@ index 2f83413..2684858 100644
     .toMatchInlineSnapshot(`
     --- a/package.json
     +++ b/package.json
-    @@ -6,1 +6,4 @@
+    @@ -5,1 +5,4 @@
     -	"epic-stack": true,
     +	"epic-stack": {
     +		"head": "08e94d38e00637586262b01b9a217f817c912ecd",
@@ -195,11 +194,10 @@ test("elides keys even if same-keys have different indents", () => {
     .toMatchInlineSnapshot(`
     --- a/file
     +++ b/file
-    @@ -3,2 +3,2 @@
+    @@ -2,1 +2,1 @@
     -		"morgan": "^1.10.0",
     +		"morgan": "^2.10.0",
-     		"prettier": "^3.3.3",
-    @@ -4,1 +4,3 @@
+    @@ -13,1 +13,3 @@
     -	}
     +	},
     +	"prettier": "@epic-web/config/prettier"
@@ -285,7 +283,9 @@ index b92f566..523f576 100644
     .toMatchInlineSnapshot(`
     --- a/tsconfig.json
     +++ b/tsconfig.json
-    @@ -2,25 +2,12 @@
+    @@ -1,30 +1,13 @@
+    -  "include": ["**/*.ts", "**/*.tsx"],
+    -  "compilerOptions": {
     -    "lib": ["DOM", "DOM.Iterable", "ES2022"],
     -    "isolatedModules": true,
     -    "esModuleInterop": true,
@@ -298,7 +298,9 @@ index b92f566..523f576 100644
     -    "noImplicitAny": true,
     -    "allowJs": true,
     -    "forceConsistentCasingInFileNames": true,
+    -    "paths": {
     -      "#*": ["./*"],
+    -      "@/icon-name": [
     -        "./app/components/ui/icons/name.d.ts",
     -        "./types/icon-name.d.ts",
     -      ],
@@ -319,6 +321,7 @@ index b92f566..523f576 100644
            ]
     +    }
     +  }
+     }
   `)
 })
 
@@ -698,7 +701,8 @@ test("corrects line numbers", () => {
   expect(correctJsonPatch(patchText, targetFileContent)).toMatchInlineSnapshot(`
     --- a/file
     +++ b/file
-    @@ -8,4 +8,6 @@
+    @@ -7,5 +7,6 @@
+    -    "#*": "./*"
     +    "#app/*": "./app/*",
     +    "#tests/*": "./tests/*"
        },
@@ -829,8 +833,7 @@ test("corrects line numbers", () => {
     @@ -97,1 +101,1 @@
     -    "zod": "^3.22.4"
     +    "zod": "^3.23.8"
-    @@ -98,3 +102,4 @@
-       },
+    @@ -99,2 +103,3 @@
        "devDependencies": {
     +    "@epic-web/config": "^1.12.0",
          "@faker-js/faker": "^8.4.1",
@@ -905,18 +908,12 @@ test("corrects line numbers", () => {
     @@ -138,1 +142,1 @@
     -    "vite": "^5.1.5"
     +    "vite": "^5.3.4",
-    @@ -142,1 +146,3 @@
-    +  },
-    +  "prettier": "@epic-web/config/prettier"
-     
     @@ -143,1 +143,4 @@
     -  "epic-stack": true
     +  "epic-stack": {
     +    "head": "5e8df6fa4392107f978906e1a04fa00705f37dde",
     +    "date": "2024-08-12T05:40:24Z"
     +  },
-    @@ -166,1 +170,0 @@
-    -  }
   `)
 })
 
@@ -1285,9 +1282,7 @@ test("elides values when the only difference is a caret", () => {
   expect(correctJsonPatch(patchText, targetFileContent)).toMatchInlineSnapshot(`
     --- a/package.json
     +++ b/package.json
-    @@ -2,4 +2,8 @@
-     	"private": true,
-     	"sideEffects": false,
+    @@ -4,2 +4,6 @@
      	"type": "module",
     +	"epic-stack": {
     +		"head": "5e8df6fa4392107f978906e1a04fa00705f37dde",
@@ -1361,5 +1356,84 @@ test("elides values when the only difference is a caret", () => {
     @@ -141,1 +146,1 @@
     -		"vite": "5.4.0"
     +		"vite": "^5.3.4"
+  `)
+})
+
+test("does not drop removes", () => {
+  const patchText = `diff --git a/package.json b/package.json
+index d2b698d..eda808d 100644
+--- a/package.json
++++ b/package.json
+@@ -3,13 +3,18 @@
+   "private": true,
+   "sideEffects": false,
+   "type": "module",
++  "epic-stack": {
++    "head": "5e8df6fa4392107f978906e1a04fa00705f37dde",
++    "date": "2024-08-12T05:40:24Z"
++  },
+   "imports": {
+-    "#*": "./*"
++    "#app/*": "./app/*",
++    "#tests/*": "./tests/*"
+   },
+   "scripts": {
+     "build": "run-s build:*",
+     "build:icons": "tsx ./other/build-icons.ts",
+-    "build:remix": "remix vite:build --sourcemapClient",
++    "build:remix": "remix vite:build",
+     "build:server": "tsx ./other/build-server.ts",
+     "predev": "npm run build:icons --silent",
+     "dev": "node ./server/dev-server.js",
+ }`
+
+  const targetFileContent = `{
+  "name": "exercises__sep__01.create__sep__02.solution.item-form",
+  "private": true,
+  "sideEffects": false,
+  "type": "module",
+  "epic-stack": true,
+  "imports": {
+    "#*": "./*"
+  },
+  "scripts": {
+    "build": "run-s build:*",
+    "build:icons": "tsx ./other/build-icons.ts",
+    "build:remix": "remix vite:build --sourcemapClient",
+    "build:server": "tsx ./other/build-server.ts",
+    "predev": "npm run build:icons --silent",
+    "dev": "node ./server/dev-server.js",
+    "prisma:studio": "prisma studio",
+    "format": "prettier --write .",
+    "lint": "eslint .",
+    "setup": "npm run build && prisma generate && prisma migrate deploy",
+    "start": "cross-env NODE_ENV=production node .",
+    "start:mocks": "cross-env NODE_ENV=production MOCKS=true tsx .",
+    "typecheck": "tsc",
+    "validate": "run-p lint typecheck"
+  },`
+
+  expect(correctJsonPatch(patchText, targetFileContent)).toMatchInlineSnapshot(`
+    --- a/package.json
+    +++ b/package.json
+    @@ -4,2 +4,6 @@
+       "type": "module",
+    +  "epic-stack": {
+    +    "head": "5e8df6fa4392107f978906e1a04fa00705f37dde",
+    +    "date": "2024-08-12T05:40:24Z"
+    +  },
+       "imports": {
+    @@ -6,6 +6,7 @@
+       "imports": {
+    -    "#*": "./*"
+    +    "#app/*": "./app/*",
+    +    "#tests/*": "./tests/*"
+       },
+       "scripts": {
+         "build": "run-s build:*",
+         "build:icons": "tsx ./other/build-icons.ts",
+    @@ -13,1 +13,1 @@
+    -    "build:remix": "remix vite:build --sourcemapClient",
+    +    "build:remix": "remix vite:build",
   `)
 })
