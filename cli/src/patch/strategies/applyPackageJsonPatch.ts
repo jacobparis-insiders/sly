@@ -20,12 +20,13 @@ export async function applyPackageJsonPatch({
   if (modules.length > 0) {
     console.log("New modules detected")
     console.log(">", chalk.green(`npm install ${modules.join(" ")}`))
-    if (await ask("Do you want to install modules?")) {
-      console.time("Installing modules…")
+    if (await ask("Do you want to install modules?", { defaultValue: true })) {
+      console.log("Installing modules…")
+      console.time("Installed modules.")
       await execa("npm", ["install", ...modules], {
         cwd: targetDir,
       })
-      console.timeEnd("Installing modules…")
+      console.timeEnd("Installed modules.")
 
       console.time("Regenerated patch…")
       await new Promise((resolve) => setTimeout(resolve, 1000))
