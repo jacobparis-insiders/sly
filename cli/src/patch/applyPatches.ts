@@ -17,9 +17,6 @@ export async function applyPatches({
     .sort()
 
   for (const patch of patches) {
-    // clear terminal output
-    console.clear()
-
     const patchPath = path.join(patchesDir, patch)
     const patchContents = fs.readFileSync(patchPath, "utf8")
 
