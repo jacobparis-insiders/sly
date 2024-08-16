@@ -1280,83 +1280,83 @@ test("elides values when the only difference is a caret", () => {
 `
 
   expect(correctJsonPatch(patchText, targetFileContent)).toMatchInlineSnapshot(`
-		--- a/package.json
-		+++ b/package.json
-		@@ -4,2 +4,6 @@
-		 	"type": "module",
-		+	"epic-stack": {
-		+		"head": "5e8df6fa4392107f978906e1a04fa00705f37dde",
-		+		"date": "2024-08-12T05:40:24Z"
-		+	},
-		 	"imports": {
-		@@ -12,1 +12,1 @@
-		-		"build:remix": "remix vite:build --sourcemapClient",
-		+		"build:remix": "remix vite:build",
-		@@ -35,1 +40,1 @@
-		-		"@epic-web/client-hints": "1.3.3",
-		+		"@epic-web/client-hints": "^1.3.2",
-		@@ -43,1 +48,1 @@
-		-		"@prisma/client": "5.18.0",
-		+		"@prisma/client": "^5.17.0",
-		@@ -55,1 +60,1 @@
-		-		"@sentry/profiling-node": "8.25.0",
-		+		"@sentry/profiling-node": "^8.18.0",
-		@@ -56,1 +61,1 @@
-		-		"@sentry/remix": "8.25.0",
-		+		"@sentry/remix": "^8.18.0",
-		@@ -57,2 +62,3 @@
-		+		"@testing-library/dom": "^10.3.2",
-		 		"@total-typescript/ts-reset": "^0.5.1",
-		 		"@types/bcryptjs": "^2.4.6",
-		@@ -60,1 +65,1 @@
-		-		"better-sqlite3": "^9.4.3",
-		+		"better-sqlite3": "^11.1.2",
-		@@ -74,1 +79,1 @@
-		-		"express-rate-limit": "7.4.0",
-		+		"express-rate-limit": "^7.3.1",
-		@@ -80,1 +85,1 @@
-		-		"isbot": "5.1.14",
-		+		"isbot": "^5.1.13",
-		@@ -84,1 +89,1 @@
-		-		"prisma": "5.18.0",
-		+		"prisma": "^5.17.2",
-		@@ -96,1 +101,1 @@
-		-		"tailwind-merge": "2.5.2",
-		+		"tailwind-merge": "^2.4.0",
-		@@ -97,1 +102,1 @@
-		-		"tailwindcss": "3.4.10",
-		+		"tailwindcss": "^3.4.6",
-		@@ -99,1 +104,1 @@
-		-		"tailwindcss-radix": "3.0.4",
-		+		"tailwindcss-radix": "^3.0.3",
-		@@ -108,1 +113,1 @@
-		-		"@sly-cli/sly": "^1.10.0",
-		+		"@sly-cli/sly": "file:../sly/cli",
-		@@ -114,1 +119,1 @@
-		-		"@types/eslint": "8.56.11",
-		+		"@types/eslint": "^8.56.10",
-		@@ -119,1 +124,1 @@
-		-		"@types/node": "20.14.15",
-		+		"@types/node": "^20.14.11",
-		@@ -126,1 +131,1 @@
-		-		"autoprefixer": "10.4.20",
-		+		"autoprefixer": "^10.4.19",
-		@@ -129,1 +134,1 @@
-		-		"eslint": "9.9.0",
-		+		"eslint": "^9.7.0",
-		@@ -137,1 +142,1 @@
-		-		"prettier-plugin-tailwindcss": "0.6.6",
-		+		"prettier-plugin-tailwindcss": "^0.6.5",
-		@@ -139,1 +144,1 @@
-		-		"tsx": "4.17.0",
-		+		"tsx": "^4.16.2",
-		@@ -140,1 +145,1 @@
-		-		"typescript": "5.5.4",
-		+		"typescript": "^5.5.3",
-		@@ -141,1 +146,1 @@
-		-		"vite": "5.4.0"
-		+		"vite": "^5.3.4"
-	`)
+    --- a/package.json
+    +++ b/package.json
+    @@ -4,2 +4,6 @@
+     	"type": "module",
+    +	"epic-stack": {
+    +		"head": "5e8df6fa4392107f978906e1a04fa00705f37dde",
+    +		"date": "2024-08-12T05:40:24Z"
+    +	},
+     	"imports": {
+    @@ -12,1 +12,1 @@
+    -		"build:remix": "remix vite:build --sourcemapClient",
+    +		"build:remix": "remix vite:build",
+    @@ -35,1 +40,1 @@
+    -		"@epic-web/client-hints": "1.3.3",
+    +		"@epic-web/client-hints": "^1.3.2",
+    @@ -43,1 +48,1 @@
+    -		"@prisma/client": "5.18.0",
+    +		"@prisma/client": "^5.17.0",
+    @@ -55,1 +60,1 @@
+    -		"@sentry/profiling-node": "8.25.0",
+    +		"@sentry/profiling-node": "^8.18.0",
+    @@ -56,1 +61,1 @@
+    -		"@sentry/remix": "8.25.0",
+    +		"@sentry/remix": "^8.18.0",
+    @@ -57,2 +62,3 @@
+    +		"@testing-library/dom": "^10.3.2",
+     		"@total-typescript/ts-reset": "^0.5.1",
+     		"@types/bcryptjs": "^2.4.6",
+    @@ -60,1 +65,1 @@
+    -		"better-sqlite3": "^9.4.3",
+    +		"better-sqlite3": "^11.1.2",
+    @@ -74,1 +79,1 @@
+    -		"express-rate-limit": "7.4.0",
+    +		"express-rate-limit": "^7.3.1",
+    @@ -80,1 +85,1 @@
+    -		"isbot": "5.1.14",
+    +		"isbot": "^5.1.13",
+    @@ -84,1 +89,1 @@
+    -		"prisma": "5.18.0",
+    +		"prisma": "^5.17.2",
+    @@ -96,1 +101,1 @@
+    -		"tailwind-merge": "2.5.2",
+    +		"tailwind-merge": "^2.4.0",
+    @@ -97,1 +102,1 @@
+    -		"tailwindcss": "3.4.10",
+    +		"tailwindcss": "^3.4.6",
+    @@ -99,1 +104,1 @@
+    -		"tailwindcss-radix": "3.0.4",
+    +		"tailwindcss-radix": "^3.0.3",
+    @@ -108,1 +113,1 @@
+    -		"@sly-cli/sly": "^1.10.0",
+    +		"@sly-cli/sly": "file:../sly/cli",
+    @@ -114,1 +119,1 @@
+    -		"@types/eslint": "8.56.11",
+    +		"@types/eslint": "^8.56.10",
+    @@ -119,1 +124,1 @@
+    -		"@types/node": "20.14.15",
+    +		"@types/node": "^20.14.11",
+    @@ -126,1 +131,1 @@
+    -		"autoprefixer": "10.4.20",
+    +		"autoprefixer": "^10.4.19",
+    @@ -129,1 +134,1 @@
+    -		"eslint": "9.9.0",
+    +		"eslint": "^9.7.0",
+    @@ -137,1 +142,1 @@
+    -		"prettier-plugin-tailwindcss": "0.6.6",
+    +		"prettier-plugin-tailwindcss": "^0.6.5",
+    @@ -139,1 +144,1 @@
+    -		"tsx": "4.17.0",
+    +		"tsx": "^4.16.2",
+    @@ -140,1 +145,1 @@
+    -		"typescript": "5.5.4",
+    +		"typescript": "^5.5.3",
+    @@ -141,1 +146,1 @@
+    -		"vite": "5.4.0"
+    +		"vite": "^5.3.4"
+  `)
 })
 
 test("does not drop removes", () => {
@@ -1414,28 +1414,28 @@ index d2b698d..eda808d 100644
 	},`
 
   expect(correctJsonPatch(patchText, targetFileContent)).toMatchInlineSnapshot(`
-		--- a/package.json
-		+++ b/package.json
-		@@ -4,2 +4,6 @@
-			 "type": "module",
-		+  "epic-stack": {
-		+    "head": "5e8df6fa4392107f978906e1a04fa00705f37dde",
-		+    "date": "2024-08-12T05:40:24Z"
-		+  },
-			 "imports": {
-		@@ -6,6 +6,7 @@
-			 "imports": {
-		-    "#*": "./*"
-		+    "#app/*": "./app/*",
-		+    "#tests/*": "./tests/*"
-			 },
-			 "scripts": {
-				 "build": "run-s build:*",
-				 "build:icons": "tsx ./other/build-icons.ts",
-		@@ -13,1 +13,1 @@
-		-    "build:remix": "remix vite:build --sourcemapClient",
-		+    "build:remix": "remix vite:build",
-	`)
+    --- a/package.json
+    +++ b/package.json
+    @@ -3,2 +3,6 @@
+      "type": "module",
+    +  "epic-stack": {
+    +    "head": "5e8df6fa4392107f978906e1a04fa00705f37dde",
+    +    "date": "2024-08-12T05:40:24Z"
+    +  },
+      "imports": {
+    @@ -12,6 +12,7 @@
+      "imports": {
+    -    "#*": "./*"
+    +    "#app/*": "./app/*",
+    +    "#tests/*": "./tests/*"
+      },
+      "scripts": {
+     	 "build": "run-s build:*",
+     	 "build:icons": "tsx ./other/build-icons.ts",
+    @@ -18,1 +18,1 @@
+    -		"build:remix": "remix vite:build --sourcemapClient",
+    +		"build:remix": "remix vite:build",
+  `)
 })
 
 test("pairs symbols between matching keys", () => {
@@ -1458,7 +1458,7 @@ index 0ed0c38..4897a3b 100644
 -    "components": "#app/components",
 -    "utils": "#app/utils/misc.tsx"
 -  }
-+	"$schema": "schema.json",
++	"$schema": "https://ui.shadcn.com/schema.json",
 +	"style": "default",
 +	"rsc": false,
 +	"tailwind": {
@@ -1490,11 +1490,7 @@ index 0ed0c38..4897a3b 100644
 }
 `
 
-  expect(correctJsonPatch(patchText, targetFileContent)).toMatchInlineSnapshot(`
-    --- a/components.json
-    +++ b/components.json
-    @@ -1,1 +1,1 @@
-    -	"$schema": "https://ui.shadcn.com/schema.json",
-    +	"$schema": "schema.json",
-  `)
+  expect(correctJsonPatch(patchText, targetFileContent)).toMatchInlineSnapshot(
+    `null`
+  )
 })

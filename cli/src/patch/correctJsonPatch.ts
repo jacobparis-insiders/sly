@@ -320,6 +320,7 @@ export function correctJsonPatch(
         if (!lineWithSameKey) {
           linesToRemove.push(line)
 
+          hunkInd--
           continue
         }
       }

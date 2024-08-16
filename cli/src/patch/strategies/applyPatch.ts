@@ -15,6 +15,13 @@ export async function applyPatch({
   patchContents: string
   targetDir: string
 }) {
+  if (fs.existsSync(patchPath + ".reject")) {
+    fs.unlinkSync(patchPath + ".reject")
+  }
+  if (fs.existsSync(patchPath + ".reject.orig")) {
+    fs.unlinkSync(patchPath + ".reject.orig")
+  }
+
   const patchFlags = [
     "-F10",
     "-N",
@@ -47,15 +54,17 @@ export async function applyPatch({
     return
   }
 
-  if (operation === "M" || operation === "A") {
-    try {
-      if (fs.existsSync(patchPath + ".reject")) {
-        fs.unlinkSync(patchPath + ".reject")
-      }
-      if (fs.existsSync(patchPath + ".reject.orig")) {
-        fs.unlinkSync(patchPath + ".reject.orig")
-      }
+  if (operation === "A") {
+    // the file might exist already?
+    // When generating patches we should turn those into modifies if needed
+    if (fs.existsSync(path.join(targetDir, targetFile!))) {
+      console.log("File already exists, skipping", targetFile)
+      return
+    }
+  }
 
+  if (operation === "M") {
+    try {
       await execa(
         "patch",
         [...patchFlags, operation === "M" ? targetFile : ""].filter(Boolean),
