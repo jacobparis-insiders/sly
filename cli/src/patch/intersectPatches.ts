@@ -48,9 +48,9 @@ export function intersectPatches(patchA: string, patchB: string): string {
               rejectLine.content === line.content
           )
         ) {
-          return { type: "retain", content: line.content }
+          return line
         }
-        return line
+        return { type: "retain", content: line.content }
       })
     )
 

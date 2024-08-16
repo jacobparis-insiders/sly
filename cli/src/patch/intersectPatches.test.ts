@@ -56,13 +56,80 @@ test("retains lines not present in b", () => {
     +++ b/file
     @@ -1,4 +1,3 @@
      context
-     import { useForm, getFormProps } from '@conform-to/react'
-    -import { invariantResponse } from '@epic-web/invariant'
+    -import { useForm, getFormProps } from '@conform-to/react'
+     import { invariantResponse } from '@epic-web/invariant'
      context
     @@ -1,4 +1,3 @@
      context
-    -import { useForm, getFormProps } from '@conform-to/react'
-     import { invariantResponse } from '@epic-web/invariant'
+     import { useForm, getFormProps } from '@conform-to/react'
+    -import { invariantResponse } from '@epic-web/invariant'
+     context
+  `)
+})
+
+test("something", () => {
+  const patchA = `--- a/package.json
++++ b/package.json
+@@ -4,2 +4,6 @@
+   "type": "module",
++  "epic-stack": {
++    "head": "5e8df6fa4392107f978906e1a04fa00705f37dde",
++    "date": "2024-08-12T05:40:24Z"
++  },
+   "imports": {
+@@ -6,1 +6,2 @@
+ context
+-    "#*": "./*"
++    "#app/*": "./app/*",
++    "#tests/*": "./tests/*"
+ context
+@@ -11,1 +11,1 @@
+ context
+-    "build:remix": "remix vite:build --sourcemapClient",
++    "build:remix": "remix vite:build",
+ context
+@@ -56,2 +61,3 @@
+ context
++    "@testing-library/dom": "^10.3.2",
+     "@total-typescript/ts-reset": "^0.5.1",
+     "@types/bcryptjs": "^2.4.6",
+ context
+@@ -107,1 +112,1 @@
+ context
+-    "@sly-cli/sly": "^1.10.0",
++    "@sly-cli/sly": "file:../sly/cli",
+ context
+`
+
+  const patchB = `@@ -7,1 +7,2 @@
+-    "#*": "./*"
++    "#app/*": "./app/*",
++    "#tests/*": "./tests/*"
+@@ -12,1 +12,1 @@
+-    "build:remix": "remix vite:build --sourcemapClient",
++    "build:remix": "remix vite:build",
+@@ -159,1 +164,1 @@
+-    "@sly-cli/sly": "^1.10.0",
++    "@sly-cli/sly": "file:../sly/cli",`
+
+  expect(intersectPatches(patchA, patchB)).toMatchInlineSnapshot(`
+    --- a/package.json
+    +++ b/package.json
+    @@ -6,3 +6,4 @@
+     context
+    -    "#*": "./*"
+    +    "#app/*": "./app/*",
+    +    "#tests/*": "./tests/*"
+     context
+    @@ -11,3 +11,3 @@
+     context
+    -    "build:remix": "remix vite:build --sourcemapClient",
+    +    "build:remix": "remix vite:build",
+     context
+    @@ -112,3 +112,3 @@
+     context
+    -    "@sly-cli/sly": "^1.10.0",
+    +    "@sly-cli/sly": "file:../sly/cli",
      context
   `)
 })
