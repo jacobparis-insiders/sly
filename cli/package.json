@@ -46,6 +46,7 @@
     "commander": "^11.0.0",
     "compare-versions": "^6.0.0",
     "cosmiconfig": "^8.2.0",
+    "detect-indent": "^7.0.1",
     "esbuild": "^0.19.11",
     "execa": "^7.1.1",
     "lru-cache": "^10.0.0",

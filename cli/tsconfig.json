@@ -4,7 +4,7 @@
     "module": "NodeNext",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "noUncheckedIndexedAccess": true,
+    "noUncheckedIndexedAccess": false,
     "strict": true,
     "moduleResolution": "NodeNext",
     "resolveJsonModule": true,

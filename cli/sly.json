@@ -1,0 +1,17 @@
+{
+  "$schema": "https://sly-cli.fly.dev/registry/config.json",
+  "template": {
+    "repository": "https://github.com/epic-web/epic-stack",
+    "head": "05d92de7e0ebd580edbf4bdd6b43447b32ece5e7",
+    "ignore": [
+      ".github/workflows/version.yml",
+      "CONTRIBUTING.md",
+      "docs",
+      "LICENSE.md",
+      "remix.init",
+      "tests/e2e/notes.test.ts",
+      "tests/e2e/search.test.ts"
+    ]
+  },
+  "libraries": []
+}
