@@ -207,6 +207,9 @@ export function correctJsonPatch(
     }
 
     let hunkInd = hunk.lines.length
+    const unhandledIndexes: Array<number> = []
+    const matchedDifferences: Set<number> = new Set<number>()
+    const linesToRemove: typeof hunk.lines = []
     while (hunkInd >= 0) {
       const line = hunk.lines[hunkInd]
       if (!line) {
@@ -223,6 +226,7 @@ export function correctJsonPatch(
         line.content.match(/^\s*"(?<key>[^"]*)"\s*:\s*(?<value>\[[^\]]*\]),?$/)
 
       if (!kvMatch || !kvMatch.groups) {
+        unhandledIndexes.push(hunkInd)
         hunkInd--
         continue
       }
@@ -244,6 +248,7 @@ export function correctJsonPatch(
 
         if (!lineWithSameKey) {
           // Don't know what to do about these
+          unhandledIndexes.push(hunkInd)
           hunkInd--
           continue
         }
@@ -259,24 +264,21 @@ export function correctJsonPatch(
         // }
 
         // find out if there's a remove that matches the key
-        const previousLine = hunk.lines[hunkInd - 1]
-        let matchingRemove =
-          previousLine &&
-          previousLine.type === "remove" &&
-          hasKey(lineKey, previousLine.content)
-            ? previousLine
-            : undefined
-        // if (matchingRemove) {
-        //   hunk.lines[hunkInd - 1].type = "retain"
-        //   hunk.categoryCounts.retain++
-        //   hunk.categoryCounts.remove--
-        //   hunk.popLine(line, hunkInd)
-        //   hunkInd--
-        //   continue
-        // }
+        let matchingRemove
+        for (let i = hunkInd - 1; i >= 0; i--) {
+          const line = hunk.lines[i]
+          if (line.type === "retain") break
+          if (line.type === "remove") {
+            if (hasKey(lineKey, line.content)) {
+              matchingRemove = line
+              matchedDifferences.add(i - hunkInd)
+
+              break
+            }
+          }
+        }
 
         // if the line is already present in the file, retain it
-
         if (lineWithSameKey && hasValue(lineValue, lineWithSameKey)) {
           line.content = lineWithSameKey
           line.type = "retain"
@@ -284,8 +286,7 @@ export function correctJsonPatch(
           hunk.categoryCounts.add--
 
           if (matchingRemove) {
-            hunk.popLine(matchingRemove, hunk.lines.indexOf(matchingRemove))
-            hunkInd--
+            linesToRemove.push(matchingRemove)
 
             matchingRemove = undefined
           }
@@ -296,7 +297,7 @@ export function correctJsonPatch(
 
         if (!lineWithSameKey) {
           if (matchingRemove) {
-            hunk.popLine(line, hunkInd)
+            linesToRemove.push(matchingRemove)
             matchingRemove = undefined
           }
           hunkInd--
@@ -317,7 +318,7 @@ export function correctJsonPatch(
       if (line.type === "remove") {
         // if we're removing a key that doesn't exist in the file, remove it
         if (!lineWithSameKey) {
-          hunk.popLine(line, hunkInd)
+          linesToRemove.push(line)
 
           continue
         }
@@ -328,35 +329,80 @@ export function correctJsonPatch(
 
     hunkInd = 0
 
-    // now traverse forward and see if there's any adds next to retains that can be retained
-    while (hunkInd < hunk.lines.length) {
-      const line = hunk.lines[hunkInd]
-      if (line.type === "retain") {
-        // check if the content matches the linesDict
-        let linesDictIndex = 0
-        for (const [key, content] of Object.entries(linesDict)) {
-          if (content === line.content) {
-            linesDictIndex = Number(key)
-            break
-          }
-        }
+    // we found other pairs of adds/removes based on their key
+    // we can see if symbols are also pairable based on the same offset
+    for (const unhandledIndex of unhandledIndexes) {
+      const unhandledLine = hunk.lines[unhandledIndex]
+      if (!unhandledLine) continue
 
-        if (!linesDictIndex) {
-          hunkInd++
+      for (const matchedDifference of matchedDifferences) {
+        const difference =
+          unhandledLine.type === "add" ? matchedDifference : -matchedDifference
+        const unhandledMatchingLine = hunk.lines[difference + unhandledIndex]
+
+        if (!unhandledMatchingLine) continue
+
+        if (unhandledLine.content !== unhandledMatchingLine.content) {
           continue
         }
 
-        const nextLine = hunk.lines[hunkInd + 1]
         if (
-          nextLine &&
-          nextLine.type === "add" &&
-          linesDict[linesDictIndex + 1] === nextLine.content
+          // probably a more optimal way to do this
+          [unhandledLine.type, unhandledMatchingLine.type]
+            .toSorted()
+            .join(" ") !== "add remove"
         ) {
-          nextLine.type = "retain"
+          continue
         }
+
+        hunk.lines[difference + unhandledIndex].type = "retain"
+        hunk.lines[unhandledIndex].type = "retain"
+        hunk.categoryCounts.retain += 2
+        hunk.categoryCounts.add--
+        hunk.categoryCounts.remove--
+        if (unhandledIndexes.includes(difference + unhandledIndex)) {
+          unhandledIndexes.splice(
+            unhandledIndexes.indexOf(difference + unhandledIndex),
+            1
+          )
+        }
+        unhandledIndexes.splice(unhandledIndexes.indexOf(unhandledIndex), 1)
       }
-      hunkInd++
     }
+
+    for (const lineToRemove of linesToRemove) {
+      hunk.popLine(lineToRemove, hunk.lines.indexOf(lineToRemove))
+    }
+    // // now traverse forward and see if there's any adds next to retains that can be retained
+    // while (hunkInd < hunk.lines.length) {
+    //   const line = hunk.lines[hunkInd]
+    //   if (line.type === "retain") {
+    //     // check if the content matches the linesDict
+    //     let linesDictIndex = 0
+    //     for (const [key, content] of Object.entries(linesDict)) {
+    //       if (content === line.content) {
+    //         linesDictIndex = Number(key)
+    //         break
+    //       }
+    //     }
+
+    //     if (!linesDictIndex) {
+    //       hunkInd++
+    //       continue
+    //     }
+
+    //     const nextLine = hunk.lines[hunkInd + 1]
+    //     if (
+    //       nextLine &&
+    //       nextLine.type === "add" &&
+    //       linesDict[linesDictIndex + 1] === nextLine.content
+    //     ) {
+    //       console.log("retaining", nextLine)
+    //       nextLine.type = "retain"
+    //     }
+    //   }
+    //   hunkInd++
+    // }
   }
 
   diff.hunks = diff.hunks.filter(
