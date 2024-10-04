@@ -125,8 +125,8 @@ Sly will create the `sly.json` in your project root by default, but you are free
 - `config/sly/sly.json`
 - `.config/sly.json`
 - `.config/sly/sly.json`
-- `others/sly.json`
-- `others/sly/sly.json`
+- `other/sly.json`
+- `other/sly/sly.json`
 
 ## Transformers
 
