@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/simple-icons.json
 // https://sly-cli.fly.dev/registry/simple-icons.json
 
-import { json, type LoaderFunctionArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from"react-router"
 import type { z } from "zod"
 import type { Meta, libraryIndexSchema } from "../../schemas.js"
 import { getGithubDirectory } from "../../github.server.js"

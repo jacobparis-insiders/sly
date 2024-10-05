@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/@sly-cli/transformers/ts-prettier.json
 // https://sly-cli.fly.dev/registry/@sly-cli/transformers/ts-prettier.json
 
-import { json, type LoaderFunctionArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from"react-router"
 
 import { meta, transformers } from "./@sly-cli.transformers[.json].js"
 import type { libraryItemWithContentSchema } from "../../schemas.js"

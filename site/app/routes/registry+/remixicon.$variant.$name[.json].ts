@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/remixicon/arrows/arrow-down-fill.json
 // https://sly-cli.fly.dev/registry/remixicon/arrows/arrow-down-fill.json
 
-import { json, type LoaderFunctionArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from"react-router"
 import { meta } from "./remixicon[.json].js"
 import { type libraryItemWithContentSchema } from "../../schemas.js"
 import type { z } from "zod"

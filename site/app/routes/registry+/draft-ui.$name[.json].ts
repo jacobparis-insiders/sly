@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/draft-ui/breadcrumbs.json
 // https://sly-cli.fly.dev/registry/draft-ui/breadcrumbs.json
 
-import { json, type LoaderFunctionArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from"react-router"
 
 import { meta } from "./draft-ui[.json]"
 import { type libraryItemWithContentSchema } from "../../schemas.js"

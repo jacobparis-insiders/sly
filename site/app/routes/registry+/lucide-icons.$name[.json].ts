@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/lucide-icons/accessibility.json
 // https://sly-cli.fly.dev/registry/lucide-icons/accessibility.json
 
-import { json, type LoaderFunctionArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from"react-router"
 import { meta } from "./lucide-icons[.json].js"
 import { type libraryItemWithContentSchema } from "../../schemas.js"
 import type { z } from "zod"
