@@ -16,4 +16,10 @@ export default defineConfig({
     },
     globalSetup: "../test/setup.ts",
   },
+  build: {
+    // Add this section to bundle dependencies
+    rollupOptions: {
+      external: ['@gmrchk/cli-testing-library'],
+    },
+  },
 })
