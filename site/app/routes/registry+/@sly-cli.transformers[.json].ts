@@ -1,12 +1,12 @@
 // http://localhost:3000/registry/@sly-cli/transformers.json
 // https://sly-cli.fly.dev/registry/@sly-cli/transformers.json
 
-import { json, type LoaderFunctionArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from"react-router"
 import type { z } from "zod"
 import type {
   libraryIndexSchema,
   libraryItemWithContentSchema,
-} from "~/schemas"
+} from "#app/schemas.js"
 
 export const meta = {
   name: "@sly-cli/transformers",

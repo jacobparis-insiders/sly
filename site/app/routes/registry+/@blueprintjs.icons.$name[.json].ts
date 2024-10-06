@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/@blueprintjs/icons/add.json
 // https://sly-cli.fly.dev/registry/@blueprintjs/icons/add.json
 
-import { json, type LoaderFunctionArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from"react-router"
 
 import { meta } from "./@blueprintjs.icons[.json].js"
 import { type libraryItemWithContentSchema } from "../../schemas.js"

@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/tabler-icons/12-hours.json
 // https://sly-cli.fly.dev/registry/tabler-icons/12-hours.json
 
-import { json, type LoaderFunctionArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from"react-router"
 import { meta } from "./tabler-icons[.json].js"
 import { type libraryItemWithContentSchema } from "../../schemas.js"
 import type { z } from "zod"

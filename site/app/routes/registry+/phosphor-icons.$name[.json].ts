@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/phosphor-icons/alarm-duotone.json
 // https://sly-cli.fly.dev/registry/phosphor-icons/alarm-duotone.json
 
-import { json, type LoaderFunctionArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from"react-router"
 import { meta } from "./phosphor-icons[.json].js"
 import { type libraryItemWithContentSchema } from "../../schemas.js"
 import type { z } from "zod"

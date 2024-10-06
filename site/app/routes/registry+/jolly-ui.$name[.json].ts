@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/jolly-ui/avatar.json
 // https://sly-cli.fly.dev/registry/jolly-ui/avatar.json
 
-import { json, type LoaderFunctionArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from"react-router"
 import { meta } from "./jolly-ui[.json].js"
 import { z } from "zod"
 import type { libraryItemWithContentSchema } from "../../schemas.js"

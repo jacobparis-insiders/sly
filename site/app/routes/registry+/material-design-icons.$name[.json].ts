@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/material-design-icons/mobile_friendly-filled.json
 // https://sly-cli.fly.dev/registry/material-design-icons/mobile_friendly-filled.json
 
-import { json, type LoaderFunctionArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from"react-router"
 import { meta } from "./material-design-icons[.json].js"
 import { type libraryItemWithContentSchema } from "../../schemas.js"
 import type { z } from "zod"

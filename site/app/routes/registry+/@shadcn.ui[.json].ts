@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/@shadcn/ui.json
 // https://sly-cli.fly.dev/registry/@shadcn/ui.json
 
-import { json, type LoaderFunctionArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from"react-router"
 import cachified from "@epic-web/cachified"
 import { z } from "zod"
 import { cache } from "../../cache.server"
