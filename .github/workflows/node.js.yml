@@ -72,7 +72,9 @@ jobs:
           check-latest: true
 
       - name: Install Bun
-        run: curl -fsSL https://bun.sh/install | bash
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          echo 'export PATH="$HOME/.bun/bin:$PATH"' >> $GITHUB_ENV
 
       - name: Install CLI dependencies 📦
         run: |
@@ -147,7 +149,9 @@ jobs:
           check-latest: true
 
       - name: Install Bun
-        run: curl -fsSL https://bun.sh/install | bash
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          echo 'export PATH="$HOME/.bun/bin:$PATH"' >> $GITHUB_ENV
 
       - name: Install site dependencies 📦
         run: |
