@@ -13,6 +13,8 @@
   ],
   "compilerOptions": {
     "jsx": "react-jsx",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "types": ["@react-router/node", "vite/client"],
     "rootDirs": [".", "./.react-router/types"],
     "plugins": [{ "name": "@react-router/dev" }]
