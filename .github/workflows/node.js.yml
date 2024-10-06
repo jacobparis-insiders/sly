@@ -23,7 +23,7 @@ jobs:
       site_changed: ${{ steps.set_env.outputs.site_changed }}
     steps:
       - name: Checkout ⬇️
-        uses: actions/checkout@v3.2.0
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -63,10 +63,10 @@ jobs:
 
     steps:
       - name: Checkout ⬇️
-        uses: actions/checkout@v3.2.0
+        uses: actions/checkout@v4
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           check-latest: true
@@ -140,10 +140,10 @@ jobs:
 
     steps:
       - name: Checkout ⬇️
-        uses: actions/checkout@v3.2.0
+        uses: actions/checkout@v4
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           check-latest: true
