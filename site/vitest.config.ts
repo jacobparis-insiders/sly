@@ -2,12 +2,6 @@ import { defineConfig } from "vitest/config"
 
 export default defineConfig({
   test: {
-    server: {
-      deps: {
-        inline: ['@gmrchk/cli-testing-library'],
-      }
-    },
-   
     // Site tests involve installing different CLIs from npm
     // so they need a longer timeout
     testTimeout: 30000,
