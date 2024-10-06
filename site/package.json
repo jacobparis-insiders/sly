@@ -10,6 +10,7 @@
     "dev": "react-router dev",
     "build": "react-router build",
     "start": "react-router-serve ./build/server/index.js",
+    "start-server": "npm start",
     "pretest": "node tests/list-versions.js",
     "test": "start-server-and-test start-server http://localhost:3000 vitest",
     "typecheck": "tsc"
@@ -31,7 +32,6 @@
     "react": "19.0.0-rc-1460d67c-20241003",
     "react-dom": "19.0.0-rc-1460d67c-20241003",
     "react-router": "^7.0.0-pre.0",
-    "start-server": "^0.0.4",
     "start-server-and-test": "^2.0.8",
     "svgo": "^3.0.2",
     "zod": "^3.21.4"
