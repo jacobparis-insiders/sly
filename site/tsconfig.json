@@ -1,15 +1,5 @@
 {
-  // I'm building an app that runs in the DOM with an external bundler
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    "**/.server/**/*.ts",
-    "**/.server/**/*.tsx",
-    "**/.client/**/*.ts",
-    "**/.client/**/*.tsx",
-    ".react-router/types/**/*",
-    "../test/spawnSly.ts"
-  ],
+  "include": ["remix.env.d.ts", "**/*.ts", "**/*.tsx", "../test/spawnSly.ts"],
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2019"],
     "isolatedModules": true,
@@ -22,8 +12,11 @@
     "allowJs": true,
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
-    "types": ["@react-router/node", "vite/client"],
-    "rootDirs": ["./.react-router/types"],
-    "plugins": [{ "name": "@react-router/dev" }]
+    "paths": {
+      "~/*": ["./app/*"]
+    },
+
+    // Remix takes care of building everything in `remix build`.
+    "noEmit": true
   }
 }
