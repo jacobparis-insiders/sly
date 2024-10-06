@@ -2,6 +2,9 @@ import { defineConfig } from "vitest/config"
 
 export default defineConfig({
   test: {
+    deps: {
+      inline: ['@gmrchk/cli-testing-library'],
+    },
     // Site tests involve installing different CLIs from npm
     // so they need a longer timeout
     testTimeout: 30000,
@@ -15,11 +18,5 @@ export default defineConfig({
       REGISTRY_URL: "http://localhost:3000",
     },
     globalSetup: "../test/setup.ts",
-  },
-  build: {
-    // Add this section to bundle dependencies
-    rollupOptions: {
-      external: ['@gmrchk/cli-testing-library'],
-    },
   },
 })
