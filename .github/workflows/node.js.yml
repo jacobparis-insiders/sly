@@ -71,8 +71,13 @@ jobs:
           node-version: ${{ matrix.node-version }}
           check-latest: true
 
+      - name: Install Bun
+        run: curl -fsSL https://bun.sh/install | bash
+
       - name: Install CLI dependencies 📦
-        run: npm ci --no-audit -w cli
+        run: |
+          cd cli
+          bun install
 
       - name: Build CLI 🛠️
         run: npm run build -w cli
@@ -141,8 +146,13 @@ jobs:
           node-version: ${{ matrix.node-version }}
           check-latest: true
 
+      - name: Install Bun
+        run: curl -fsSL https://bun.sh/install | bash
+
       - name: Install site dependencies 📦
-        run: npm ci --no-audit -w site
+        run: |
+          cd site
+          bun install
 
       - name: Build site 🛠️
         run: npm run build -w site
