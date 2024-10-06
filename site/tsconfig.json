@@ -1,3 +1,4 @@
+
 {
   // I'm building an app that runs in the DOM with an external bundler
   "extends": ["@epic-web/config/typescript"],
@@ -9,7 +10,8 @@
     "**/.server/**/*.tsx",
     "**/.client/**/*.ts",
     "**/.client/**/*.tsx",
-    ".react-router/types/**/*"
+    ".react-router/types/**/*",
+    "../test/spawnSly.ts"
   ],
   "compilerOptions": {
     "jsx": "react-jsx",
