@@ -19,7 +19,7 @@ export const routes: RouteConfig = [
   route("/registry/@sly-cli.transformers", "./routes/registry+/@sly-cli.transformers[.json].ts"),
   route("/registry/draft-ui/:name.json", "./routes/registry+/draft-ui.$name[.json].ts"),
   route("/registry/draft-ui", "./routes/registry+/draft-ui[.json].ts"),
-  route("/registry/iconoir/:name.json", "./routes/registry+/iconoir.$name[.json].ts"),
+  route("/registry/iconoir/:type/:name.json", "./routes/registry+/iconoir.$type.$name[.json].ts"),
   route("/registry/iconoir", "./routes/registry+/iconoir[.json].ts"),
   route("/registry/jolly-ui/:name.json", "./routes/registry+/jolly-ui.$name[.json].ts"),
   route("/registry/jolly-ui", "./routes/registry+/jolly-ui[.json].ts"),
