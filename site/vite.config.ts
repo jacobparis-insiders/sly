@@ -5,7 +5,7 @@ import { iconsSpritesheet } from "vite-plugin-icons-spritesheet";
 
 const MODE = process.env.NODE_ENV;
 
-export default defineConfig({
+export default defineConfig(process.env.VITEST ? {} : {
   build: {
     cssMinify: MODE === "production",
     assetsInlineLimit: (source: string) => {
@@ -18,7 +18,7 @@ export default defineConfig({
       }
     },
   },
-  plugins: process.env.VITEST ? [] : [
+  plugins: [
     iconsSpritesheet({
       // Defaults to false, should it generate TS types for you
       withTypes: true,
