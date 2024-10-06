@@ -1,5 +1,5 @@
 import type { TestContext, TaskContext } from "vitest"
-import { prepareEnvironment } from "@gmrchk/cli-testing-library"
+import { prepareEnvironment } from "./prepareEnvironment.js"
 import chalk from "chalk"
 import { rmSync, existsSync } from "fs"
 export async function spawnSly(

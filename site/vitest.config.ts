@@ -17,13 +17,4 @@ export default defineConfig({
 
     globalSetup: "../test/setup.ts",
   },
-  esbuild: {
-    tsconfigRaw: {
-      compilerOptions: {
-        esModuleInterop: true,
-        moduleResolution: "NodeNext",
-        resolveJsonModule: true,
-      },
-    },
-  },
 })
