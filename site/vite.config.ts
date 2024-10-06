@@ -6,19 +6,19 @@ import { iconsSpritesheet } from "vite-plugin-icons-spritesheet";
 const MODE = process.env.NODE_ENV;
 
 export default defineConfig({
-  // build: {
-  //   cssMinify: MODE === "production",
-  //   assetsInlineLimit: (source: string) => {
-  //     if (
-  //       source.endsWith("sprite.svg") ||
-  //       source.endsWith("favicon.svg") ||
-  //       source.endsWith("apple-touch-icon.png")
-  //     ) {
-  //       return false;
-  //     }
-  //   },
-  // },
-  plugins: [
+  build: {
+    cssMinify: MODE === "production",
+    assetsInlineLimit: (source: string) => {
+      if (
+        source.endsWith("sprite.svg") ||
+        source.endsWith("favicon.svg") ||
+        source.endsWith("apple-touch-icon.png")
+      ) {
+        return false;
+      }
+    },
+  },
+  plugins: process.env.VITEST ? [] : [
     iconsSpritesheet({
       // Defaults to false, should it generate TS types for you
       withTypes: true,
