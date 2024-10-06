@@ -71,10 +71,10 @@ jobs:
           node-version: ${{ matrix.node-version }}
           check-latest: true
 
-      - name: Install Bun
-        run: |
-          curl -fsSL https://bun.sh/install | bash
-          echo 'export PATH="$HOME/.bun/bin:$PATH"' >> $GITHUB_ENV
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 'latest' # or specify a version like '1.0.11'
 
       - name: Install CLI dependencies 📦
         run: |
@@ -148,10 +148,10 @@ jobs:
           node-version: ${{ matrix.node-version }}
           check-latest: true
 
-      - name: Install Bun
-        run: |
-          curl -fsSL https://bun.sh/install | bash
-          echo 'export PATH="$HOME/.bun/bin:$PATH"' >> $GITHUB_ENV
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 'latest' # or specify a version like '1.0.11'
 
       - name: Install site dependencies 📦
         run: |
