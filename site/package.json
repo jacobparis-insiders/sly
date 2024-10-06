@@ -18,6 +18,7 @@
   "dependencies": {
     "@epic-web/cachified": "^5.2.0",
     "@epic-web/remember": "^1.1.0",
+    "@gmrchk/cli-testing-library": "^0.1.2",
     "@react-router/fs-routes": "^0.0.0-nightly-bf7ecb711-20240911",
     "@react-router/node": "^7.0.0-pre.0",
     "@react-router/serve": "^7.0.0-pre.0",
