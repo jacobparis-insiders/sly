@@ -159,7 +159,11 @@ jobs:
           bun install
 
       - name: Build site 🛠️
-        run: npm run build -w site
+        run: |
+          cd site
+          bun run build
 
       - name: Test site 🧪
-        run: npm test -w site
+        run: |
+          cd site
+          bun run test
