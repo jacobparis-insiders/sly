@@ -1,9 +1,6 @@
-
 {
   // I'm building an app that runs in the DOM with an external bundler
-  "extends": ["@epic-web/config/typescript"],
   "include": [
-    "@epic-web/config/reset.d.ts",
     "**/*.ts",
     "**/*.tsx",
     "**/.server/**/*.ts",
@@ -14,9 +11,17 @@
     "../test/spawnSly.ts"
   ],
   "compilerOptions": {
+    "lib": ["DOM", "DOM.Iterable", "ES2019"],
+    "isolatedModules": true,
+    "esModuleInterop": true,
     "jsx": "react-jsx",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "target": "ES2019",
+    "strict": true,
+    "allowJs": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
     "types": ["@react-router/node", "vite/client"],
     "rootDirs": [".", "./.react-router/types"],
     "plugins": [{ "name": "@react-router/dev" }]
