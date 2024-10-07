@@ -31,7 +31,7 @@ COPY --link . .
 RUN npm run build
 
 # Remove development dependencies
-RUN npm prune --omit=dev
+RUN npm prune --omit=dev --legacy-peer-deps
 
 
 # Final stage for app image
