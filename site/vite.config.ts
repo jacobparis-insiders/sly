@@ -36,12 +36,6 @@ export default defineConfig(process.env.VITEST ? {} : {
       },
     }),
     reactRouter(),
-    tailwind({
-      content: ["./app/**/*.{js,jsx,ts,tsx}"],
-      theme: {
-        extend: {},
-      },
-      plugins: [],
-    }),
+    tailwind(),
   ],
 });

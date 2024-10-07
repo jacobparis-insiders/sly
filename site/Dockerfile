@@ -1,7 +1,7 @@
 # syntax = docker/dockerfile:1
 
 # Adjust NODE_VERSION as desired
-ARG NODE_VERSION=18.16.1
+ARG NODE_VERSION=20
 FROM node:${NODE_VERSION}-slim as base
 
 LABEL fly_launch_runtime="Remix"
@@ -22,8 +22,7 @@ RUN apt-get update -qq && \
 
 # Install node modules
 COPY --link package.json ./
-COPY --link setup-swap.js ./
-RUN npm install --include=dev
+RUN npm install --include=dev --legacy-peer-deps
 
 # Copy application code
 COPY --link . .
@@ -40,9 +39,8 @@ FROM base
 
 # Copy built application
 COPY --from=build /app /app
-COPY --from=build /app/setup-swap.js /app/
 
 # Start the server by default, this can be overwritten at runtime
 EXPOSE 3000
 
-ENTRYPOINT [ "./start.sh" ]
+CMD [ "npm", "run", "start" ]

@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "react-router dev",
     "build": "react-router build",
-    "start": "react-router-serve ./build/server/index.js",
+    "start": "NODE_ENV=production PORT=3000 react-router-serve ./build/server/index.js",
     "start-server": "NODE_ENV=production PORT=3000 npm start",
     "pretest": "node tests/list-versions.js",
     "test": "start-server-and-test start-server http://localhost:3000 vitest",

@@ -1,6 +1,6 @@
 // http://localhost:3000
 
-import { Outlet, Scripts, ScrollRestoration } from "react-router"
+import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router"
 import { ButtonLink } from "./components/ButtonLink"
 import { Icon } from "./components/icon"
 
@@ -10,6 +10,8 @@ export default function App() {
   return (
     <html lang="en">
       <head>
+        <Links />
+        <Meta />
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
         <title> Sly </title>
