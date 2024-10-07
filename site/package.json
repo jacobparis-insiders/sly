@@ -1,4 +1,5 @@
 {
+  "name": "site",
   "private": true,
   "sideEffects": false,
   "type": "module",

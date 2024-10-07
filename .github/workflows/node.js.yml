@@ -77,9 +77,7 @@ jobs:
           bun-version: 'latest' # or specify a version like '1.0.11'
 
       - name: Install CLI dependencies 📦
-        run: |
-          cd cli
-          bun install
+        run: bun install
 
       - name: Build CLI 🛠️
         run: npm run build -w cli
@@ -154,9 +152,7 @@ jobs:
           bun-version: 'latest' # or specify a version like '1.0.11'
 
       - name: Install site dependencies 📦
-        run: |
-          cd site
-          bun install
+        run: bun install
 
       - name: Build site 🛠️
         run: |
