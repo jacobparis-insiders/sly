@@ -1,30 +1,20 @@
 // http://localhost:3000
 
-import tailwindStylesheet from "./tailwind.css"
-import type { LinksFunction } from "@remix-run/node"
-import {
-  Links,
-  LiveReload,
-  Meta,
-  Outlet,
-  Scripts,
-  ScrollRestoration,
-} from "@remix-run/react"
+import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router"
 import { ButtonLink } from "./components/ButtonLink"
 import { Icon } from "./components/icon"
 
-export const links: LinksFunction = () => [
-  { rel: "stylesheet", href: tailwindStylesheet },
-]
+import './tailwind.css'
 
 export default function App() {
   return (
     <html lang="en">
       <head>
+        <Links />
+        <Meta />
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
-        <Meta />
-        <Links />
+        <title> Sly </title>
         <style>
           {`.bg-light {
           -webkit-backdrop-filter: blur(1.5rem) saturate(200%) contrast(50%) brightness(130%);
@@ -84,7 +74,6 @@ export default function App() {
         </div>
         <ScrollRestoration />
         <Scripts />
-        <LiveReload />
       </body>
     </html>
   )

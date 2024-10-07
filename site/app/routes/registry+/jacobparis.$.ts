@@ -1,11 +1,11 @@
-import { type LoaderFunctionArgs } from "@remix-run/node"
+import { type LoaderFunctionArgs } from"react-router"
 import cachified from "@epic-web/cachified"
-import { cache } from "~/cache.server"
 import {
   libraryItemWithContentSchema,
   type Meta,
   libraryIndexSchema,
-} from "~/schemas"
+} from "#app/schemas.js"
+import { cache } from "#app/cache.server.js"
 
 export const meta = {
   name: "jacobparis/ui",

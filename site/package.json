@@ -1,13 +1,17 @@
 {
+  "name": "site",
   "private": true,
   "sideEffects": false,
   "type": "module",
+  "imports": {
+    "#*": "./*",
+    "#types": "./.react-router/types/*"
+  },
   "scripts": {
-    "build": "remix build",
-    "build:icons": "tsx ./build-icons.ts",
-    "dev": "remix dev",
-    "start-server": "npm start",
-    "start": "remix-serve build/index.js",
+    "dev": "react-router dev",
+    "build": "react-router build",
+    "start": "NODE_ENV=production PORT=3000 react-router-serve ./build/server/index.js",
+    "start-server": "NODE_ENV=production PORT=3000 npm start",
     "pretest": "node tests/list-versions.js",
     "test": "start-server-and-test start-server http://localhost:3000 vitest",
     "typecheck": "tsc"
@@ -15,43 +19,44 @@
   "dependencies": {
     "@epic-web/cachified": "^5.2.0",
     "@epic-web/remember": "^1.1.0",
-    "@remix-run/css-bundle": "^2.4.0",
-    "@remix-run/node": "^2.4.0",
-    "@remix-run/react": "^2.4.0",
-    "@remix-run/serve": "^2.4.0",
+    "@react-router/fs-routes": "^0.0.0-nightly-bf7ecb711-20240911",
+    "@react-router/node": "^7.0.0-pre.0",
+    "@react-router/serve": "^7.0.0-pre.0",
+    "@tailwindcss/vite": "^4.0.0-alpha.26",
+    "clsx": "^2.1.1",
     "compare-versions": "^6.1.0",
+    "copy-to-clipboard": "^3.3.3",
     "execa": "^7.1.1",
-    "isbot": "^3.6.8",
+    "isbot": "^5.1.17",
     "lru-cache": "^10.0.0",
     "octokit": "^3.0.0",
-    "react": "^18.2.0",
-    "react-copy-to-clipboard": "^5.1.0",
-    "react-dom": "^18.2.0",
-    "remix-flat-routes": "^0.6.4",
+    "react": "19.0.0-rc-1460d67c-20241003",
+    "react-dom": "19.0.0-rc-1460d67c-20241003",
+    "react-router": "^7.0.0-pre.0",
+    "start-server-and-test": "^2.0.8",
     "svgo": "^3.0.2",
-    "tailwindcss": "^3.3.3",
+    "vitest": "^1.0.4",
     "zod": "^3.21.4"
   },
   "devDependencies": {
-    "@gmrchk/cli-testing-library": "github:jpulec/cli-testing-library#patch-1",
-    "@remix-run/dev": "^2.4.0",
-    "@remix-run/eslint-config": "^2.4.0",
-    "@types/fs-extra": "^11.0.4",
-    "@types/glob": "^8.1.0",
-    "@types/react": "^18.0.35",
-    "@types/react-dom": "^18.0.11",
-    "eslint": "^8.38.0",
-    "eslint-plugin-no-template-curly-in-string-fix": "^1.0.4",
-    "fs-extra": "^11.2.0",
-    "glob": "^10.3.10",
-    "node-html-parser": "^6.1.12",
-    "start-server-and-test": "^2.0.3",
-    "tsx": "^4.7.0",
-    "typescript": "^5.0.4",
-    "vite": "^5.0.10",
-    "vitest": "^1.0.4"
+    "@epic-web/config": "^1.12.0",
+    "@react-router/dev": "^7.0.0-pre.0",
+    "@types/react": "npm:types-react@rc",
+    "@types/react-dom": "npm:types-react-dom@rc",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.40",
+    "prettier": "^3.3.3",
+    "prettier-plugin-tailwindcss": "^0.6.8",
+    "tailwindcss": "^4.0.0-alpha.26",
+    "typescript": "^5.6.2",
+    "vite": "^5.3.5",
+    "vite-plugin-icons-spritesheet": "^2.2.1"
   },
-  "engines": {
-    "node": ">=14.0.0"
-  }
+  "overrides": {
+    "react": "19.0.0-rc-1460d67c-20241003",
+    "react-dom": "19.0.0-rc-1460d67c-20241003",
+    "@types/react": "npm:types-react@rc",
+    "@types/react-dom": "npm:types-react-dom@rc"
+  },
+  "prettier": "@epic-web/config/prettier"
 }

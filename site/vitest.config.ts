@@ -14,6 +14,7 @@ export default defineConfig({
     env: {
       REGISTRY_URL: "http://localhost:3000",
     },
+
     globalSetup: "../test/setup.ts",
   },
 })

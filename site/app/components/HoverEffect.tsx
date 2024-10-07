@@ -23,7 +23,7 @@ function useMousePosition() {
 export function HoverEffect({
   elementRef,
 }: {
-  elementRef: React.RefObject<HTMLElement>
+  elementRef: React.RefObject<HTMLElement| null> 
 }) {
   const mousePosition = useMousePosition()
 

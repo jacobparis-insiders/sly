@@ -1,26 +1,15 @@
 // http://localhost:3000/
 // https://sly-cli.fly.dev/
 
-import type { MetaFunction, LoaderFunctionArgs } from "@remix-run/node"
-import { useLoaderData } from "@remix-run/react"
 import copy from "copy-to-clipboard"
 import cachified from "@epic-web/cachified"
 import { useMemo, useState } from "react"
-import { cache } from "~/cache.server"
-import { Icon } from "~/components/icon"
-import { registryIndexSchema } from "~/schemas"
+import { cache } from "#app/cache.server.js"
+import * as Route from './+types._index'
+import { registryIndexSchema } from "#app/schemas.js"
+import { Icon } from "#app/components/icon.js"
 
-export const meta: MetaFunction = () => {
-  return [
-    { title: "Add code, not dependencies, with Sly CLI" },
-    {
-      name: "description",
-      content: "Add components, icons, and utilities to your app.",
-    },
-  ]
-}
-
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url)
 
   const registry = await cachified({
@@ -41,9 +30,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 }
 
-export default function Index() {
-  const { libraries } = useLoaderData<typeof loader>()
-
+export default function Index({ loaderData: { libraries } }: Route.ComponentProps) {
   const iconLibraries = useMemo(
     () => libraries.filter(({ tags }) => tags.includes("icons")),
     [libraries]
@@ -63,6 +50,9 @@ export default function Index() {
 
   return (
     <div className="flex mx-auto my-24 max-w-5xl px-4 flex-col text-neutral-600">
+			<title> Add code, not dependencies </title>
+			<meta name="description" content="Add components, icons, and utilities to your app." />
+
       <div>
         <h1 className="font-bold inline text-5xl drop-shadow-2xl md:text-8xl text-neutral-800">
           Add code, not dependencies

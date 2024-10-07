@@ -1,7 +1,7 @@
 // http://localhost:3000/registry/config.json
 // https://sly-cli.fly.dev/registry/config.json
 
-import { json, type LoaderFunctionArgs } from "@remix-run/node"
+import { json, type LoaderFunctionArgs } from"react-router"
 
 // This is the JSON schema for the config file
 export async function loader({ request }: LoaderFunctionArgs) {

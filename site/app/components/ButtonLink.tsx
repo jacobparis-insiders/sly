@@ -1,7 +1,6 @@
 import { useRef } from "react"
 import { HoverEffect } from "./HoverEffect"
-import type { LinkProps } from "@remix-run/react"
-import { Link } from "@remix-run/react"
+import { Link, LinkProps } from "react-router"
 
 export function ButtonLink({ children, ...props }: LinkProps) {
   const elementRef = useRef<HTMLAnchorElement>(null)

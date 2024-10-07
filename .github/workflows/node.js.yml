@@ -23,7 +23,7 @@ jobs:
       site_changed: ${{ steps.set_env.outputs.site_changed }}
     steps:
       - name: Checkout ⬇️
-        uses: actions/checkout@v3.2.0
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -63,16 +63,21 @@ jobs:
 
     steps:
       - name: Checkout ⬇️
-        uses: actions/checkout@v3.2.0
+        uses: actions/checkout@v4
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           check-latest: true
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 'latest' # or specify a version like '1.0.11'
+
       - name: Install CLI dependencies 📦
-        run: npm ci --no-audit -w cli
+        run: bun install
 
       - name: Build CLI 🛠️
         run: npm run build -w cli
@@ -133,19 +138,28 @@ jobs:
 
     steps:
       - name: Checkout ⬇️
-        uses: actions/checkout@v3.2.0
+        uses: actions/checkout@v4
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           check-latest: true
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 'latest' # or specify a version like '1.0.11'
+
       - name: Install site dependencies 📦
-        run: npm ci --no-audit -w site
+        run: bun install
 
       - name: Build site 🛠️
-        run: npm run build -w site
+        run: |
+          cd site
+          bun run build
 
       - name: Test site 🧪
-        run: npm test -w site
+        run: |
+          cd site
+          bun run test
