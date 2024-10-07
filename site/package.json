@@ -53,9 +53,8 @@
     "vite-plugin-icons-spritesheet": "^2.2.1"
   },
   "overrides": {
-    "react-router": {
-      "react": "19.0.0-rc-1460d67c-20241003"
-    },
+    "react": "19.0.0-rc-1460d67c-20241003",
+    "react-dom": "19.0.0-rc-1460d67c-20241003",
     "@types/react": "npm:types-react@rc",
     "@types/react-dom": "npm:types-react-dom@rc"
   },
