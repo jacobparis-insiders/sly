@@ -1,4 +1,4 @@
-import { type LoaderFunctionArgs } from"react-router"
+import { type LoaderFunctionArgs, json } from"react-router"
 import cachified from "@epic-web/cachified"
 import {
   libraryItemWithContentSchema,
@@ -22,7 +22,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
   }
 
   if (slug === "ui.json") {
-    return cachified({
+    const response = await cachified({
       key: `jacobparis/${slug}`,
       cache: cache,
       forceFresh: true,
@@ -34,10 +34,11 @@ export async function loader({ params }: LoaderFunctionArgs) {
         )
       },
     })
+    return json(response)
   }
 
   if (slug.startsWith("ui/")) {
-    return cachified({
+    const response = await cachified({
       key: `jacobparis/${slug}`,
       cache: cache,
       forceFresh: true,
@@ -48,6 +49,8 @@ export async function loader({ params }: LoaderFunctionArgs) {
         )
       },
     })
+
+    return json(response)
   }
 
   throw new Response(null, { status: 404, statusText: "Not Found" })
