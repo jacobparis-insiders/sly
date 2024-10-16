@@ -1,5 +1,5 @@
 import { assign, fromPromise, setup } from "xstate"
-import { Config, getConfig } from "~/src/get-config.js"
+import { Config, getConfig, LibraryConfig } from "~/src/get-config.js"
 import { logger } from "~/src/logger.js"
 import { fetchTree, getLibraryIndex } from "~/src/registry.js"
 import { execa } from "execa"
@@ -13,74 +13,11 @@ import { existsSync } from "fs"
 import fs from "fs/promises"
 import path from "path"
 
-interface IconFile {
-  name: string
-  content: string
-}
-
-interface Icon {
-  name: string
-  files: IconFile[]
-  dependencies: string[]
-  devDependencies: string[]
-  meta: Meta
-}
-
-type TreeSet = z.infer<typeof libraryIndexSchema>["resources"]
-
-import type { Meta, Transformer } from "~/src/index.js"
+import type { Transformer } from "~/src/index.js"
 import { invariant } from "@epic-web/invariant"
-import { libraryIndexSchema } from "site/app/schemas.js"
+import { libraryItemWithContentSchema } from "site/app/schemas.js"
 
-interface AddIconContext {
-  libArg?: string
-  iconsArg?: string[]
-  library?: string
-  icons?: string[]
-  config?: Config
-  selectedIcons?: string[]
-  treeSet?: TreeSet
-  payload?: Icon[]
-  libConfig?: LibraryConfig
-  transformers?: Array<{ default: Transformer }>
-  targetDir?: string
-  error?: string
-}
-
-interface LibraryConfig {
-  name: string
-  directory: string
-  transformers: string[]
-  postinstall?: string | string[]
-}
-
-type AddIconEvent =
-  | { type: "START" }
-  | { type: "LIBRARY_PROVIDED"; library: string }
-  | { type: "LOAD_CONFIG_SUCCESS"; config: Config }
-  | { type: "LOAD_CONFIG_FAILURE" }
-  | { type: "CONFIGURE_LIBRARIES" }
-  | { type: "LIBRARY_CHOSEN"; library: string }
-  | { type: "LIBRARY_VALID"; library: string }
-  | { type: "LIBRARY_INVALID"; error: string }
-  | { type: "INITIALIZE_LIBRARY"; library: string }
-  | {
-      type: "GET_LIBRARY_INDEX_SUCCESS"
-      index: ReturnType<typeof getLibraryIndex>
-    }
-  | { type: "GET_LIBRARY_INDEX_FAILURE"; error: string }
-  | { type: "SELECT_ICONS"; icons: string[] }
-  | { type: "PROCESS_DEPENDENCIES" }
-  | { type: "NOTIFY_DEPENDENCIES" }
-  | { type: "FETCH_ICON_TREE_SUCCESS"; payload: Icon[] }
-  | { type: "FETCH_ICON_TREE_FAILURE"; warning: string }
-  | { type: "CONFIRM_INSTALLATION"; confirm: boolean }
-  | { type: "RESOLVE_TRANSFORMERS_SUCCESS"; transformers: Transformer[] }
-  | { type: "INSTALL_ICONS" }
-  | { type: "POST_INSTALL_STEPS" }
-  | { type: "COMPLETE" }
-  | { type: "FAILURE"; error: string }
-
+type Component = z.infer<typeof libraryItemWithContentSchema>
 export const addIconMachine = setup({
   types: {
     input: {} as {
@@ -88,22 +25,31 @@ export const addIconMachine = setup({
       iconsArg?: string[]
       targetDir?: string
     },
-    context: {} as AddIconContext,
-    events: {} as AddIconEvent,
+    context: {} as {
+      config: Config | undefined
+      payload: Component[]
+      library: string | undefined
+      targetDir: string | undefined
+      transformers: Array<{ default: Transformer }>
+      selectedIcons: string[]
+      error: string | undefined
+    },
   },
   actions: {
-    logErrorAndExit: ({ context }) => {
+    exitWithError: ({ context }) => {
       logger.error(context.error)
       process.exit(1)
     },
-    exitProcess: () => {
+    exitGracefully: () => {
       process.exit(0)
     },
+    setError: assign({
+      error: ({ event }) => event.error as string,
+    }),
   },
   actors: {
     loadConfigurationSrc: fromPromise(async () => {
       const config = await getConfig()
-
       return config
     }),
     configureLibrariesSrc: fromPromise(async () => {
@@ -230,7 +176,7 @@ export const addIconMachine = setup({
         input,
       }: {
         input: {
-          payload: Icon[]
+          payload: Component[]
           transformers: Array<{ default: Transformer }>
           targetDir: string
           selectedIcons: string[]
@@ -344,26 +290,23 @@ export const addIconMachine = setup({
     ),
   },
   guards: {
-    hasSufficientContext: ({ context }) => {
-      const hasSufficientContext =
+    // If enough args are passed then we don't need a config file
+    doesNotRequireConfigFile: ({ context }) => {
+      const doesNotRequireConfigFile =
         Boolean(context.library) && Boolean(context.targetDir)
 
-      return hasSufficientContext
+      return doesNotRequireConfigFile
     },
+    // Most of the guards are negative conditions to move us backwards to the step that fulfills them
     hasSelectedZeroIcons: ({ context }) => !context.selectedIcons?.length,
     hasNoConfig: ({ context }) => !context.config,
     hasNoLibrary: ({ context }) => !context.library,
-    hasLibraries: ({ context }) => Boolean(context.config?.libraries.length),
     hasLibrarySet: ({ context }) => Boolean(context.library),
-    hasConfig: ({ context }) => Boolean(context.config),
     hasNoLibraries: ({ context }) => context.config?.libraries.length === 0,
-    isConfigureLibraries: ({ event }) =>
-      event.type === "LIBRARY_CHOSEN" &&
-      event.library === "\n    Configure libraries ->",
-    isConfirmed: ({ event }) =>
-      event.type === "CONFIRM_INSTALLATION" && event.confirm === true,
     eventHasNoOutput: ({ event }) => !("output" in event) || !event.output,
     hasNoTargetDir: ({ context }) => !context.targetDir, // Added guard
+    // short circuit to end the machine if there's an error
+    hasError: ({ context }) => Boolean(context.error),
   },
 }).createMachine({
   context: ({ input }) => {
@@ -373,270 +316,247 @@ export const addIconMachine = setup({
       library: input.libArg,
       targetDir: input.targetDir,
       transformers: [],
-      selectedIcons: input.iconsArg,
+      selectedIcons: input.iconsArg || [],
       error: undefined,
     }
   },
-  initial: "loadConfiguration",
+  // use this container state so we can bail on any error
+  initial: "running",
   states: {
-    loadConfiguration: {
-      always: [
-        {
-          target: "fetchIconTree",
-          // if we have a library and a target dir, we can skip the configuration step
-          guard: "hasSufficientContext",
-        },
-      ],
-      invoke: {
-        id: "loadConfiguration",
-        src: "loadConfigurationSrc",
-        onDone: [
-          {
-            guard: "eventHasNoOutput",
-            target: "configureLibraries",
-          },
-          {
-            reenter: true,
-            actions: assign({
-              config: ({ event }) => event.output!,
-            }),
-          },
-        ],
-        onError: {
-          target: "configureLibraries",
-        },
-      },
-    },
-
-    failure: {
+    error: {
       type: "final",
-      entry: {
-        type: "logErrorAndExit",
-      },
+      entry: "exitWithError",
     },
-    configureLibraries: {
-      invoke: {
-        src: "configureLibrariesSrc",
-        onDone: {
-          target: "loadConfiguration",
-        },
-        onError: {
-          target: "failure",
-          actions: assign({
-            error: ({ event }) => event.error as string,
-          }),
-        },
+    running: {
+      always: {
+        target: "error",
+        guard: "hasError",
       },
-    },
-
-    chooseLibrary: {
-      always: [
-        {
-          target: "configureLibraries",
-          guard: "hasNoConfig",
-        },
-        {
-          target: "selectIcons",
-          guard: "hasLibrarySet",
-        },
-      ],
-      invoke: {
-        src: "chooseLibrarySrc",
-        input: ({ context }) => ({ config: context.config }),
-        onDone: [
-          {
-            target: "configureLibraries",
-            guard: "hasNoLibraries",
-          },
-          {
-            reenter: true,
-            actions: assign({
-              library: ({ event }) => {
-                return event.output
+      initial: "loadConfiguration",
+      states: {
+        loadConfiguration: {
+          always: [
+            {
+              // fetchIconTree is as far as we can start with CLI flags instead of config file
+              target: "fetchIconTree",
+              // if we have a library and a target dir, we can skip the configuration step
+              guard: "doesNotRequireConfigFile",
+            },
+          ],
+          invoke: {
+            id: "loadConfiguration",
+            src: "loadConfigurationSrc",
+            onDone: [
+              {
+                guard: "eventHasNoOutput",
+                target: "configureLibraries",
               },
+              {
+                reenter: true,
+                actions: assign({
+                  config: ({ event }) => event.output!,
+                }),
+              },
+            ],
+            onError: {
+              target: "configureLibraries",
+            },
+          },
+        },
+
+        configureLibraries: {
+          invoke: {
+            src: "configureLibrariesSrc",
+            onDone: {
+              target: "loadConfiguration",
+            },
+            onError: {
+              actions: "setError",
+            },
+          },
+        },
+
+        chooseLibrary: {
+          always: [
+            {
+              // we need config to invoke chooseLibrarySrc
+              target: "configureLibraries",
+              guard: "hasNoConfig",
+            },
+            {
+              // if we already have a lib, move forward to selectIcons
+              target: "selectIcons",
+              guard: "hasLibrarySet",
+            },
+          ],
+          invoke: {
+            src: "chooseLibrarySrc",
+            input: ({ context }) => ({ config: context.config }),
+            onDone: {
+              reenter: true,
+              actions: assign({
+                library: ({ event }) => {
+                  return event.output
+                },
+              }),
+            },
+            onError: {
+              actions: "setError",
+            },
+          },
+        },
+        selectIcons: {
+          always: [
+            {
+              // we need a lib to invoke selectIconsSrc
+              target: "chooseLibrary",
+              guard: "hasNoLibrary",
+            },
+          ],
+          invoke: {
+            src: "selectIconsSrc",
+            input: ({ context }) => ({
+              library: context.library!,
             }),
+            onDone: {
+              target: "fetchIconTree",
+              actions: assign({
+                selectedIcons: ({ event }) => event.output,
+              }),
+            },
+            onError: {
+              actions: "setError",
+            },
           },
-        ],
-        onError: {
-          target: "failure",
-          actions: assign({
-            error: ({ event }) => event.error as string,
-          }),
         },
-      },
-    },
-    selectIcons: {
-      always: [
-        {
-          target: "chooseLibrary",
-          guard: "hasNoLibrary",
+        exit: {
+          type: "final",
+          entry: "exitGracefully",
         },
-      ],
-      invoke: {
-        src: "selectIconsSrc",
-        input: ({ context }) => ({
-          library: context.library!,
-        }),
-        onDone: {
-          target: "fetchIconTree",
-          actions: assign({
-            selectedIcons: ({ event }) => event.output,
-          }),
-        },
-        onError: {
-          target: "exit",
-        },
-      },
-    },
-    exit: {
-      type: "final",
-      entry: {
-        type: "exitProcess",
-      },
-    },
-    fetchIconTree: {
-      always: [
-        {
-          target: "selectIcons",
-          guard: "hasSelectedZeroIcons",
-        },
-        {
-          target: "chooseLibrary",
-          guard: "hasNoLibrary",
-        },
-        {
-          target: "configureLibrary", // Updated transition
-          guard: "hasNoTargetDir",
-        },
-      ],
-      invoke: {
-        src: "fetchIconTreeSrc",
-        input: ({ context }) => ({
-          selectedIcons: context.selectedIcons!,
-          library: context.library!,
-        }),
-        onDone: {
-          target: "confirmInstallation",
-          actions: assign({
-            payload: ({ event }) => event.output,
-          }),
-        },
-        onError: {
-          target: "exit",
-          actions: assign({
-            error: ({ event }) => event.error as string,
-          }),
-        },
-      },
-    },
-
-    configureLibrary: {
-      // New state replacing setTargetDir
-      invoke: {
-        src: "configureLibrarySrc",
-        input: ({ context }) => ({
-          library: context.library!,
-          config: context.config!,
-        }),
-        onDone: {
-          target: "fetchIconTree",
-          actions: assign({
-            targetDir: ({ context, event }) =>
-              context.targetDir || event.output?.directory,
-          }),
-        },
-        onError: {
-          target: "failure",
-          actions: assign({
-            error: ({ event }) => event.error as string,
-          }),
-        },
-      },
-    },
-
-    confirmInstallation: {
-      invoke: {
-        src: "confirmInstallationSrc",
-        input: ({ context }) => ({
-          library: context.library!,
-          payloadLength: context.payload?.length || 0,
-        }),
-        onDone: [
-          {
-            target: "resolveTransformers",
+        fetchIconTree: {
+          always: [
+            {
+              target: "selectIcons",
+              guard: "hasSelectedZeroIcons",
+            },
+            {
+              target: "chooseLibrary",
+              guard: "hasNoLibrary",
+            },
+            {
+              target: "configureLibrary",
+              guard: "hasNoTargetDir",
+            },
+          ],
+          invoke: {
+            src: "fetchIconTreeSrc",
+            input: ({ context }) => ({
+              selectedIcons: context.selectedIcons!,
+              library: context.library!,
+            }),
+            onDone: {
+              target: "confirmInstallation",
+              actions: assign({
+                payload: ({ event }) => event.output,
+              }),
+            },
+            onError: {
+              actions: "setError",
+            },
           },
-        ],
-        onError: {
-          target: "exit",
         },
-      },
-    },
-    resolveTransformers: {
-      invoke: {
-        src: "resolveTransformersSrc",
-        input: ({ context }) => ({
-          config: context.config!,
-          library: context.library!,
-        }),
-        onDone: {
-          target: "installIcons",
-          actions: assign({
-            transformers: ({ event }) => event.output,
-          }),
+
+        configureLibrary: {
+          // New state replacing setTargetDir
+          invoke: {
+            src: "configureLibrarySrc",
+            input: ({ context }) => ({
+              library: context.library!,
+              config: context.config!,
+            }),
+            onDone: {
+              target: "fetchIconTree",
+              actions: assign({
+                targetDir: ({ context, event }) =>
+                  context.targetDir || event.output?.directory,
+              }),
+            },
+            onError: {
+              actions: "setError",
+            },
+          },
         },
-        onError: {
-          target: "failure",
-          actions: assign({
-            error: ({ event }) => event.error as string,
-          }),
+
+        confirmInstallation: {
+          invoke: {
+            src: "confirmInstallationSrc",
+            input: ({ context }) => ({
+              library: context.library!,
+              payloadLength: context.payload?.length || 0,
+            }),
+            onDone: [
+              {
+                target: "resolveTransformers",
+              },
+            ],
+            onError: {
+              actions: "setError",
+            },
+          },
         },
-      },
-    },
-    installIcons: {
-      invoke: {
-        src: "installIconsSrc",
-        input: ({ context }) => ({
-          payload: context.payload!,
-          transformers: context.transformers!,
-          targetDir: context.targetDir!,
-          selectedIcons: context.selectedIcons || [],
-          config: context.config!,
-          library: context.library!,
-        }),
-        onDone: {
-          target: "postInstallSteps",
+        resolveTransformers: {
+          invoke: {
+            src: "resolveTransformersSrc",
+            input: ({ context }) => ({
+              config: context.config!,
+              library: context.library!,
+            }),
+            onDone: {
+              target: "installIcons",
+              actions: assign({
+                transformers: ({ event }) => event.output,
+              }),
+            },
+            onError: {
+              actions: "setError",
+            },
+          },
         },
-        onError: {
-          target: "failure",
-          actions: assign({
-            error: ({ event }) => event.error as string,
-          }),
+        installIcons: {
+          invoke: {
+            src: "installIconsSrc",
+            input: ({ context }) => ({
+              payload: context.payload!,
+              transformers: context.transformers!,
+              targetDir: context.targetDir!,
+              selectedIcons: context.selectedIcons || [],
+              config: context.config!,
+              library: context.library!,
+            }),
+            onDone: {
+              target: "postInstallSteps",
+            },
+            onError: {
+              actions: "setError",
+            },
+          },
         },
-      },
-    },
-    postInstallSteps: {
-      invoke: {
-        src: "postInstallStepsSrc",
-        input: ({ context }) => ({
-          libConfig: context.config?.libraries.find(
-            (lib) => lib.name === context.library,
-          ),
-        }),
-        onDone: {
-          target: "complete",
+        postInstallSteps: {
+          invoke: {
+            src: "postInstallStepsSrc",
+            input: ({ context }) => ({
+              libConfig: context.config?.libraries.find(
+                (lib) => lib.name === context.library,
+              ),
+            }),
+            onDone: {
+              target: "exit",
+            },
+            onError: {
+              actions: "setError",
+            },
+          },
         },
-        onError: {
-          target: "failure",
-          actions: assign({
-            error: ({ event }) => event.error as string,
-          }),
-        },
-      },
-    },
-    complete: {
-      type: "final",
-      entry: {
-        type: "exitProcess",
       },
     },
   },
