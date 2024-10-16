@@ -136,7 +136,7 @@ export const addIconMachine = setup({
         const response = await prompts({
           type: "autocompleteMultiselect",
           name: "icons",
-          message: "Which icons would you like to add?",
+          message: "Which items would you like to add?",
           hint: "Space to select. A to toggle all. Enter to submit.",
           instructions: false,
           choices: libraryIndex.resources.map((entry) => ({
@@ -215,8 +215,8 @@ export const addIconMachine = setup({
       },
     ),
     resolveTransformersSrc: fromPromise(
-      async ({ input }: { input: { config: Config; library: string } }) => {
-        const libConfig = input.config.libraries.find(
+      async ({ input }: { input: { config?: Config; library: string } }) => {
+        const libConfig = input.config?.libraries.find(
           (lib) => lib.name === input.library,
         )
 
@@ -250,7 +250,7 @@ export const addIconMachine = setup({
           if (existingIcon.length && !process.env.OVERWRITE) {
             if (input.selectedIcons?.includes(icon.name)) {
               logger.warn(
-                `Icon ${icon.name} already exists. Use --overwrite to overwrite.`,
+                `Component ${icon.name} already exists. Use --overwrite to overwrite.`,
               )
               process.exit(1)
             }
@@ -344,6 +344,12 @@ export const addIconMachine = setup({
     ),
   },
   guards: {
+    hasSufficientContext: ({ context }) => {
+      const hasSufficientContext =
+        Boolean(context.library) && Boolean(context.targetDir)
+
+      return hasSufficientContext
+    },
     hasSelectedZeroIcons: ({ context }) => !context.selectedIcons?.length,
     hasNoConfig: ({ context }) => !context.config,
     hasNoLibrary: ({ context }) => !context.library,
@@ -377,7 +383,8 @@ export const addIconMachine = setup({
       always: [
         {
           target: "fetchIconTree",
-          guard: "hasConfig",
+          // if we have a library and a target dir, we can skip the configuration step
+          guard: "hasSufficientContext",
         },
       ],
       invoke: {
