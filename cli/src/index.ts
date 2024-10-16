@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { add } from "~/src/commands/add.js"
+import { addIcon } from "./commands/add-icon.js"
 import { init } from "~/src/commands/init.js"
 import { Command } from "commander"
 import { libraryCommand } from "./commands/library.js"
@@ -29,7 +29,7 @@ const program = new Command()
     process.env.CWD = options.cwd
   })
 
-program.addCommand(init).addCommand(add).addCommand(libraryCommand)
+program.addCommand(init).addCommand(addIcon).addCommand(libraryCommand)
 
 program.parse()
 
@@ -46,5 +46,5 @@ export type Meta = {
 
 export type Transformer = (
   input: string,
-  meta: Meta
+  meta: Meta,
 ) => Promise<string> | string
