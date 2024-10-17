@@ -1,5 +1,5 @@
 import { Command } from "commander"
-import { addIconMachine } from "./add-icon.fsm.js"
+import { addIconMachine } from "./add.fsm.js"
 import { z } from "zod"
 import { createActor } from "xstate"
 

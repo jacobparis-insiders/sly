@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { addIcon } from "./commands/add-icon.js"
+import { addIcon } from "./commands/add.js"
 import { init } from "~/src/commands/init.js"
 import { Command } from "commander"
 import { libraryCommand } from "./commands/library.js"
