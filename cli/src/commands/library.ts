@@ -2,6 +2,7 @@ import {
   LibraryConfig,
   getConfig,
   libraryConfigSchema,
+  resolveLibraryConfig,
   setConfig,
 } from "~/src/get-config.js"
 import { logger } from "~/src/logger.js"
@@ -69,51 +70,47 @@ export async function configureLibraries() {
             title: library.name,
             description: library.description,
             value: library.name,
-            selected:
-              existingConfig?.libraries.some(
-                ({ name }) => library.name === name
-              ) ?? false,
+            selected: Boolean(existingConfig?.libraries[library.name]),
           })),
           min: 1,
         },
-      ])
+      ]),
     )
     .catch(() => process.exit(1))
 
-  const newLibraries = answers.libraries.filter(
-    (name: string) =>
-      !existingConfig?.libraries.some((library) => library.name === name)
+  const newLibraries = answers.libraries.filter((name: string) =>
+    Boolean(!existingConfig?.libraries[name]),
   )
 
   for (const name of newLibraries) {
     await initLibrary(name)
   }
 
-  const removedLibraries = existingConfig?.libraries.filter(
-    (library) => !answers.libraries.includes(library.name)
+  const removedLibraries = Object.keys(existingConfig?.libraries || {}).filter(
+    (library) => !answers.libraries.includes(library),
   )
 
   if (removedLibraries?.length) {
     await confirmOrQuit(
       `Are you sure you want to remove ${removedLibraries
-        .map((library) => chalk.cyan(library.name))
-        .join(", ")}?`
+        .map((library) => chalk.cyan(library))
+        .join(", ")}?`,
     )
 
     await setConfig((config) => {
-      return {
-        ...config,
-        libraries: config.libraries.filter(
-          ({ name }) =>
-            !removedLibraries.some((library) => library.name === name)
-        ),
+      for (const library of removedLibraries) {
+        delete config.libraries[library]
       }
+
+      return config
     })
   }
+
+  await new Promise((resolve) => setTimeout(resolve, 100))
 }
 
 export async function chooseLibrary(
-  libraries: { name: LibraryConfig["name"] }[]
+  libraries: { name: LibraryConfig["name"] }[],
 ) {
   const { library } = await z
     .object({
@@ -128,7 +125,7 @@ export async function chooseLibrary(
           title: library.name,
           value: library.name,
         })),
-      })
+      }),
     )
     .catch(() => process.exit(1))
 
@@ -138,13 +135,50 @@ export async function chooseLibrary(
 export async function initLibrary(name: string) {
   const config = await getConfig()
 
-  const existingConfig: LibraryConfig = config?.libraries.find(
-    (library) => library.name === name
-  ) ?? {
-    name,
+  const existingConfig = (config && resolveLibraryConfig(config, name)) ?? {
     directory: "./components",
     postinstall: [],
     transformers: [],
+  }
+
+  // Check for existing top-level configurations
+  const topLevelConfigs = config?.config
+    ? Object.entries(config.config).flatMap(([key, value]) => {
+        if ("directory" in value) {
+          return key
+        }
+
+        return []
+      })
+    : []
+
+  if (topLevelConfigs.length > 0) {
+    const { configChoice } = await prompts({
+      type: "select",
+      name: "configChoice",
+      message: `Use an existing config for ${chalk.cyan(
+        name,
+      )} or set up a new one?`,
+      choices: [
+        ...topLevelConfigs.map((key) => ({
+          title: key,
+          value: key,
+        })),
+        { title: "New settings", value: "new" },
+      ],
+    })
+
+    // If the user chooses "new", proceed to define new settings
+    if (configChoice !== "new") {
+      await setConfig((config) => {
+        config.libraries[name] = {
+          config: configChoice,
+        }
+
+        return config
+      })
+      return
+    }
   }
 
   const answers = await z
@@ -170,29 +204,28 @@ export async function initLibrary(name: string) {
             ? existingConfig.postinstall.join(" ")
             : existingConfig.postinstall,
         },
-      ])
+      ]),
     )
     .catch(() => process.exit(1))
 
-  const newSettings = libraryConfigSchema.parse({
-    name,
-    directory: answers.directory,
-    postinstall: answers.postinstall,
-    transformers: existingConfig.transformers,
+  const newConfig = libraryConfigSchema.parse({
+    config: {
+      directory: answers.directory,
+      postinstall: answers.postinstall,
+      transformers: existingConfig.transformers,
+    },
   })
 
+  // If a new configuration is defined or an existing one is selected, save the settings
   await confirmOrQuit(`Save settings to ${chalk.cyan("sly.json")}?`)
 
   await setConfig((config) => {
-    const existingLibraryConfig = config.libraries.find(
-      (library) => library.name === name
-    )
+    if (!config.libraries) {
+      config.libraries = {}
+    }
 
-    if (existingLibraryConfig) {
-      existingLibraryConfig.directory = newSettings.directory
-      existingLibraryConfig.postinstall = newSettings.postinstall
-    } else {
-      config.libraries.push(newSettings)
+    config.libraries[name] = {
+      config: newConfig.config,
     }
 
     return config

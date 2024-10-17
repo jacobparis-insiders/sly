@@ -1,5 +1,5 @@
 import { assign, fromPromise, setup } from "xstate"
-import { Config, getConfig, LibraryConfig } from "~/src/get-config.js"
+import { Config, getConfig, resolveLibraryConfig } from "~/src/get-config.js"
 import { logger } from "~/src/logger.js"
 import { fetchTree, getLibraryIndex } from "~/src/registry.js"
 import { execa } from "execa"
@@ -16,8 +16,42 @@ import path from "path"
 import type { Transformer } from "~/src/index.js"
 import { invariant } from "@epic-web/invariant"
 import { libraryItemWithContentSchema } from "site/app/schemas.js"
-
+import jsonata from "jsonata"
 type Component = z.infer<typeof libraryItemWithContentSchema>
+
+type ComponentFile = Component["files"][number]
+
+type ApplyOptions = {
+  targetDir: string
+}
+
+async function applyNewFile(file: ComponentFile, options: ApplyOptions) {
+  const targetFile = path.resolve(options.targetDir, file.name)
+  const spinner = ora(`  Installing ${file.name}...\n`).start()
+  await fs.writeFile(targetFile, file.content)
+  spinner.succeed(`  Installed ${targetFile.replace(process.cwd(), "")}`)
+}
+
+async function applyJsonata(file: ComponentFile, options: ApplyOptions) {
+  const targetFile = path.resolve(options.targetDir, file.name)
+  const spinner = ora(`  Modifying ${file.name}...\n`).start()
+  const input = await fs.readFile(targetFile.replace(process.cwd(), ""))
+  const output = await jsonata(file.content).evaluate(input)
+  await fs.writeFile(targetFile, output)
+  spinner.succeed(`  Modified ${targetFile.replace(process.cwd(), "")}`)
+}
+
+function installFile(file: ComponentFile, options: ApplyOptions) {
+  switch (file.type) {
+    case "file":
+      return applyNewFile(file, options)
+    case "jsonata":
+      return applyJsonata(file, options)
+    default:
+      throw new Error(`Unknown file type: ${file}`)
+  }
+}
+
 export const addIconMachine = setup({
   types: {
     input: {} as {
@@ -50,10 +84,13 @@ export const addIconMachine = setup({
   actors: {
     loadConfigurationSrc: fromPromise(async () => {
       const config = await getConfig()
+
       return config
     }),
     configureLibrariesSrc: fromPromise(async () => {
       await configureLibraries()
+      const config = await getConfig()
+      return config
     }),
     chooseLibrarySrc: fromPromise(
       async ({ input }: { input: { config: Config | undefined } }) => {
@@ -61,7 +98,7 @@ export const addIconMachine = setup({
 
         const config = input.config
         const libraries = [
-          ...config.libraries,
+          ...Object.keys(config.libraries).map((name) => ({ name })),
           { name: "\n    Configure libraries ->" },
         ]
         const choice = await chooseLibrary(libraries)
@@ -161,12 +198,13 @@ export const addIconMachine = setup({
       },
     ),
     resolveTransformersSrc: fromPromise(
-      async ({ input }: { input: { config?: Config; library: string } }) => {
-        const libConfig = input.config?.libraries.find(
-          (lib) => lib.name === input.library,
-        )
+      async ({ input }: { input: { library: string } }) => {
+        const config = await getConfig()
+        if (!config) return []
 
-        return libConfig
+        const libConfig = resolveLibraryConfig(config, input.library)
+
+        return libConfig?.transformers
           ? await resolveTransformers(libConfig.transformers)
           : []
       },
@@ -180,7 +218,6 @@ export const addIconMachine = setup({
           transformers: Array<{ default: Transformer }>
           targetDir: string
           selectedIcons: string[]
-          config: Config
           library: string
         }
       }) => {
@@ -232,30 +269,33 @@ export const addIconMachine = setup({
             }
           }
 
-          const iconSpinner = ora(`  Installing ${icon.name}...\n`).start()
+          const transformedFiles = await Promise.all(
+            icon.files.map(async (file) => {
+              if (file.type !== "file") return file
 
-          for (const file of icon.files) {
-            const fileSpinner = ora(`    Installing ${file.name}...\n`).start()
+              return {
+                ...file,
+                content: await input.transformers.reduce(
+                  async (content, transformer) =>
+                    transformer.default(await content, icon.meta),
+                  Promise.resolve(file.content),
+                ),
+              }
+            }),
+          )
 
-            const output = await input.transformers.reduce(
-              async (content, transformer) =>
-                transformer.default(await content, icon.meta),
-              Promise.resolve(file.content),
-            )
-
-            await fs.writeFile(path.resolve(input.targetDir, file.name), output)
-
-            fileSpinner.succeed(
-              `    Installed ${path.join(input.targetDir, file.name)}`,
-            )
+          for (const file of transformedFiles) {
+            await installFile(file, { targetDir: input.targetDir })
           }
-          iconSpinner.succeed(`  Installed ${icon.name}`)
         }
       },
     ),
     postInstallStepsSrc: fromPromise(
-      async ({ input }: { input: { libConfig?: LibraryConfig } }) => {
-        const libConfig = input.libConfig
+      async ({ input }: { input: { library: string } }) => {
+        const config = await getConfig()
+        if (!config) return
+
+        const libConfig = resolveLibraryConfig(config, input.library)
         if (libConfig?.postinstall && libConfig.postinstall.length > 0) {
           const cmd =
             typeof libConfig.postinstall === "string"
@@ -275,16 +315,17 @@ export const addIconMachine = setup({
 
     // Replaced setTargetDirSrc with configureLibrarySrc
     configureLibrarySrc: fromPromise(
-      async ({ input }: { input: { library: string; config: Config } }) => {
-        const libConfig = input.config.libraries.find(
-          (lib) => lib.name === input.library,
-        )
+      async ({ input }: { input: { library: string } }) => {
+        const config = await getConfig()
+        invariant(config, "Config not found")
+
+        const libConfig = resolveLibraryConfig(config, input.library)
+        console.log("resolving", input.library, libConfig)
         if (libConfig?.directory) {
           return libConfig
         } else {
           await initLibrary(input.library)
-          const config = await getConfig()
-          return config?.libraries.find((lib) => lib.name === input.library)
+          return config.libraries[input.library]
         }
       },
     ),
@@ -295,15 +336,18 @@ export const addIconMachine = setup({
       const doesNotRequireConfigFile =
         Boolean(context.library) && Boolean(context.targetDir)
 
-      return doesNotRequireConfigFile
+      return Boolean(context.config || doesNotRequireConfigFile)
     },
     // Most of the guards are negative conditions to move us backwards to the step that fulfills them
     hasSelectedZeroIcons: ({ context }) => !context.selectedIcons?.length,
     hasNoConfig: ({ context }) => !context.config,
     hasNoLibrary: ({ context }) => !context.library,
     hasLibrarySet: ({ context }) => Boolean(context.library),
-    hasNoLibraries: ({ context }) => context.config?.libraries.length === 0,
+    hasNoLibraries: ({ context }) =>
+      Object.keys(context.config?.libraries || {}).length === 0,
     eventHasNoOutput: ({ event }) => !("output" in event) || !event.output,
+    eventIsConfigureLibraries: ({ event }) =>
+      event.output.includes("Configure libraries ->"),
     hasNoTargetDir: ({ context }) => !context.targetDir, // Added guard
     // short circuit to end the machine if there's an error
     hasError: ({ context }) => Boolean(context.error),
@@ -311,6 +355,8 @@ export const addIconMachine = setup({
 }).createMachine({
   context: ({ input }) => {
     return {
+      // we can set config here to tell the machine we have one
+      // but always read it from setConfig instead of passing as input
       config: undefined,
       payload: [],
       library: input.libArg,
@@ -354,7 +400,9 @@ export const addIconMachine = setup({
               {
                 reenter: true,
                 actions: assign({
-                  config: ({ event }) => event.output!,
+                  config: ({ event }) => {
+                    return event.output!
+                  },
                 }),
               },
             ],
@@ -369,6 +417,11 @@ export const addIconMachine = setup({
             src: "configureLibrariesSrc",
             onDone: {
               target: "loadConfiguration",
+              actions: assign({
+                config: ({ event }) => {
+                  return event.output!
+                },
+              }),
             },
             onError: {
               actions: "setError",
@@ -392,14 +445,20 @@ export const addIconMachine = setup({
           invoke: {
             src: "chooseLibrarySrc",
             input: ({ context }) => ({ config: context.config }),
-            onDone: {
-              reenter: true,
-              actions: assign({
-                library: ({ event }) => {
-                  return event.output
-                },
-              }),
-            },
+            onDone: [
+              {
+                guard: "eventIsConfigureLibraries",
+                target: "configureLibraries",
+              },
+              {
+                reenter: true,
+                actions: assign({
+                  library: ({ event }) => {
+                    return event.output
+                  },
+                }),
+              },
+            ],
             onError: {
               actions: "setError",
             },
@@ -472,7 +531,6 @@ export const addIconMachine = setup({
             src: "configureLibrarySrc",
             input: ({ context }) => ({
               library: context.library!,
-              config: context.config!,
             }),
             onDone: {
               target: "fetchIconTree",
@@ -508,7 +566,6 @@ export const addIconMachine = setup({
           invoke: {
             src: "resolveTransformersSrc",
             input: ({ context }) => ({
-              config: context.config!,
               library: context.library!,
             }),
             onDone: {
@@ -530,7 +587,6 @@ export const addIconMachine = setup({
               transformers: context.transformers!,
               targetDir: context.targetDir!,
               selectedIcons: context.selectedIcons || [],
-              config: context.config!,
               library: context.library!,
             }),
             onDone: {
@@ -545,9 +601,7 @@ export const addIconMachine = setup({
           invoke: {
             src: "postInstallStepsSrc",
             input: ({ context }) => ({
-              libConfig: context.config?.libraries.find(
-                (lib) => lib.name === context.library,
-              ),
+              library: context.library!,
             }),
             onDone: {
               target: "exit",

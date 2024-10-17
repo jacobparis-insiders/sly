@@ -10,7 +10,7 @@ export function checkVersion() {
     if (comparison === 1) {
       logger.warn(`Update available ${packageJson.version} -> ${version}.`)
       logger.warn(
-        `Run ${chalk.bold("npm i --save-dev @sly-cli/sly")} to update.`
+        `Run ${chalk.bold("npm i --save-dev @sly-cli/sly")} to update.`,
       )
     }
   })
