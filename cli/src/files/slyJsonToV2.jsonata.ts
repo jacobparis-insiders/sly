@@ -3,20 +3,64 @@ export default {
   name: "sly.json",
   content: /* jsonata */ `(
   /* Define icon, component, and utils categories */
+  /* These get special treatment because they were the Sly v1 Registry, so we carry their config forward */
   $icons := [
-    "@blueprintjs/icons", "tailwindlabs/heroicons", "iconoir", "lucide-icons", "material-design-icons", 
-    "phosphor-icons", "@radix-ui/icons", "remixicon", "simple-icons", "tabler-icons"
+    {
+      "name": "tailwindlabs/heroicons",
+      "iconifyName": "heroicons",
+      "displayName": "Hero Icons"
+    },
+    {
+      "name": "iconoir",
+      "iconifyName": "iconoir",
+      "displayName": "Iconoir"
+    },
+    {
+      "name": "lucide-icons",
+      "iconifyName": "lucide",
+      "displayName": "Lucide Icons"
+    },
+    {
+      "name": "material-design-icons",
+      "iconifyName": "mdi",
+      "displayName": "Material Design Icons"
+    },
+    {
+      "name": "phosphor-icons",
+      "iconifyName": "phosphor",
+      "displayName": "Phosphor Icons"
+    },
+    {
+      "name": "@radix-ui/icons",
+      "iconifyName": "radix",
+      "displayName": "Radix Icons"
+    },
+    {
+      "name": "remixicon",
+      "iconifyName": "remix",
+      "displayName": "Remix Icon"
+    },
+    {
+      "name": "simple-icons",
+      "iconifyName": "simple-icons",
+      "displayName": "Simple Icons"
+    },
+    {
+      "name": "tabler-icons",
+      "iconifyName": "tabler",
+      "displayName": "Tabler Icons"
+    }
   ];
   $components := ["draft-ui", "jacobparis/ui", "jolly-ui", "@shadcn/ui"];
   $utils := ["just"];
   
   /* Function to determine the type of a library */
-  $getType := function($name) {
-    $exists($icons[$name=$]) ? "icons" :
-    $exists($components[$name=$]) ? "components" :
-    $exists($utils[$name=$]) ? "utils" : null
+  $getType := function($key) {
+    $exists($icons[name=$key]) ? "icons" :
+    $exists($components[$key=$]) ? "components" :
+    $exists($utils[$key=$]) ? "utils" : null
   };
-
+  
   /* Function to remove the "name" field from a library */
   $removeName := function($lib) {
     $sift($lib, function($v, $k) { $k != "name" })
@@ -41,16 +85,21 @@ export default {
       "components": $collectConfigs("components"),
       "utils": $collectConfigs("utils")
     },
-    "libraries": $reduce(libraries, function($result, $lib) {
+    "libraries": $reduce(libraries, function($result, $libConfig) {
       (
-        $libType := $getType($lib.name);
+        $libType := $getType($libConfig.name);
+        $libInfo := $libType = "icons"
+          ? $icons[$libConfig.name = $.name]
+          : { "name": $libConfig.name, "displayName": $libConfig.name, "iconifyName": $libConfig.name };
         $commonConfig := $exists($collectConfigs($libType)) ? $libType : null;
         
         /* If the common config is at the top level, point to it. Otherwise, retain the original config */
         $merge([$result, {
-          ($lib.name): {
+          ($libInfo.iconifyName): {
+            /* This is an optional display name */
+            "name": $libType = "icons" ? $libInfo.displayName : undefined,
             /* No libType means this is an unknown library, just print $removeName($lib) */
-            "config": $libType ? $collectConfigs($libType) = $removeName($lib) ? $commonConfig : $removeName($lib)  /* Retain full config if not moved */ : $removeName($lib)
+            "config": $libType ? $collectConfigs($libType) = $removeName($libConfig) ? $commonConfig : $removeName($libConfig)  /* Retain full config if not moved */ : $removeName($libConfig)
           }
         }])
       )
@@ -59,3 +108,40 @@ export default {
 )
 `,
 }
+
+// "iconify:heroicons": {
+//   "name": "HeroIcons",
+//   "config": "icons"
+// },
+// "iconify:iconoir": {
+//   "name": "Iconoir",
+//   "config": "icons"
+// },
+// "iconify:lucide": {
+//   "name": "Lucide",
+//   "config": "icons"
+// },
+// "iconify:mdi": {
+//   "name": "Material Design Icons",
+//   "config": "icons"
+// },
+// "iconify:ph": {
+//   "name": "Phosphor",
+//   "config": "icons"
+// },
+// "iconify:radix-icons": {
+//   "name": "Radix Icons",
+//   "config": "icons"
+// },
+// "iconify:ri": {
+//   "name": "Remix Icon",
+//   "config": "icons"
+// },
+// "iconify:simple-icons": {
+//   "name": "Simple Icons",
+//   "config": "icons"
+// },
+// "iconify:tabler": {
+//   "name": "Tabler Icons",
+//   "config": "icons"
+// }

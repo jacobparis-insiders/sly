@@ -1,56 +1,23 @@
 import { assign, fromPromise, setup } from "xstate"
 import { Config, getConfig, resolveLibraryConfig } from "~/src/get-config.js"
 import { logger } from "~/src/logger.js"
-import { fetchTree, getLibraryIndex } from "~/src/registry.js"
 import { execa } from "execa"
-import ora from "ora"
 import prompts from "prompts"
-import * as z from "zod"
 import { resolveTransformers } from "~/src/transformers.js"
-import { chooseLibrary, configureLibraries, initLibrary } from "./library.js"
-import { confirmOrQuit, confirm } from "../prompts.js"
+import {
+  chooseLibrary,
+  configureIconLibraries,
+  initLibrary,
+} from "./library.js"
+import { confirmOrQuit } from "../prompts.js"
 import { existsSync } from "fs"
 import fs from "fs/promises"
 import path from "path"
 
 import type { Transformer } from "~/src/index.js"
 import { invariant } from "@epic-web/invariant"
-import { libraryItemWithContentSchema } from "site/app/schemas.js"
-import jsonata from "jsonata"
-type Component = z.infer<typeof libraryItemWithContentSchema>
-
-type ComponentFile = Component["files"][number]
-
-type ApplyOptions = {
-  targetDir: string
-}
-
-async function applyNewFile(file: ComponentFile, options: ApplyOptions) {
-  const targetFile = path.resolve(options.targetDir, file.name)
-  const spinner = ora(`  Installing ${file.name}...\n`).start()
-  await fs.writeFile(targetFile, file.content)
-  spinner.succeed(`  Installed ${targetFile.replace(process.cwd(), "")}`)
-}
-
-async function applyJsonata(file: ComponentFile, options: ApplyOptions) {
-  const targetFile = path.resolve(options.targetDir, file.name)
-  const spinner = ora(`  Modifying ${file.name}...\n`).start()
-  const input = await fs.readFile(targetFile.replace(process.cwd(), ""))
-  const output = await jsonata(file.content).evaluate(input)
-  await fs.writeFile(targetFile, output)
-  spinner.succeed(`  Modified ${targetFile.replace(process.cwd(), "")}`)
-}
-
-function installFile(file: ComponentFile, options: ApplyOptions) {
-  switch (file.type) {
-    case "file":
-      return applyNewFile(file, options)
-    case "jsonata":
-      return applyJsonata(file, options)
-    default:
-      throw new Error(`Unknown file type: ${file}`)
-  }
-}
+import { fetchIcons, getIconifyLibraryIndex } from "../iconify.js"
+import { installFile } from "../install.js"
 
 export const addIconMachine = setup({
   types: {
@@ -61,7 +28,14 @@ export const addIconMachine = setup({
     },
     context: {} as {
       config: Config | undefined
-      payload: Component[]
+      payload: Array<{
+        name: string
+        files: Array<{
+          type: "file"
+          name: string
+          content: string
+        }>
+      }>
       library: string | undefined
       targetDir: string | undefined
       transformers: Array<{ default: Transformer }>
@@ -88,7 +62,7 @@ export const addIconMachine = setup({
       return config
     }),
     configureLibrariesSrc: fromPromise(async () => {
-      await configureLibraries()
+      await configureIconLibraries()
       const config = await getConfig()
       return config
     }),
@@ -98,8 +72,11 @@ export const addIconMachine = setup({
 
         const config = input.config
         const libraries = [
-          ...Object.keys(config.libraries).map((name) => ({ name })),
-          { name: "\n    Configure libraries ->" },
+          ...Object.entries(config.libraries).map(([key, library]) => ({
+            name: key,
+            displayName: library.name,
+          })),
+          { name: "\n    Configure icon libraries ->" },
         ]
         const choice = await chooseLibrary(libraries)
         return choice
@@ -114,7 +91,31 @@ export const addIconMachine = setup({
           library: string
         }
       }) => {
-        const libraryIndex = await getLibraryIndex(input.library)
+        // we could get a list of categories from the registry
+        // or uncategorized icons
+        const libraryIndex = await getIconifyLibraryIndex(input.library)
+
+        let icons: Array<string> = libraryIndex.uncategorized || []
+        if (libraryIndex.categories) {
+          const category = await prompts({
+            type: "select",
+            name: "category",
+            message: "Select a category",
+            choices: Object.keys(libraryIndex.categories).map((name) => ({
+              title: name,
+              value: name,
+            })),
+            onState: (state) => {
+              if (state.aborted) {
+                process.nextTick(() => {
+                  process.exit(0)
+                })
+              }
+            },
+          })
+
+          icons = libraryIndex.categories[category.category] || []
+        }
 
         const response = await prompts({
           type: "autocompleteMultiselect",
@@ -122,9 +123,9 @@ export const addIconMachine = setup({
           message: "Which items would you like to add?",
           hint: "Space to select. A to toggle all. Enter to submit.",
           instructions: false,
-          choices: libraryIndex.resources.map((entry) => ({
-            title: entry.name,
-            value: entry.name,
+          choices: icons.map((item) => ({
+            title: item,
+            value: item,
           })),
           onState: (state) => {
             if (state.aborted) {
@@ -135,6 +136,7 @@ export const addIconMachine = setup({
           },
           min: 1,
         })
+
         return response.icons
       },
     ),
@@ -147,38 +149,7 @@ export const addIconMachine = setup({
           selectedIcons: string[]
         }
       }) => {
-        const libraryIndex = await getLibraryIndex(input.library)
-        const treeSet = new Set(
-          libraryIndex.resources.filter(
-            (item) => input.selectedIcons?.includes(item.name),
-          ),
-        )
-        treeSet.forEach((item) => {
-          if (item.dependencies.length > 0) {
-            item.dependencies.forEach((dep: string) => {
-              const dependency = libraryIndex.resources.find(
-                (res) => res.name === dep,
-              )
-              if (dependency) {
-                treeSet.add(dependency)
-              } else {
-                logger.error(`Dependency ${dep} not found in registry`)
-              }
-            })
-          }
-        })
-        const treeSetItemsThatAreNotSelected = Array.from(treeSet).filter(
-          (item) => !input.selectedIcons?.includes(item.name),
-        )
-
-        if (treeSetItemsThatAreNotSelected.length > 0) {
-          logger.info(`The selected icons depend on these other icons:`)
-          treeSetItemsThatAreNotSelected.forEach((item) => {
-            logger.info(`- ${item.name}`)
-          })
-        }
-
-        const payload = await fetchTree(input.library, Array.from(treeSet))
+        const payload = await fetchIcons(input.library, input.selectedIcons)
         if (!payload.length)
           throw new Error("Selected icons not found. Exiting.")
         return payload
@@ -214,7 +185,14 @@ export const addIconMachine = setup({
         input,
       }: {
         input: {
-          payload: Component[]
+          payload: Array<{
+            name: string
+            files: Array<{
+              type: "file"
+              name: string
+              content: string
+            }>
+          }>
           transformers: Array<{ default: Transformer }>
           targetDir: string
           selectedIcons: string[]
@@ -240,51 +218,7 @@ export const addIconMachine = setup({
             continue
           }
 
-          if (icon.dependencies.length || icon.devDependencies.length) {
-            const shouldInstall = await confirm(
-              [
-                `${icon.name} requires the following`,
-                icon.dependencies.length ? "\nDependencies:" : "",
-                ...icon.dependencies.map((dep: string) => `- ${dep}`),
-                icon.devDependencies.length ? "\nDev Dependencies:" : "",
-                ...icon.devDependencies.map((dep: string) => `\n- ${dep}`),
-                "\nProceed?",
-              ]
-                .filter(Boolean)
-                .join("\n"),
-            )
-
-            if (shouldInstall) {
-              if (icon.dependencies?.length) {
-                await execa("npm", ["install", ...icon.dependencies])
-              }
-
-              if (icon.devDependencies?.length) {
-                await execa("npm", [
-                  "install",
-                  "--save-dev",
-                  ...icon.devDependencies,
-                ])
-              }
-            }
-          }
-
-          const transformedFiles = await Promise.all(
-            icon.files.map(async (file) => {
-              if (file.type !== "file") return file
-
-              return {
-                ...file,
-                content: await input.transformers.reduce(
-                  async (content, transformer) =>
-                    transformer.default(await content, icon.meta),
-                  Promise.resolve(file.content),
-                ),
-              }
-            }),
-          )
-
-          for (const file of transformedFiles) {
+          for (const file of icon.files) {
             await installFile(file, { targetDir: input.targetDir })
           }
         }
@@ -320,7 +254,6 @@ export const addIconMachine = setup({
         invariant(config, "Config not found")
 
         const libConfig = resolveLibraryConfig(config, input.library)
-        console.log("resolving", input.library, libConfig)
         if (libConfig?.directory) {
           return libConfig
         } else {
@@ -347,7 +280,7 @@ export const addIconMachine = setup({
       Object.keys(context.config?.libraries || {}).length === 0,
     eventHasNoOutput: ({ event }) => !("output" in event) || !event.output,
     eventIsConfigureLibraries: ({ event }) =>
-      event.output.includes("Configure libraries ->"),
+      event.output.includes("configure icon libraries ->"),
     hasNoTargetDir: ({ context }) => !context.targetDir, // Added guard
     // short circuit to end the machine if there's an error
     hasError: ({ context }) => Boolean(context.error),

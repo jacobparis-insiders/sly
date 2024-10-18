@@ -1,17 +1,16 @@
 #!/usr/bin/env node
 
-import { addIcon } from "./commands/add.js"
+import { add } from "./commands/add.js"
 import { init } from "~/src/commands/init.js"
 import { Command } from "commander"
 import { libraryCommand } from "./commands/library.js"
 import { checkVersion } from "./check-version.js"
 import packageJson from "../package.json"
-import { healthcheck } from "./healthcheck.js"
+import { addIcon } from "./commands/add-icon.js"
 
 process.on("SIGINT", () => process.exit(0))
 process.on("SIGTERM", () => process.exit(0))
 
-await healthcheck()
 await checkVersion()
 
 const program = new Command()
@@ -29,7 +28,11 @@ const program = new Command()
     process.env.CWD = options.cwd
   })
 
-program.addCommand(init).addCommand(addIcon).addCommand(libraryCommand)
+program
+  .addCommand(init)
+  .addCommand(add)
+  .addCommand(addIcon)
+  .addCommand(libraryCommand)
 
 program.parse()
 

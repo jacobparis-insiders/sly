@@ -16,7 +16,7 @@ describe("slyJsonToV2 Conversion", () => {
       $schema: "https://sly-cli.fly.dev/registry/config.json",
       libraries: [
         {
-          name: "@blueprintjs/icons",
+          name: "lucide-icons",
           directory: "./svg-icons",
           postinstall: [],
           transformers: [],
@@ -38,8 +38,9 @@ describe("slyJsonToV2 Conversion", () => {
           "utils": {},
         },
         "libraries": {
-          "@blueprintjs/icons": {
+          "lucide": {
             "config": "icons",
+            "name": "Lucide Icons",
           },
         },
       }
@@ -121,7 +122,7 @@ describe("slyJsonToV2 Conversion", () => {
       $schema: "https://sly-cli.fly.dev/registry/config.json",
       libraries: [
         {
-          name: "@blueprintjs/icons",
+          name: "lucide-icons",
           directory: "./svg-icons",
           postinstall: [],
           transformers: [],
@@ -149,11 +150,13 @@ describe("slyJsonToV2 Conversion", () => {
           "utils": {},
         },
         "libraries": {
-          "@blueprintjs/icons": {
+          "heroicons": {
             "config": "icons",
+            "name": "Hero Icons",
           },
-          "tailwindlabs/heroicons": {
+          "lucide": {
             "config": "icons",
+            "name": "Lucide Icons",
           },
         },
       }
@@ -165,7 +168,7 @@ describe("slyJsonToV2 Conversion", () => {
       $schema: "https://sly-cli.fly.dev/registry/config.json",
       libraries: [
         {
-          name: "@blueprintjs/icons",
+          name: "lucide-icons",
           directory: "./svg-icons",
           postinstall: [],
           transformers: [],
@@ -193,15 +196,17 @@ describe("slyJsonToV2 Conversion", () => {
           "utils": {},
         },
         "libraries": {
-          "@blueprintjs/icons": {
-            "config": "icons",
-          },
-          "tailwindlabs/heroicons": {
+          "heroicons": {
             "config": {
               "directory": "./other/svg-icons",
               "postinstall": [],
               "transformers": [],
             },
+            "name": "Hero Icons",
+          },
+          "lucide": {
+            "config": "icons",
+            "name": "Lucide Icons",
           },
         },
       }
@@ -213,7 +218,7 @@ describe("slyJsonToV2 Conversion", () => {
       $schema: "https://sly-cli.fly.dev/registry/config.json",
       libraries: [
         {
-          name: "@blueprintjs/icons",
+          name: "lucide-icons",
           directory: "./svg-icons",
           postinstall: [],
           transformers: [],
@@ -245,11 +250,12 @@ describe("slyJsonToV2 Conversion", () => {
           "utils": {},
         },
         "libraries": {
-          "@blueprintjs/icons": {
-            "config": "icons",
-          },
           "@shadcn/ui": {
             "config": "components",
+          },
+          "lucide": {
+            "config": "icons",
+            "name": "Lucide Icons",
           },
         },
       }

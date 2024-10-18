@@ -51,6 +51,7 @@ export const resolvedLibraryConfigSchema = z
 
 export const libraryConfigSchema = z
   .object({
+    name: z.string().optional(),
     config: resolvedLibraryConfigSchema.or(z.string()),
   })
   .strict()

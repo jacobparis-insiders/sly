@@ -12,6 +12,7 @@ import prompts from "prompts"
 import { getRegistryIndex } from "~/src/registry.js"
 import { confirmOrQuit } from "../prompts.js"
 import { z } from "zod"
+import { getIconifyIndex } from "../iconify.js"
 
 export const libraryCommand = new Command()
   .name("library")
@@ -28,7 +29,7 @@ export const libraryCommand = new Command()
         process.exit(1)
       }
 
-      return initLibrary(library.name)
+      return initLibrary({ name: library.name })
     }
 
     // No library name provided, show the list
@@ -48,12 +49,13 @@ export const libraryCommand = new Command()
       return configureLibraries()
     }
 
-    return initLibrary(choice)
+    return initLibrary({ name: choice })
   })
 
 export async function configureLibraries() {
   const existingConfig = await getConfig()
 
+  console.log("configuring libraries")
   const { libraries } = await getRegistryIndex()
 
   const answers = await z
@@ -83,26 +85,50 @@ export async function configureLibraries() {
   )
 
   for (const name of newLibraries) {
-    await initLibrary(name)
+    await initLibrary({ name: name })
   }
 
-  const removedLibraries = Object.keys(existingConfig?.libraries || {}).filter(
-    (library) => !answers.libraries.includes(library),
+  await new Promise((resolve) => setTimeout(resolve, 100))
+}
+
+export async function configureIconLibraries() {
+  const existingConfig = await getConfig()
+
+  console.log("configuring icon libraries")
+  const libraries = await getIconifyIndex()
+
+  const answers = await z
+    .object({
+      libraries: z.array(z.string()),
+    })
+    .parseAsync(
+      await prompts([
+        {
+          type: "autocompleteMultiselect",
+          name: "libraries",
+          message: `Which icon libraries would you like to use?`,
+          choices: Object.entries(libraries)
+            .map(([prefix, library]) => ({
+              title: library.name,
+              value: `iconify:${prefix}`,
+              selected: Boolean(existingConfig?.libraries[library.name]),
+            }))
+            .toSorted((a, b) => a.title.localeCompare(b.title)),
+          min: 1,
+        },
+      ]),
+    )
+    .catch(() => process.exit(1))
+
+  const newLibraries = answers.libraries.filter((name: string) =>
+    Boolean(!existingConfig?.libraries[name]),
   )
 
-  if (removedLibraries?.length) {
-    await confirmOrQuit(
-      `Are you sure you want to remove ${removedLibraries
-        .map((library) => chalk.cyan(library))
-        .join(", ")}?`,
-    )
-
-    await setConfig((config) => {
-      for (const library of removedLibraries) {
-        delete config.libraries[library]
-      }
-
-      return config
+  for (const name of newLibraries) {
+    console.log(libraries[name.replace("iconify:", "")])
+    await initLibrary({
+      name: name,
+      displayName: libraries[name.replace("iconify:", "")]?.name,
     })
   }
 
@@ -110,7 +136,7 @@ export async function configureLibraries() {
 }
 
 export async function chooseLibrary(
-  libraries: { name: LibraryConfig["name"] }[],
+  libraries: { name: string; displayName?: string }[],
 ) {
   const { library } = await z
     .object({
@@ -121,10 +147,18 @@ export async function chooseLibrary(
         type: "select",
         name: "library",
         message: `Which library would you like to use?`,
-        choices: libraries.map((library) => ({
-          title: library.name,
-          value: library.name,
-        })),
+        choices: libraries
+          .map((library) => ({
+            title: library.displayName ?? library.name,
+            value: library.name.toLowerCase(),
+          }))
+          .toSorted((a, b) => {
+            if (a.title.startsWith("\n")) {
+              return 1
+            }
+
+            return a.title.localeCompare(b.title)
+          }),
       }),
     )
     .catch(() => process.exit(1))
@@ -132,7 +166,13 @@ export async function chooseLibrary(
   return library
 }
 
-export async function initLibrary(name: string) {
+export async function initLibrary({
+  name,
+  displayName,
+}: {
+  name: string
+  displayName?: string
+}) {
   const config = await getConfig()
 
   const existingConfig = (config && resolveLibraryConfig(config, name)) ?? {
@@ -173,6 +213,10 @@ export async function initLibrary(name: string) {
       await setConfig((config) => {
         config.libraries[name] = {
           config: configChoice,
+        }
+
+        if (displayName) {
+          config.libraries[name].name = displayName
         }
 
         return config
@@ -226,6 +270,10 @@ export async function initLibrary(name: string) {
 
     config.libraries[name] = {
       config: newConfig.config,
+    }
+
+    if (displayName) {
+      config.libraries[name].name = displayName
     }
 
     return config
