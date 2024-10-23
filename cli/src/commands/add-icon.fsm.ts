@@ -209,13 +209,10 @@ export const addIconMachine = setup({
           )
 
           if (existingIcon.length && !process.env.OVERWRITE) {
-            if (input.selectedIcons?.includes(icon.name)) {
-              logger.warn(
-                `Component ${icon.name} already exists. Use --overwrite to overwrite.`,
-              )
-              process.exit(1)
-            }
-            continue
+            logger.warn(
+              `Component ${icon.name} already exists. Use --overwrite to overwrite.`,
+            )
+            process.exit(1)
           }
 
           for (const file of icon.files) {
