@@ -10,10 +10,13 @@ export function sharedTests(context: {
   cli: (version: string) => string
 }) {
   describe.each(context.versions)(`%s`, (version) => {
-    function isBelowVersion(minimum: string) {
-      if (version === "latest") return false
+    function isBelowVersion(minimum: string, maximum?: string) {
+      if (!maximum && version === "latest") return false
 
-      return compareVersions(version, minimum) < 0
+      if (maximum && compareVersions(version, maximum) >= 0) return true
+      if (compareVersions(version, minimum) < 0) return true
+
+      return false
     }
 
     test.skipIf(isBelowVersion("1.4.6"))(

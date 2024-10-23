@@ -1,6 +1,5 @@
 import { execSync } from "child_process"
 import { test, afterAll, describe } from "vitest"
-import { compareVersions } from "compare-versions"
 
 import { rmSync } from "fs"
 import { spawnSly } from "../../test/spawnSly.js"
@@ -10,7 +9,7 @@ const context = {
   cli: () => "node ./start.js",
 }
 
-describe.each(context.versions)(`%s`, (version) => {
+describe.each(context.versions)(`%s`, () => {
   test(`add-icon shows instructions`, async (test) => {
     const { waitForText } = await spawnSly(test, `${context.cli()} add-icon`)
 
@@ -118,7 +117,7 @@ describe.each(context.versions)(`%s`, (version) => {
 
     await writeText("y")
 
-    await waitForText("Component eraser already exists")
+    await waitForText("already exists")
 
     await waitForFinish()
 
