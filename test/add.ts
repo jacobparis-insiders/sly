@@ -11,10 +11,10 @@ export function sharedTests(context: {
 }) {
   describe.each(context.versions)(`%s`, (version) => {
     function isBelowVersion(minimum: string, maximum?: string) {
-      if (!maximum && version === "latest") return false
+      const effectiveVersion = version === "latest" ? "10.0.0" : version
 
-      if (maximum && compareVersions(version, maximum) >= 0) return true
-      if (compareVersions(version, minimum) < 0) return true
+      if (maximum && compareVersions(effectiveVersion, maximum) >= 0) return true
+      if (compareVersions(effectiveVersion, minimum) < 0) return true
 
       return false
     }
