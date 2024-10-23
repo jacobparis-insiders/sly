@@ -44,6 +44,10 @@ export async function getIconifyLibraryIndex(library: string) {
     `https://api.iconify.design/collection?prefix=${collectionName}`,
   ).then((res) => res.json())
 
+  if (index === 404) {
+    throw new Error(`Iconify collection ${collectionName} not found.`)
+  }
+
   const parsedIndex = IconifyLibrarySchema.parse(index)
 
   return parsedIndex

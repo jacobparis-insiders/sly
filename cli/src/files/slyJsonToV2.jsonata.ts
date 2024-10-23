@@ -27,7 +27,7 @@ export default {
     },
     {
       "name": "phosphor-icons",
-      "iconifyName": "phosphor",
+      "iconifyName": "ph",
       "displayName": "Phosphor Icons"
     },
     {
@@ -37,7 +37,7 @@ export default {
     },
     {
       "name": "remixicon",
-      "iconifyName": "remix",
+      "iconifyName": "ri",
       "displayName": "Remix Icon"
     },
     {

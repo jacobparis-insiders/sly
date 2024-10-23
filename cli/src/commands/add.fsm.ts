@@ -2,6 +2,20 @@ import { assign, fromPromise, setup } from "xstate"
 import { addIconMachine } from "./add-icon.fsm.js"
 import prompts from "prompts"
 
+// These are the libraries that are supported in the v1 CLI
+// this maps them to the iconify names so the old commands still work
+const v1Libraries = {
+  "tailwindlabs/heroicons": "heroicons",
+  iconoir: "iconoir",
+  "lucide-icons": "lucide",
+  "material-design-icons": "mdi",
+  "phosphor-icons": "ph",
+  "@radix-ui/icons": "radix-icons",
+  remixicon: "ri",
+  "simple-icons": "simple-icons",
+  "tabler-icons": "tabler",
+}
+
 export const addMachine = setup({
   types: {
     input: {} as {
@@ -22,7 +36,7 @@ export const addMachine = setup({
   },
   actors: {
     addIconSrc: addIconMachine,
-    menuSrc: fromPromise(async ({ input }) => {
+    menuSrc: fromPromise(async () => {
       return prompts({
         type: "select",
         name: "type",
@@ -67,13 +81,20 @@ export const addMachine = setup({
       invoke: {
         id: "addIcon",
         src: "addIconSrc",
-        input: ({ context }) => ({
-          libArg: context.libArg?.startsWith("iconify:")
-            ? context.libArg
-            : `iconify:${context.libArg}`,
-          iconsArg: context.iconsArg,
-          targetDir: context.targetDir,
-        }),
+        input: ({ context }) => {
+          const libArg =
+            context.libArg && context.libArg in v1Libraries
+              ? v1Libraries[context.libArg]
+              : context.libArg
+
+          return {
+            libArg: libArg?.startsWith("iconify:")
+              ? libArg
+              : `iconify:${libArg}`,
+            iconsArg: context.iconsArg,
+            targetDir: context.targetDir,
+          }
+        },
       },
       on: {
         DONE: "success",
