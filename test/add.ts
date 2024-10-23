@@ -19,7 +19,7 @@ export function sharedTests(context: {
       return false
     }
 
-    test.skipIf(isBelowVersion("1.4.6"))(
+    test.skipIf(isBelowVersion("1.4.6", "1.9.0"))(
       `add shows instructions`,
       async (test) => {
         const { waitForText } = await spawnSly(
@@ -28,6 +28,18 @@ export function sharedTests(context: {
         )
 
         await waitForText("Which libraries would you like to use?")
+      }
+    )
+
+    test.skipIf(isBelowVersion("2.0.0"))(
+      `add shows instructions`,
+      async (test) => {
+        const { waitForText } = await spawnSly(
+          test,
+          `${context.cli(version)} add`
+        )
+
+        await waitForText("What do you want to add?")
       }
     )
 
@@ -142,7 +154,7 @@ export function sharedTests(context: {
 
         await writeText("y")
 
-        await waitForText("Component eraser already exists")
+        await waitForText("already exists")
 
         await waitForFinish()
 
