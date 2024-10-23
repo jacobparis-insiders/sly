@@ -1,18 +1,18 @@
 import { Command } from "commander"
-import { addIconMachine } from "./add.fsm.js"
+import { addMachine } from "./add.fsm.js"
 import { z } from "zod"
 import { createActor } from "xstate"
 
 export const add = new Command()
   .name("add")
-  .description("add an icon to your project")
-  .argument("[library]", "the icon library to add from")
-  .argument("[icons...]", "the icons to add")
+  .description("add something to your project")
+  .argument("[library]", "the library to add from")
+  .argument("[items...]", "the items to add")
   .option(
     "-d, --directory [dir], --dir [dir]",
     "set output directory (override sly.json)",
   )
-  .option("-o, --overwrite", "overwrite existing icons.", false)
+  .option("-o, --overwrite", "overwrite existing items.", false)
   .hook("preAction", () => {
     // Flags override env vars
     const options = add.optsWithGlobals()
@@ -29,7 +29,7 @@ export const add = new Command()
       .default([])
       .parse(iconsArg || [])
 
-    const actor = createActor(addIconMachine, {
+    const actor = createActor(addMachine, {
       input: {
         libArg: library,
         iconsArg: icons,
