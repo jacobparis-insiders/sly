@@ -254,6 +254,10 @@ export const addIconMachine = setup({
         if (libConfig?.directory) {
           return libConfig
         } else {
+          console.log(
+            "Could not resolve library config, initializing",
+            input.library,
+          )
           await initLibrary({ name: input.library })
           return config.libraries[input.library]
         }

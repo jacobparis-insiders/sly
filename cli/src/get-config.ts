@@ -116,8 +116,6 @@ export async function getConfig(): Promise<Config | null> {
       const codemod = jsonata(slyJsonToV2Jsonata.content)
       const newConfig = await codemod.evaluate(configResult.config)
       return configSchema.parse(newConfig)
-    } else {
-      logger.info("Using new config format.")
     }
 
     return configSchema.parse(configResult.config)

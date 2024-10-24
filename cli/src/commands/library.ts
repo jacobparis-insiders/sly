@@ -55,7 +55,6 @@ export const libraryCommand = new Command()
 export async function configureLibraries() {
   const existingConfig = await getConfig()
 
-  console.log("configuring libraries")
   const { libraries } = await getRegistryIndex()
 
   const answers = await z
@@ -94,7 +93,6 @@ export async function configureLibraries() {
 export async function configureIconLibraries() {
   const existingConfig = await getConfig()
 
-  console.log("configuring icon libraries")
   const libraries = await getIconifyIndex()
 
   const answers = await z
@@ -125,7 +123,6 @@ export async function configureIconLibraries() {
   )
 
   for (const name of newLibraries) {
-    console.log(libraries[name.replace("iconify:", "")])
     await initLibrary({
       name: name,
       displayName: libraries[name.replace("iconify:", "")]?.name,
