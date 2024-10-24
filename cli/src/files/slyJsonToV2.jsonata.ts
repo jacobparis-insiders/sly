@@ -7,47 +7,47 @@ export default {
   $icons := [
     {
       "name": "tailwindlabs/heroicons",
-      "iconifyName": "heroicons",
+      "iconifyName": "iconify:heroicons",
       "displayName": "Hero Icons"
     },
     {
       "name": "iconoir",
-      "iconifyName": "iconoir",
+      "iconifyName": "iconify:iconoir",
       "displayName": "Iconoir"
     },
     {
       "name": "lucide-icons",
-      "iconifyName": "lucide",
+      "iconifyName": "iconify:lucide",
       "displayName": "Lucide Icons"
     },
     {
       "name": "material-design-icons",
-      "iconifyName": "mdi",
+      "iconifyName": "iconify:mdi",
       "displayName": "Material Design Icons"
     },
     {
       "name": "phosphor-icons",
-      "iconifyName": "ph",
+      "iconifyName": "iconify:phosphor",
       "displayName": "Phosphor Icons"
     },
     {
       "name": "@radix-ui/icons",
-      "iconifyName": "radix",
+      "iconifyName": "iconify:radix-icons",
       "displayName": "Radix Icons"
     },
     {
       "name": "remixicon",
-      "iconifyName": "ri",
+      "iconifyName": "iconify:ri",
       "displayName": "Remix Icon"
     },
     {
       "name": "simple-icons",
-      "iconifyName": "simple-icons",
+      "iconifyName": "iconify:simple-icons",
       "displayName": "Simple Icons"
     },
     {
       "name": "tabler-icons",
-      "iconifyName": "tabler",
+      "iconifyName": "iconify:tabler",
       "displayName": "Tabler Icons"
     }
   ];

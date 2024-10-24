@@ -38,7 +38,7 @@ describe("slyJsonToV2 Conversion", () => {
           "utils": {},
         },
         "libraries": {
-          "lucide": {
+          "iconify:lucide": {
             "config": "icons",
             "name": "Lucide Icons",
           },
@@ -150,11 +150,11 @@ describe("slyJsonToV2 Conversion", () => {
           "utils": {},
         },
         "libraries": {
-          "heroicons": {
+          "iconify:heroicons": {
             "config": "icons",
             "name": "Hero Icons",
           },
-          "lucide": {
+          "iconify:lucide": {
             "config": "icons",
             "name": "Lucide Icons",
           },
@@ -196,7 +196,7 @@ describe("slyJsonToV2 Conversion", () => {
           "utils": {},
         },
         "libraries": {
-          "heroicons": {
+          "iconify:heroicons": {
             "config": {
               "directory": "./other/svg-icons",
               "postinstall": [],
@@ -204,7 +204,7 @@ describe("slyJsonToV2 Conversion", () => {
             },
             "name": "Hero Icons",
           },
-          "lucide": {
+          "iconify:lucide": {
             "config": "icons",
             "name": "Lucide Icons",
           },
@@ -253,7 +253,7 @@ describe("slyJsonToV2 Conversion", () => {
           "@shadcn/ui": {
             "config": "components",
           },
-          "lucide": {
+          "iconify:lucide": {
             "config": "icons",
             "name": "Lucide Icons",
           },
