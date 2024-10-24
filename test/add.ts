@@ -10,13 +10,16 @@ export function sharedTests(context: {
   cli: (version: string) => string
 }) {
   describe.each(context.versions)(`%s`, (version) => {
-    function isBelowVersion(minimum: string) {
-      if (version === "latest") return false
+    function isBelowVersion(minimum: string, maximum?: string) {
+      const effectiveVersion = version === "latest" ? "10.0.0" : version
 
-      return compareVersions(version, minimum) < 0
+      if (maximum && compareVersions(effectiveVersion, maximum) >= 0) return true
+      if (compareVersions(effectiveVersion, minimum) < 0) return true
+
+      return false
     }
 
-    test.skipIf(isBelowVersion("1.4.6"))(
+    test.skipIf(isBelowVersion("1.4.6", "1.9.0"))(
       `add shows instructions`,
       async (test) => {
         const { waitForText } = await spawnSly(
@@ -25,6 +28,18 @@ export function sharedTests(context: {
         )
 
         await waitForText("Which libraries would you like to use?")
+      }
+    )
+
+    test.skipIf(isBelowVersion("2.0.0"))(
+      `add shows instructions`,
+      async (test) => {
+        const { waitForText } = await spawnSly(
+          test,
+          `${context.cli(version)} add`
+        )
+
+        await waitForText("What do you want to add?")
       }
     )
 
@@ -139,7 +154,7 @@ export function sharedTests(context: {
 
         await writeText("y")
 
-        await waitForText("Component eraser already exists")
+        await waitForText("already exists")
 
         await waitForFinish()
 

@@ -40,14 +40,14 @@ export async function getLibraryIndex(library: string) {
  */
 export async function fetchTree(
   library: string,
-  tree: z.infer<typeof libraryIndexSchema>["resources"]
+  tree: z.infer<typeof libraryIndexSchema>["resources"],
 ) {
   const result = await fetchRegistry(
     tree.map((item) => `${library}/${item.name}.json`),
     {
       // When we're fetching the actual item for download, get fresh data
       forceFresh: true,
-    }
+    },
   ).catch((error) => {
     logger.error(error)
     throw new Error(`Failed to fetch tree from registry.`)
@@ -64,7 +64,7 @@ export async function fetchTree(
 
 async function fetchRegistry<Value>(
   paths: string[],
-  options: Partial<Omit<CachifiedOptions<Value>, "key" | "getFreshValue">> = {}
+  options: Partial<Omit<CachifiedOptions<Value>, "key" | "getFreshValue">> = {},
 ) {
   try {
     const response = await Promise.all(
@@ -74,11 +74,11 @@ async function fetchRegistry<Value>(
           key: `${baseUrl}/registry/${path}`,
           async getFreshValue() {
             return fetch(`${baseUrl}/registry/${path}`).then((response) =>
-              response.json()
+              response.json(),
             )
           },
-        })
-      )
+        }),
+      ),
     )
 
     return response
