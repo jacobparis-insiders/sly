@@ -88,9 +88,12 @@ export const addMachine = setup({
               : context.libArg
 
           return {
-            libArg: libArg?.startsWith("iconify:")
-              ? libArg
-              : `iconify:${libArg}`,
+            // if no libArg, return undefined
+            libArg: libArg
+              ? libArg.startsWith("iconify:")
+                ? libArg
+                : `iconify:${libArg}`
+              : undefined,
             iconsArg: context.iconsArg,
             targetDir: context.targetDir,
           }
