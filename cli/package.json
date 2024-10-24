@@ -54,7 +54,6 @@
     "lru-cache": "^10.0.0",
     "ora": "^6.3.1",
     "prompts": "^2.4.2",
-    "xstate": "^5.18.2",
     "zod": "^3.21.4"
   },
   "devDependencies": {
@@ -69,7 +68,8 @@
     "tsup": "^7.1.0",
     "typescript": "^5.1.6",
     "vite": "^5.0.10",
-    "vitest": "^1.0.4"
+    "vitest": "^1.0.4",
+    "xstate": "^5.18.2"
   },
   "types": "./dist/index.d.ts",
   "bugs": {
