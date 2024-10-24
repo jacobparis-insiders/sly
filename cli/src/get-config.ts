@@ -1,5 +1,5 @@
 import { promises as fs } from "fs"
-
+import { join } from "path"
 import { cosmiconfig } from "cosmiconfig"
 import * as z from "zod"
 import ora from "ora"
@@ -20,12 +20,13 @@ function getExplorer() {
   if (!explorer) {
     const paths = ["sly.json", "sly/sly.json"]
     // TODO: submit a PR to add your config dir here
-    const directories = ["", ".config", "config", "other"]
+    const directories = [".", ".config", "config", "other"]
 
     explorer = cosmiconfig("sly", {
       searchPlaces: directories.flatMap((dir) =>
         paths.map((path) => `${dir}/${path}`),
       ),
+      ignoreEmptySearchPlaces: true,
       cache: false,
     })
   }
@@ -39,7 +40,7 @@ const libraryConfigSchemaV1 = z
     postinstall: z.union([z.string().optional(), z.array(z.string())]),
     transformers: z.array(z.string()),
   })
-  .strict()
+  .partial()
 
 export const resolvedLibraryConfigSchema = z
   .object({
@@ -76,22 +77,36 @@ export const configSchema = z
 export type ConfigV1 = z.infer<typeof configSchemaV1>
 export type Config = z.infer<typeof configSchema>
 
+async function getConfigExplorer() {
+  return process.env.SLY_CONFIG_PATH
+    ? await getExplorer()
+        .load(
+          join(
+            process.env.CWD || "",
+            `${process.env.SLY_CONFIG_PATH}/sly.json`,
+          ),
+        )
+        .catch(() => null)
+    : await getExplorer()
+        .search()
+        .catch(() => null)
+}
+
 export async function getConfigFilepath() {
-  // ? Should this be an environment variable?
-  // We could set it on startup if none is provided
+  const configResult = await getConfigExplorer()
 
-  const configResult = await getExplorer().search()
-  if (!configResult) {
-    logger.error(`Couldn't find sly.json.`)
-    process.exit(1)
-  }
-
-  return configResult.filepath
+  return configResult ? configResult.filepath : null
 }
 
 export async function getConfig(): Promise<Config | null> {
-  const configResult = await getExplorer().search()
+  const configResult = await getConfigExplorer()
+
   if (!configResult) {
+    if (process.env.SLY_CONFIG_PATH) {
+      logger.error(`No config found at ${process.env.SLY_CONFIG_PATH}`)
+      process.exit(1)
+    }
+
     return null
   }
 
@@ -101,10 +116,13 @@ export async function getConfig(): Promise<Config | null> {
       const codemod = jsonata(slyJsonToV2Jsonata.content)
       const newConfig = await codemod.evaluate(configResult.config)
       return configSchema.parse(newConfig)
+    } else {
+      logger.info("Using new config format.")
     }
 
     return configSchema.parse(configResult.config)
   } catch (error) {
+    console.error(error)
     throw new Error(`Invalid configuration found in /sly.json.`)
   }
 }
@@ -125,10 +143,10 @@ export async function setConfig(fn: (config: Config) => Config) {
   }
 
   const newConfig = configSchema.parse(fn(config))
-  const configFile = await getExplorer().search()
+  const configFile = await getConfigFilepath()
 
   await fs.writeFile(
-    configFile ? configFile.filepath : "sly.json",
+    configFile ? configFile : "sly.json",
     JSON.stringify(newConfig, null, 2),
     "utf8",
   )
@@ -138,11 +156,11 @@ export async function setConfig(fn: (config: Config) => Config) {
 }
 
 export async function overwriteConfig(config: Config) {
-  const configFile = await getExplorer().search()
+  const configFile = await getConfigFilepath()
   const spinner = ora(`Saving sly.json settings…`).start()
 
   await fs.writeFile(
-    configFile ? configFile.filepath : "sly.json",
+    configFile ? configFile : "sly.json",
     JSON.stringify(config, null, 2),
     "utf8",
   )
