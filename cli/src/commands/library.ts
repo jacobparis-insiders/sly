@@ -90,6 +90,47 @@ export async function configureLibraries() {
   await new Promise((resolve) => setTimeout(resolve, 100))
 }
 
+export async function configureComponentLibraries() {
+  const existingConfig = await getConfig()
+
+  const shadcn = {
+    name: "@shadcn/ui",
+    displayName: "Shadcn",
+  }
+
+  const libraries = [shadcn]
+
+  const answers = await z
+    .object({
+      libraries: z.array(z.string()),
+    })
+    .parseAsync(
+      await prompts([
+        {
+          type: "autocompleteMultiselect",
+          name: "libraries",
+          message: `Which component libraries would you like to use?`,
+          choices: Object.entries(libraries).map(([prefix, library]) => ({
+            title: library.displayName ?? library.name,
+            value: library.name,
+            selected: Boolean(existingConfig?.libraries[library.name]),
+          })),
+        },
+      ]),
+    )
+    .catch(() => process.exit(1))
+
+  const newLibraries = answers.libraries.filter((name: string) =>
+    Boolean(!existingConfig?.libraries[name]),
+  )
+
+  for (const name of newLibraries) {
+    await initLibrary({ name: name })
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 100))
+}
+
 export async function configureIconLibraries() {
   const existingConfig = await getConfig()
 

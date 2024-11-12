@@ -1,6 +1,7 @@
 import { assign, fromPromise, setup } from "xstate"
 import { addIconMachine } from "./add-icon.fsm.js"
 import prompts from "prompts"
+import { addComponentMachine } from "./add-component.fsm.js"
 
 // These are the libraries that are supported in the v1 CLI
 // this maps them to the iconify names so the old commands still work
@@ -33,9 +34,15 @@ export const addMachine = setup({
     isIconLibrary: ({ context }) => {
       return Boolean(context.libArg)
     },
+    isComponentLibrary: ({ context }) => {
+      return Boolean(context.libArg)
+    },
+    isIconSelection: ({ event }) => event.output.type === "icon",
+    isComponentSelection: ({ event }) => event.output.type === "component",
   },
   actors: {
     addIconSrc: addIconMachine,
+    addComponentSrc: addComponentMachine,
     menuSrc: fromPromise(async () => {
       return prompts({
         type: "select",
@@ -45,6 +52,10 @@ export const addMachine = setup({
           {
             title: "Icon",
             value: "icon",
+          },
+          {
+            title: "Component",
+            value: "component",
           },
         ],
         onState: (state) => {
@@ -71,6 +82,10 @@ export const addMachine = setup({
         {
           target: "addIcon",
           guard: "isIconLibrary",
+        },
+        {
+          target: "addComponent",
+          guard: "isComponentLibrary",
         },
         {
           target: "menu",
@@ -104,17 +119,45 @@ export const addMachine = setup({
         ERROR: "failure",
       },
     },
+    addComponent: {
+      invoke: {
+        id: "addComponent",
+        src: "addComponentSrc",
+        input: ({ context }) => {
+          return {
+            libArg: context.libArg,
+            iconsArg: context.iconsArg,
+            targetDir: context.targetDir,
+          }
+        },
+      },
+      on: {
+        DONE: "success",
+        ERROR: "failure",
+      },
+    },
     menu: {
       invoke: {
         id: "menu",
         src: "menuSrc",
-        onDone: {
-          target: "addIcon",
-          actions: ({ event }) =>
-            assign({
-              library: event.output,
-            }),
-        },
+        onDone: [
+          {
+            guard: "isIconSelection",
+            target: "addIcon",
+            actions: ({ event }) =>
+              assign({
+                library: event.output,
+              }),
+          },
+          {
+            guard: "isComponentSelection",
+            target: "addComponent",
+            actions: ({ event }) =>
+              assign({
+                library: event.output,
+              }),
+          },
+        ],
       },
       on: {
         DONE: "success",

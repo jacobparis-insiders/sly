@@ -33,7 +33,6 @@ export const libraryItemSchema = z.object({
  */
 export const libraryIndexSchema = z.object({
   version: z.string(),
-  meta: metaSchema,
   resources: z.array(libraryItemSchema),
 })
 
@@ -45,9 +44,9 @@ export const libraryItemWithContentSchema = libraryItemSchema.extend({
     z.object({
       name: z.string(),
       content: z.string(),
+      type: z.string().optional().default("file"),
     })
   ),
-  meta: metaSchema,
 })
 
 /**

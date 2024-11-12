@@ -44,6 +44,8 @@ const libraryConfigSchemaV1 = z
 
 export const resolvedLibraryConfigSchema = z
   .object({
+    registryUrl: z.string().optional(),
+    itemUrl: z.string().optional(),
     directory: z.string(),
     postinstall: z.union([z.string().optional(), z.array(z.string())]),
     transformers: z.array(z.string()),
@@ -53,6 +55,8 @@ export const resolvedLibraryConfigSchema = z
 export const libraryConfigSchema = z
   .object({
     name: z.string().optional(),
+    registryUrl: z.string().optional(),
+    itemUrl: z.string().optional(),
     config: resolvedLibraryConfigSchema.or(z.string()),
   })
   .strict()
@@ -183,4 +187,12 @@ export function resolveLibraryConfig(config: Config, library: string) {
   }
 
   return null
+}
+
+export function resolveLibraryUrls(config: Config, library: string) {
+  const libConfig = config.libraries[library]
+  return {
+    registryUrl: libConfig?.registryUrl,
+    itemUrl: libConfig?.itemUrl,
+  }
 }
