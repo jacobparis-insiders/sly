@@ -8,6 +8,8 @@ import { checkVersion } from "./check-version.js"
 import packageJson from "../package.json"
 import { addIcon } from "./commands/add-icon.js"
 import { dirname } from "path"
+import { addGitHub } from "./commands/add-github.js"
+import { addComponent } from "./commands/add-component.js"
 
 process.on("SIGINT", () => process.exit(0))
 process.on("SIGTERM", () => process.exit(0))
@@ -42,6 +44,8 @@ program
   .addCommand(init)
   .addCommand(add)
   .addCommand(addIcon)
+  .addCommand(addGitHub)
+  .addCommand(addComponent)
   .addCommand(libraryCommand)
 
 program.parse()

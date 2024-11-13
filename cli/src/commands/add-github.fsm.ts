@@ -6,7 +6,6 @@ import {
   resolveLibraryUrls,
 } from "~/src/get-config.js"
 import { logger } from "~/src/logger.js"
-import { fetchTree } from "~/src/registry.js"
 import { execa } from "execa"
 import ora from "ora"
 import prompts from "prompts"
@@ -17,20 +16,18 @@ import {
   configureComponentLibraries,
   initLibrary,
 } from "./library.js"
-import { confirmOrQuit, confirm } from "../prompts.js"
+import { confirmOrQuit } from "../prompts.js"
 import { existsSync } from "fs"
 import fs from "fs/promises"
 import path from "path"
 
 import type { Transformer } from "~/src/index.js"
 import { invariant } from "@epic-web/invariant"
-import {
-  libraryItemSchema,
-  libraryItemWithContentSchema,
-} from "site/app/schemas.js"
+import { libraryItemWithContentSchema } from "site/app/schemas.js"
 import jsonata from "jsonata"
-import { chooseLibrarySrc } from "../actors/choose-library-src.js"
+import { Octokit } from "@octokit/rest"
 import { installComponentsSrc } from "../actors/install-components-src.js"
+
 type Component = z.infer<typeof libraryItemWithContentSchema>
 
 type ComponentFile = Component["files"][number]
@@ -66,22 +63,11 @@ function installFile(file: ComponentFile, options: ApplyOptions) {
   }
 }
 
-async function getLibrariesFromConfig(config: Config) {
-  return Object.keys(config.libraries).map((name) => ({
-    name,
-    resources: [
-      {
-        name: "combobox",
-      },
-    ], // If needed, you can add more properties here
-  }))
-}
-
-export const addComponentMachine = setup({
+export const addGitHubMachine = setup({
   types: {
     input: {} as {
       libArg?: string
-      componentsArg?: string[]
+      componentArg?: string[]
       targetDir?: string
     },
     context: {} as {
@@ -117,9 +103,21 @@ export const addComponentMachine = setup({
       const config = await getConfig()
       return config
     }),
+    chooseLibrarySrc: fromPromise(
+      async ({ input }: { input: { config: Config | undefined } }) => {
+        invariant(input.config, "Configuration not found")
 
-    chooseLibrarySrc,
-    selectComponentsSrc: fromPromise(
+        const config = input.config
+        const libraries = [
+          ...Object.keys(config.libraries).map((name) => ({ name })),
+          { name: "\n    Configure libraries ->" },
+        ]
+        const choice = await chooseLibrary(libraries)
+        return choice
+      },
+    ),
+
+    selectComponentrc: fromPromise(
       async ({
         input,
       }: {
@@ -128,13 +126,13 @@ export const addComponentMachine = setup({
           config: Config
         }
       }) => {
-        const libraryIndex = await getComponentLibraryIndex(input.library)
+        const libraryIndex = await getGithubDirectoryIndex(input.library)
 
         const response = await prompts({
-          type: "autocompleteMultiselect",
-          name: "components",
-          message: "Which items would you like to add?",
-          hint: "Space to select. A to toggle all. Enter to submit.",
+          type: "autocomplete",
+          name: "component",
+          message: "Which item would you like to add?",
+          hint: "Enter to select",
           instructions: false,
           choices:
             libraryIndex?.resources.map((entry) => ({
@@ -148,9 +146,9 @@ export const addComponentMachine = setup({
               })
             }
           },
-          min: 1,
         })
-        return response.components
+
+        return response.component
       },
     ),
     fetchComponentTreeSrc: fromPromise(
@@ -162,57 +160,26 @@ export const addComponentMachine = setup({
           selectedComponents: string[]
         }
       }) => {
-        const libraryIndex = await getComponentLibraryIndex(input.library)
+        const libraryIndex = await getGithubDirectoryIndex(input.library)
         const treeSet = new Set(
-          libraryIndex.resources.filter(
-            (item) => input.selectedComponents?.includes(item.name),
+          libraryIndex.resources.filter((item) =>
+            input.selectedComponents.includes(item.name),
           ),
         )
-        treeSet.forEach((item) => {
-          if (item.registryDependencies.length > 0) {
-            item.registryDependencies.forEach((dep: string) => {
-              const dependency = libraryIndex.resources.find(
-                (res) => res.name === dep,
-              )
-              if (dependency) {
-                treeSet.add(dependency)
-              } else {
-                logger.error(`Dependency ${dep} not found in registry`)
-              }
-            })
-          }
-        })
-        const treeSetItemsThatAreNotSelected = Array.from(treeSet).filter(
-          (item) => !input.selectedComponents?.includes(item.name),
-        )
-
-        if (treeSetItemsThatAreNotSelected.length > 0) {
-          logger.info(
-            `The selected components depend on these other components:`,
-          )
-          treeSetItemsThatAreNotSelected.forEach((item) => {
-            logger.info(`- ${item.name}`)
-          })
-        }
 
         const config = await getConfig()
         invariant(config, "Config not found")
 
-        const { registryUrl, itemUrl } = resolveLibraryUrls(
-          config,
-          input.library,
-        )
+        const { registryUrl } = resolveLibraryUrls(config, input.library)
         invariant(registryUrl, "Registry URL not found")
 
-        const payload = await fetchTree(
-          Array.from(treeSet).map(
-            (item) => `${itemUrl?.replace("{name}", item.name)}`,
-          ),
+        const payload = await fetchGitHubTree(
+          Array.from(treeSet).map((item) => `${registryUrl}/${item.name}`),
         )
 
         if (!payload.length)
-          throw new Error("Selected components not found. Exiting.")
-        return payload
+          throw new Error("Selected component not found. Exiting.")
+        return z.array(libraryItemWithContentSchema).parse(payload)
       },
     ),
 
@@ -223,7 +190,7 @@ export const addComponentMachine = setup({
         input: { library: string; payloadLength: number }
       }) => {
         const confirmInstall = await confirmOrQuit(
-          `Ready to install ${input.payloadLength} components from ${input.library}. Proceed?`,
+          `Ready to install ${input.payloadLength} component from ${input.library}. Proceed?`,
         )
         return confirmInstall
       },
@@ -290,7 +257,7 @@ export const addComponentMachine = setup({
       return Boolean(context.config || doesNotRequireConfigFile)
     },
     // Most of the guards are negative conditions to move us backwards to the step that fulfills them
-    hasSelectedZeroComponents: ({ context }) =>
+    hasSelectedZeroComponent: ({ context }) =>
       !context.selectedComponents?.length,
     hasNoConfig: ({ context }) => !context.config,
     hasNoLibrary: ({ context }) => !context.library,
@@ -314,7 +281,7 @@ export const addComponentMachine = setup({
       library: input.libArg,
       targetDir: input.targetDir,
       transformers: [],
-      selectedComponents: input.componentsArg || [],
+      selectedComponents: input.componentArg || [],
       error: undefined,
     }
   },
@@ -389,8 +356,8 @@ export const addComponentMachine = setup({
               guard: "hasNoConfig",
             },
             {
-              // if we already have a lib, move forward to selectComponents
-              target: "selectComponents",
+              // if we already have a lib, move forward to selectComponent
+              target: "selectComponent",
               guard: "hasLibrarySet",
             },
           ],
@@ -416,16 +383,15 @@ export const addComponentMachine = setup({
             },
           },
         },
-        selectComponents: {
+        selectComponent: {
           always: [
             {
-              // we need a lib to invoke selectComponentsSrc
               target: "chooseLibrary",
               guard: "hasNoLibrary",
             },
           ],
           invoke: {
-            src: "selectComponentsSrc",
+            src: "selectComponentrc",
             input: ({ context }) => ({
               library: context.library!,
               config: context.config!,
@@ -433,7 +399,7 @@ export const addComponentMachine = setup({
             onDone: {
               target: "fetchComponentTree",
               actions: assign({
-                selectedComponents: ({ event }) => event.output,
+                selectedComponents: ({ event }) => [event.output],
               }),
             },
             onError: {
@@ -448,8 +414,8 @@ export const addComponentMachine = setup({
         fetchComponentTree: {
           always: [
             {
-              target: "selectComponents",
-              guard: "hasSelectedZeroComponents",
+              target: "selectComponent",
+              guard: "hasSelectedZeroComponent",
             },
             {
               target: "chooseLibrary",
@@ -522,7 +488,7 @@ export const addComponentMachine = setup({
               library: context.library!,
             }),
             onDone: {
-              target: "installComponents",
+              target: "installComponent",
               actions: assign({
                 transformers: ({ event }) => event.output,
               }),
@@ -532,7 +498,7 @@ export const addComponentMachine = setup({
             },
           },
         },
-        installComponents: {
+        installComponent: {
           invoke: {
             src: "installComponentsSrc",
             input: ({ context }) => ({
@@ -569,40 +535,103 @@ export const addComponentMachine = setup({
   },
 })
 
-async function fetchComponentTree(library: string, components: Component[]) {
+async function getGithubDirectoryIndex(library: string) {
   const config = await getConfig()
   invariant(config, "Config not found")
 
-  const { registryUrl, itemUrl } = resolveLibraryUrls(config, library)
+  const registryUrl = resolveLibraryUrls(config, library).registryUrl
   invariant(registryUrl, "Registry URL not found")
+  const octokit = new Octokit()
 
-  return fetchTree(
-    registryUrl,
-    library,
-    components.map((item) => `${itemUrl?.replace("{name}", item.name)}`),
-  )
-}
+  const url = new URL(registryUrl)
+  const owner = url.pathname.split("/")[1]
+  const repo = url.pathname.split("/")[2]
+  const path = url.pathname
+    .split("/")
+    .slice(3)
+    .join("/")
+    .replace("tree/main", "")
 
-async function getComponentLibraryIndex(library: string) {
-  // resolve the library config
-  // if it has a url, use that, otherwise use the default
-  // then use the library index from the registry
-  const config = await getConfig()
-  invariant(config, "Config not found")
-
-  const { registryUrl } = resolveLibraryUrls(config, library)
-  if (!registryUrl) {
-    throw new Error(`Library ${library} not found`)
+  if (!owner || !repo) {
+    throw new Error(
+      'Invalid GitHub repository format. Expected "owner/repo" or "owner/repo/path"',
+    )
   }
 
-  const resources = await fetch(registryUrl, {
-    headers: {
-      "Content-Type": "application/json",
-    },
-  }).then((res) => res.json())
+  const { data } = await octokit.repos.getContent({
+    owner,
+    repo,
+    path: path || "",
+  })
+
+  // Transform GitHub API response to match expected format
+  const resources = Array.isArray(data)
+    ? data.map((item) => ({
+        name: item.name,
+      }))
+    : []
 
   return {
     name: library,
-    resources: z.array(libraryItemSchema).parse(resources),
+    resources,
+  }
+}
+
+async function fetchGitHubTree(paths: string[]) {
+  const config = await getConfig()
+  invariant(config, "Config not found")
+  const octokit = new Octokit()
+
+  const files = await Promise.all(
+    paths.map(async (path) => {
+      const { data } = await octokit.repos.getContent(
+        parseGitHubURLForOctokit(path),
+      )
+
+      const dataArray = Array.isArray(data) ? data : [data]
+
+      return dataArray.map((data) => {
+        if (data.type !== "file") {
+          throw new Error("Expected file, got " + data.type, { cause: data })
+        }
+
+        if (!data.content) {
+          throw new Error("File content not found", { cause: data })
+        }
+
+        return {
+          name: data.name,
+          files: [
+            {
+              name: data.name,
+              content: Buffer.from(data.content, "base64").toString("utf-8"),
+            },
+          ],
+        }
+      })
+    }),
+  )
+
+  // Flatten the results after all promises are resolved
+  return files.flat()
+}
+
+function parseGitHubURLForOctokit(url: string) {
+  const match = url.match(
+    /^https:\/\/github\.com\/([^/]+)\/([^/]+)(?:\/(?:blob|tree)\/[^/]+)?(\/.*)?$/,
+  )
+
+  if (!match) {
+    throw new Error("Invalid GitHub URL")
+  }
+
+  const [, owner, repo, path] = match
+  invariant(owner, "Owner not found")
+  invariant(repo, "Repo not found")
+
+  return {
+    owner,
+    repo,
+    path: path ? path.slice(1) : "", // remove leading slash if path exists
   }
 }
