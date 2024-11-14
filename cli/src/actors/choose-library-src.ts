@@ -1,23 +1,31 @@
 import { invariant } from "@epic-web/invariant"
-import { Config } from "cosmiconfig/dist/types.js"
 import { fromPromise } from "xstate"
 import { chooseLibrary } from "../commands/library.js"
+import { Config, LibraryConfig } from "../get-config.js"
 
-// TODO: should I pre-wrap these in fromPromise?
-// or just consume them that way?
-export const chooseLibrarySrc = fromPromise(
-  async ({
-    input,
-  }: {
-    input: { config: Config | undefined; type: "icon" | "component" }
-  }) => {
-    invariant(input.config, "Configuration not found")
+export function createChooseLibrarySrc({
+  filter,
+  extraItems,
+}: {
+  filter: (config: Partial<LibraryConfig> & { name: string }) => boolean
+  extraItems?: Array<{ name: string }>
+}) {
+  return fromPromise(
+    async ({
+      input,
+    }: {
+      input: { config: Config | undefined; type: "icon" | "component" }
+    }) => {
+      invariant(input.config, "Configuration not found")
 
-    const libraries = [
-      ...Object.keys(input.config.libraries).map((name) => ({ name })),
-      { name: `\n    Configure ${input.type} libraries ->` },
-    ]
+      const libraries = [
+        ...Object.entries(input.config.libraries)
+          .filter(([name, config]) => filter({ ...config, name }))
+          .map(([name]) => ({ name })),
+        ...(extraItems || []),
+      ]
 
-    return await chooseLibrary(libraries)
-  },
-)
+      return await chooseLibrary(libraries)
+    },
+  )
+}

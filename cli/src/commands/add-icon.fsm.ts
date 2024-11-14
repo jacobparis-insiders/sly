@@ -18,6 +18,7 @@ import type { Transformer } from "~/src/index.js"
 import { invariant } from "@epic-web/invariant"
 import { fetchIcons, getIconifyLibraryIndex } from "../iconify.js"
 import { installFile } from "../install.js"
+import { createChooseLibrarySrc } from "../actors/choose-library-src.js"
 
 export const addIconMachine = setup({
   types: {
@@ -66,22 +67,16 @@ export const addIconMachine = setup({
       const config = await getConfig()
       return config
     }),
-    chooseLibrarySrc: fromPromise(
-      async ({ input }: { input: { config: Config | undefined } }) => {
-        invariant(input.config, "Configuration not found")
+    chooseLibrarySrc: createChooseLibrarySrc({
+      extraItems: [{ name: `\n    Configure icon libraries ->` }],
+      filter: (config) => {
+        if (config.name.includes("iconify")) {
+          return true
+        }
 
-        const config = input.config
-        const libraries = [
-          ...Object.entries(config.libraries).map(([key, library]) => ({
-            name: key,
-            displayName: library.name,
-          })),
-          { name: "\n    Configure icon libraries ->" },
-        ]
-        const choice = await chooseLibrary(libraries)
-        return choice
+        return false
       },
-    ),
+    }),
 
     selectIconsSrc: fromPromise(
       async ({
@@ -280,8 +275,7 @@ export const addIconMachine = setup({
     hasNoLibraries: ({ context }) =>
       Object.keys(context.config?.libraries || {}).length === 0,
     eventHasNoOutput: ({ event }) => !("output" in event) || !event.output,
-    eventIsConfigureLibraries: ({ event }) =>
-      event.output.includes("configure icon libraries ->"),
+    eventIsConfigureLibraries: ({ event }) => event.output.includes("->"),
     hasNoTargetDir: ({ context }) => !context.targetDir, // Added guard
     // short circuit to end the machine if there's an error
     hasError: ({ context }) => Boolean(context.error),

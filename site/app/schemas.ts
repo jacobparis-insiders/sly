@@ -41,11 +41,13 @@ export const libraryIndexSchema = z.object({
  */
 export const libraryItemWithContentSchema = libraryItemSchema.extend({
   files: z.array(
-    z.object({
-      name: z.string(),
-      content: z.string(),
-      type: z.string().optional().default("file"),
-    })
+    z.intersection(
+      z.object({
+        content: z.string(),
+        type: z.string().optional().default("file"),
+      }),
+      z.union([z.object({ path: z.string() }), z.object({ name: z.string() })])
+    )
   ),
 })
 

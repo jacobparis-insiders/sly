@@ -8,19 +8,11 @@ import {
 import { logger } from "~/src/logger.js"
 import { fetchTree } from "~/src/registry.js"
 import { execa } from "execa"
-import ora from "ora"
 import prompts from "prompts"
 import * as z from "zod"
 import { resolveTransformers } from "~/src/transformers.js"
-import {
-  chooseLibrary,
-  configureComponentLibraries,
-  initLibrary,
-} from "./library.js"
-import { confirmOrQuit, confirm } from "../prompts.js"
-import { existsSync } from "fs"
-import fs from "fs/promises"
-import path from "path"
+import { configureComponentLibraries, initLibrary } from "./library.js"
+import { confirmOrQuit } from "../prompts.js"
 
 import type { Transformer } from "~/src/index.js"
 import { invariant } from "@epic-web/invariant"
@@ -28,54 +20,12 @@ import {
   libraryItemSchema,
   libraryItemWithContentSchema,
 } from "site/app/schemas.js"
-import jsonata from "jsonata"
-import { chooseLibrarySrc } from "../actors/choose-library-src.js"
+import {
+  chooseLibrarySrc,
+  createChooseLibrarySrc,
+} from "../actors/choose-library-src.js"
 import { installComponentsSrc } from "../actors/install-components-src.js"
 type Component = z.infer<typeof libraryItemWithContentSchema>
-
-type ComponentFile = Component["files"][number]
-
-type ApplyOptions = {
-  targetDir: string
-}
-
-async function applyNewFile(file: ComponentFile, options: ApplyOptions) {
-  const targetFile = path.resolve(options.targetDir, file.name)
-  const spinner = ora(`  Installing ${file.name}...\n`).start()
-  await fs.writeFile(targetFile, file.content)
-  spinner.succeed(`  Installed ${targetFile.replace(process.cwd(), "")}`)
-}
-
-async function applyJsonata(file: ComponentFile, options: ApplyOptions) {
-  const targetFile = path.resolve(options.targetDir, file.name)
-  const spinner = ora(`  Modifying ${file.name}...\n`).start()
-  const input = await fs.readFile(targetFile.replace(process.cwd(), ""))
-  const output = await jsonata(file.content).evaluate(input)
-  await fs.writeFile(targetFile, output)
-  spinner.succeed(`  Modified ${targetFile.replace(process.cwd(), "")}`)
-}
-
-function installFile(file: ComponentFile, options: ApplyOptions) {
-  switch (file.type) {
-    case "file":
-      return applyNewFile(file, options)
-    case "jsonata":
-      return applyJsonata(file, options)
-    default:
-      throw new Error(`Unknown file type: ${file}`)
-  }
-}
-
-async function getLibrariesFromConfig(config: Config) {
-  return Object.keys(config.libraries).map((name) => ({
-    name,
-    resources: [
-      {
-        name: "combobox",
-      },
-    ], // If needed, you can add more properties here
-  }))
-}
 
 export const addComponentMachine = setup({
   types: {
@@ -117,8 +67,15 @@ export const addComponentMachine = setup({
       const config = await getConfig()
       return config
     }),
+    chooseLibrarySrc: createChooseLibrarySrc({
+      filter: (config) => {
+        if (config.registryUrl?.includes("//github.com")) {
+          return false
+        }
 
-    chooseLibrarySrc,
+        return true
+      },
+    }),
     selectComponentsSrc: fromPromise(
       async ({
         input,

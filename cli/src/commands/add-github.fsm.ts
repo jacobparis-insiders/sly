@@ -11,13 +11,8 @@ import ora from "ora"
 import prompts from "prompts"
 import * as z from "zod"
 import { resolveTransformers } from "~/src/transformers.js"
-import {
-  chooseLibrary,
-  configureComponentLibraries,
-  initLibrary,
-} from "./library.js"
+import { configureComponentLibraries, initLibrary } from "./library.js"
 import { confirmOrQuit } from "../prompts.js"
-import { existsSync } from "fs"
 import fs from "fs/promises"
 import path from "path"
 
@@ -27,6 +22,7 @@ import { libraryItemWithContentSchema } from "site/app/schemas.js"
 import jsonata from "jsonata"
 import { Octokit } from "@octokit/rest"
 import { installComponentsSrc } from "../actors/install-components-src.js"
+import { createChooseLibrarySrc } from "../actors/choose-library-src.js"
 
 type Component = z.infer<typeof libraryItemWithContentSchema>
 
@@ -103,20 +99,15 @@ export const addGitHubMachine = setup({
       const config = await getConfig()
       return config
     }),
-    chooseLibrarySrc: fromPromise(
-      async ({ input }: { input: { config: Config | undefined } }) => {
-        invariant(input.config, "Configuration not found")
+    chooseLibrarySrc: createChooseLibrarySrc({
+      filter: (config) => {
+        if (!config.registryUrl?.includes("//github.com")) {
+          return false
+        }
 
-        const config = input.config
-        const libraries = [
-          ...Object.keys(config.libraries).map((name) => ({ name })),
-          { name: "\n    Configure libraries ->" },
-        ]
-        const choice = await chooseLibrary(libraries)
-        return choice
+        return true
       },
-    ),
-
+    }),
     selectComponentrc: fromPromise(
       async ({
         input,
