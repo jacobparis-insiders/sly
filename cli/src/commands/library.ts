@@ -1,10 +1,4 @@
-import {
-  LibraryConfig,
-  getConfig,
-  libraryConfigSchema,
-  resolveLibraryConfig,
-  setConfig,
-} from "~/src/get-config.js"
+import { getConfig, resolveLibraryConfig, setConfig } from "~/src/get-config.js"
 import { logger } from "~/src/logger.js"
 import { Command } from "commander"
 import chalk from "chalk"
@@ -13,6 +7,7 @@ import { getRegistryIndex } from "~/src/registry.js"
 import { confirmOrQuit } from "../prompts.js"
 import { z } from "zod"
 import { getIconifyIndex } from "../iconify.js"
+import { libraryConfigSchema } from "../../../lib/schemas.js"
 
 export const libraryCommand = new Command()
   .name("library")
@@ -136,6 +131,7 @@ export async function configureIconLibraries() {
 
   const libraries = await getIconifyIndex()
 
+  console.log("Using latest iconify index")
   const answers = await z
     .object({
       libraries: z.array(z.string()),
@@ -149,8 +145,8 @@ export async function configureIconLibraries() {
           choices: Object.entries(libraries)
             .map(([prefix, library]) => ({
               title: library.name,
-              value: `iconify:${prefix}`,
-              selected: Boolean(existingConfig?.libraries[library.name]),
+              value: prefix,
+              selected: Boolean(existingConfig?.libraries[prefix]),
             }))
             .toSorted((a, b) => a.title.localeCompare(b.title)),
           min: 1,
@@ -166,7 +162,8 @@ export async function configureIconLibraries() {
   for (const name of newLibraries) {
     await initLibrary({
       name: name,
-      displayName: libraries[name.replace("iconify:", "")]?.name,
+      type: "icon",
+      displayName: libraries[name]?.name,
     })
   }
 
@@ -207,12 +204,17 @@ export async function chooseLibrary(
 export async function initLibrary({
   name,
   displayName,
+  type,
 }: {
   name: string
   displayName?: string
+  type?: "component" | "icon" | "github"
 }) {
+  console.log("initializing library", name, type)
   const config = await getConfig()
 
+  // If library already exists, preserve its existing config
+  const existingLibrary = config?.libraries[name]
   const existingConfig = (config && resolveLibraryConfig(config, name)) ?? {
     directory: "./components",
     postinstall: [],
@@ -225,7 +227,6 @@ export async function initLibrary({
         if ("directory" in value) {
           return key
         }
-
         return []
       })
     : []
@@ -249,7 +250,10 @@ export async function initLibrary({
     // If the user chooses "new", proceed to define new settings
     if (configChoice !== "new") {
       await setConfig((config) => {
+        // Merge with existing library config if it exists
         config.libraries[name] = {
+          ...existingLibrary,
+          type: type || existingLibrary?.type,
           config: configChoice,
         }
 
@@ -298,7 +302,6 @@ export async function initLibrary({
     },
   })
 
-  // If a new configuration is defined or an existing one is selected, save the settings
   await confirmOrQuit(`Save settings to ${chalk.cyan("sly.json")}?`)
 
   await setConfig((config) => {
@@ -306,7 +309,10 @@ export async function initLibrary({
       config.libraries = {}
     }
 
+    // Merge with existing library config if it exists
     config.libraries[name] = {
+      ...existingLibrary,
+      type: type || existingLibrary?.type,
       config: newConfig.config,
     }
 

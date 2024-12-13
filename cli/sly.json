@@ -1,0 +1,41 @@
+{
+  "$schema": "https://sly-cli.fly.dev/registry/config/v2.json",
+  "config": {
+    "icons": {},
+    "components:ui": {
+      "directory": "./components/ui",
+      "postinstall": [],
+      "transformers": []
+    },
+    "utils": {}
+  },
+  "libraries": {
+    "@shadcn/ui": {
+      "registryUrl": "https://ui.shadcn.com/registry",
+      "itemUrl": "https://ui.shadcn.com/registry/styles/default/{name}.json",
+      "config": "components:ui"
+    },
+    "aceternity": {
+      "registryUrl": "https://ui.aceternity.com/registry",
+      "itemUrl": "https://ui.aceternity.com/registry/components/ui/{name}.json",
+      "config": "components:ui"
+    },
+    "draft-ui": {
+      "registryUrl": "https://github.com/IHIutch/draft-ui/tree/main/packages/ui/src",
+      "config": "components:ui"
+    },
+    "jolly-ui": {
+      "registryUrl": "https://jollyui.dev/registry",
+      "itemUrl": "https://jollyui.dev/default/{name}",
+      "config": "components:ui"
+    },
+    "iconify:covid": {
+      "name": "Covid Icons",
+      "config": {
+        "directory": "./svg-icons",
+        "postinstall": [],
+        "transformers": []
+      }
+    }
+  }
+}

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
 import { add } from "./commands/add.js"
+import { login } from "./commands/login.js"
 import { init } from "~/src/commands/init.js"
 import { Command } from "commander"
 import { libraryCommand } from "./commands/library.js"
 import { checkVersion } from "./check-version.js"
-import packageJson from "../package.json"
+import packageJson from "../package.json" assert { type: "json" }
 import { addIcon } from "./commands/add-icon.js"
 import { dirname } from "path"
 import { addGitHub } from "./commands/add-github.js"
@@ -42,6 +43,7 @@ const program = new Command()
 
 program
   .addCommand(init)
+  .addCommand(login)
   .addCommand(add)
   .addCommand(addIcon)
   .addCommand(addGitHub)

@@ -40,6 +40,7 @@ export async function getLibraryIndex(library: string) {
  */
 // TODO: remove this useless function
 export async function fetchTree(tree: Array<string>) {
+  console.log("fetchTree", tree)
   const result = await fetchRegistry(tree, {
     // When we're fetching the actual item for download, get fresh data
     forceFresh: true,

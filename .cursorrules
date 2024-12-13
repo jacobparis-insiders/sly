@@ -1,0 +1,41 @@
+# .cursorrules
+
+- Never put setState in a useEffect. This is always a bug. Derive these values during render. 
+- Always put event handlers inline right in the component. Avoid any situations that require intermediate variable or function names
+
+## Global Rules
+- At the end of every conversation, review what was learned or decided and write it to this file.
+- Each repository has its own dedicated section to track decisions, progress, and next steps.
+- Use timestamps for all entries in the format **YYYY-MM-DD**.
+- For decisions, use ADR (Architecture Decision Record) format with Context, Decision, and Consequences.
+
+### Format Template
+#### Progress
+- **YYYY-MM-DD**: [Description of progress made]
+
+#### Decisions
+- **YYYY-MM-DD**: [Title]
+  - **Context**: [Why this decision was needed]
+  - **Decision**: [What was decided]
+
+#### Next Steps
+1. [Numbered list of next actions]
+
+---
+
+## Project Logs
+
+### Repo: webapp
+#### Progress
+- **2024-12-07**: Implemented reusable replicate function for client-side caching strategy.
+- **2024-12-07**: Updated icon library route with new caching pattern.
+
+#### Decisions
+- **2024-12-07**: Client-side Caching Strategy
+  - **Context**: Needed efficient data access and offline capabilities for icon library.
+  - **Decision**: Implemented dual-layer caching with memory and localForage.
+
+#### Next Steps
+1. Implement replicate pattern in other routes requiring client-side caching
+2. Add error boundaries and retry mechanisms
+3. Develop cache invalidation triggers for specific events

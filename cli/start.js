@@ -20,13 +20,13 @@ const projectRoot = args.find((arg) => arg === "--cwd")
 
 // We can only use the ts-loader if the user has installed Sly.
 // If they run from npx without installing, don't set the flag.
-const slyPath = join(projectRoot, "node_modules", "@sly-cli", "sly")
-if (existsSync(slyPath)) {
-  env.NODE_OPTIONS = `--import "@sly-cli/sly/register"`
-}
+// const slyPath = join(projectRoot, "node_modules", "@sly-cli", "sly")
+// if (existsSync(slyPath)) {
+//   env.NODE_OPTIONS = `--import "@sly-cli/sly/register"`
+// }
 
 const argsWithoutCwdAndValue = args.filter(
-  (arg) => arg !== "--cwd" && arg !== projectRoot
+  (arg) => arg !== "--cwd" && arg !== projectRoot,
 )
 
 // Execute the real Sly CLI with the provided arguments
@@ -43,7 +43,7 @@ const child = spawn(
     shell: false,
     cwd: projectRoot,
     env,
-  }
+  },
 )
 
 child.on("error", (err) => {
@@ -53,7 +53,7 @@ child.on("error", (err) => {
 child.on("exit", (code, signal) => {
   if (signal) {
     console.log(
-      `Child process was terminated due to receipt of signal ${signal}`
+      `Child process was terminated due to receipt of signal ${signal}`,
     )
     process.exit(1)
   } else {
@@ -72,6 +72,6 @@ async function getProjectRoot() {
   }
 
   throw new Error(
-    "No package.json found in any parent directory. To set the project root explicitly, use the flag `--cwd <path>`"
+    "No package.json found in any parent directory. To set the project root explicitly, use the flag `--cwd <path>`",
   )
 }

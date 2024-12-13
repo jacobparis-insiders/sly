@@ -37,8 +37,7 @@ const IconifyLibrarySchema = z.object({
 })
 
 export async function getIconifyLibraryIndex(library: string) {
-  invariant(library.startsWith("iconify:"), "Invalid library name")
-  const collectionName = library.replace("iconify:", "")
+  const collectionName = library
 
   const index = await fetch(
     `https://api.iconify.design/collection?prefix=${collectionName}`,
@@ -54,8 +53,7 @@ export async function getIconifyLibraryIndex(library: string) {
 }
 
 export async function fetchIcons(library: string, icons: string[]) {
-  invariant(library.startsWith("iconify:"), "Invalid library name")
-  const collectionName = library.replace("iconify:", "")
+  const collectionName = library
 
   const payload = await Promise.all(
     icons.map(async (icon) => {

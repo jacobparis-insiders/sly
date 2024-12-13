@@ -4,12 +4,11 @@ import { cosmiconfig } from "cosmiconfig"
 import * as z from "zod"
 import ora from "ora"
 import { logger } from "./logger.js"
-import slyJsonToV2Jsonata from "./files/slyJsonToV2.jsonata.js"
-import jsonata from "jsonata"
-
-export function isConfigVersionOne(config: Config | null): config is ConfigV1 {
-  return Boolean(config && Array.isArray(config.libraries))
-}
+import {
+  ItemSchema,
+  libraryConfigSchema,
+  resolvedLibraryConfigSchema,
+} from "../../lib/schemas.js"
 
 // Use singleton so we can lazy load the env vars, which might be set as flags
 let explorer: ReturnType<typeof cosmiconfig> | null
@@ -18,11 +17,11 @@ function getExplorer() {
   // Other options would be nice but we need to be able to write to it
   // and other formats are prohibitively hard to write
   if (!explorer) {
-    const paths = ["sly.json", "sly/sly.json"]
+    const paths = ["pkgless.json", "pkgless/pkgless.json"]
     // TODO: submit a PR to add your config dir here
     const directories = [".", ".config", "config", "other"]
 
-    explorer = cosmiconfig("sly", {
+    explorer = cosmiconfig("pkgless", {
       searchPlaces: directories.flatMap((dir) =>
         paths.map((path) => `${dir}/${path}`),
       ),
@@ -33,61 +32,24 @@ function getExplorer() {
   return explorer
 }
 
-const libraryConfigSchemaV1 = z
-  .object({
-    name: z.string(),
-    directory: z.string(),
-    postinstall: z.union([z.string().optional(), z.array(z.string())]),
-    transformers: z.array(z.string()),
-  })
-  .partial()
-
-export const resolvedLibraryConfigSchema = z
-  .object({
-    registryUrl: z.string().optional(),
-    itemUrl: z.string().optional(),
-    directory: z.string(),
-    postinstall: z.union([z.string().optional(), z.array(z.string())]),
-    transformers: z.array(z.string()),
-  })
-  .strict()
-
-export const libraryConfigSchema = z
-  .object({
-    name: z.string().optional(),
-    registryUrl: z.string().optional(),
-    itemUrl: z.string().optional(),
-    config: resolvedLibraryConfigSchema.or(z.string()),
-  })
-  .strict()
-
-export type LibraryConfig = z.infer<typeof resolvedLibraryConfigSchema>
-
-const configSchemaV1 = z
-  .object({
-    $schema: z.string().optional(),
-    libraries: z.array(libraryConfigSchemaV1),
-  })
-  .strict()
-
 export const configSchema = z
   .object({
     $schema: z.string().optional(),
     config: z.record(z.string(), resolvedLibraryConfigSchema.partial()),
     libraries: z.record(z.string(), libraryConfigSchema),
+    items: z.array(ItemSchema),
   })
   .strict()
 
-export type ConfigV1 = z.infer<typeof configSchemaV1>
 export type Config = z.infer<typeof configSchema>
 
 async function getConfigExplorer() {
-  return process.env.SLY_CONFIG_PATH
+  return process.env.PKGLESS_CONFIG_PATH
     ? await getExplorer()
         .load(
           join(
             process.env.CWD || "",
-            `${process.env.SLY_CONFIG_PATH}/sly.json`,
+            `${process.env.PKGLESS_CONFIG_PATH}/pkgless.json`,
           ),
         )
         .catch(() => null)
@@ -106,8 +68,8 @@ export async function getConfig(): Promise<Config | null> {
   const configResult = await getConfigExplorer()
 
   if (!configResult) {
-    if (process.env.SLY_CONFIG_PATH) {
-      logger.error(`No config found at ${process.env.SLY_CONFIG_PATH}`)
+    if (process.env.PKGLESS_CONFIG_PATH) {
+      logger.error(`No config found at ${process.env.PKGLESS_CONFIG_PATH}`)
       process.exit(1)
     }
 
@@ -115,27 +77,17 @@ export async function getConfig(): Promise<Config | null> {
   }
 
   try {
-    const isV1 = configSchemaV1.safeParse(configResult.config)
-    if (isV1.success) {
-      const codemod = jsonata(slyJsonToV2Jsonata.content)
-      const newConfig = await codemod.evaluate(configResult.config)
-      return configSchema.parse(newConfig)
-    }
-
     return configSchema.parse(configResult.config)
   } catch (error) {
     console.error(error)
-    throw new Error(`Invalid configuration found in /sly.json.`)
+    throw new Error(`Invalid configuration found in /pkgless.json.`)
   }
 }
 
 export async function setConfig(fn: (config: Config) => Config) {
-  const spinner = ora(`Saving sly.json settings…`).start()
+  const spinner = ora(`Saving pkgless.json settings…`).start()
 
   const config = (await getConfig()) ?? {
-    $schema: `${
-      process.env.REGISTRY_URL || "https://sly-cli.fly.dev"
-    }/registry/config.v2.json`,
     config: {
       icons: {},
       components: {},
@@ -148,7 +100,7 @@ export async function setConfig(fn: (config: Config) => Config) {
   const configFile = await getConfigFilepath()
 
   await fs.writeFile(
-    configFile ? configFile : "sly.json",
+    configFile ? configFile : "pkgless.json",
     JSON.stringify(newConfig, null, 2),
     "utf8",
   )
@@ -159,10 +111,10 @@ export async function setConfig(fn: (config: Config) => Config) {
 
 export async function overwriteConfig(config: Config) {
   const configFile = await getConfigFilepath()
-  const spinner = ora(`Saving sly.json settings…`).start()
+  const spinner = ora(`Saving pkgless.json settings…`).start()
 
   await fs.writeFile(
-    configFile ? configFile : "sly.json",
+    configFile ? configFile : "pkgless.json",
     JSON.stringify(config, null, 2),
     "utf8",
   )

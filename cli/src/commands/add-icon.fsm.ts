@@ -17,14 +17,14 @@ import path from "path"
 import type { Transformer } from "~/src/index.js"
 import { invariant } from "@epic-web/invariant"
 import { fetchIcons, getIconifyLibraryIndex } from "../iconify.js"
-import { installFile } from "../install.js"
+import { installIcons } from "../actors/install-icons-src.js"
 import { createChooseLibrarySrc } from "../actors/choose-library-src.js"
 
 export const addIconMachine = setup({
   types: {
     input: {} as {
       libArg?: string
-      iconsArg?: string[]
+      itemsArg?: string[]
       targetDir?: string
     },
     context: {} as {
@@ -70,7 +70,7 @@ export const addIconMachine = setup({
     chooseLibrarySrc: createChooseLibrarySrc({
       extraItems: [{ name: `\n    Configure icon libraries ->` }],
       filter: (config) => {
-        if (config.name.includes("iconify")) {
+        if (config.type === "icon") {
           return true
         }
 
@@ -176,44 +176,8 @@ export const addIconMachine = setup({
       },
     ),
     installIconsSrc: fromPromise(
-      async ({
-        input,
-      }: {
-        input: {
-          payload: Array<{
-            name: string
-            files: Array<{
-              type: "file"
-              name: string
-              content: string
-            }>
-          }>
-          transformers: Array<{ default: Transformer }>
-          targetDir: string
-          selectedIcons: string[]
-          library: string
-        }
-      }) => {
-        for (const icon of input.payload) {
-          if (!existsSync(input.targetDir)) {
-            await fs.mkdir(input.targetDir, { recursive: true })
-          }
-
-          const existingIcon = icon.files.filter((file) =>
-            existsSync(path.resolve(input.targetDir, file.name)),
-          )
-
-          if (existingIcon.length && !process.env.OVERWRITE) {
-            logger.warn(
-              `Component ${icon.name} already exists. Use --overwrite to overwrite.`,
-            )
-            process.exit(1)
-          }
-
-          for (const file of icon.files) {
-            await installFile(file, { targetDir: input.targetDir })
-          }
-        }
+      ({ input }: { input: Parameters<typeof installIcons>[0] }) => {
+        return installIcons(input)
       },
     ),
     postInstallStepsSrc: fromPromise(
@@ -282,6 +246,7 @@ export const addIconMachine = setup({
   },
 }).createMachine({
   context: ({ input }) => {
+    console.log(input)
     return {
       // we can set config here to tell the machine we have one
       // but always read it from setConfig instead of passing as input
@@ -290,7 +255,7 @@ export const addIconMachine = setup({
       library: input.libArg,
       targetDir: input.targetDir,
       transformers: [],
-      selectedIcons: input.iconsArg || [],
+      selectedIcons: input.itemsArg || [],
       error: undefined,
     }
   },
@@ -511,10 +476,10 @@ export const addIconMachine = setup({
           invoke: {
             src: "installIconsSrc",
             input: ({ context }) => ({
-              payload: context.payload!,
-              transformers: context.transformers!,
+              payload: context.payload,
+              transformers: context.transformers,
               targetDir: context.targetDir!,
-              selectedIcons: context.selectedIcons || [],
+              selectedComponents: context.selectedIcons,
               library: context.library!,
             }),
             onDone: {
@@ -543,3 +508,76 @@ export const addIconMachine = setup({
     },
   },
 })
+
+export async function addIconsFromLibrary({
+  items,
+  library,
+  logger = console.info,
+}: {
+  items: string[]
+  library: string
+  logger?: (message: string) => void
+}) {
+  const config = await getConfig()
+  invariant(config, "Config not found")
+
+  // Get the library index
+  const libraryIndex = await getIconifyLibraryIndex(library)
+  const itemsSet = new Set<string>()
+
+  // Collect selected items and their dependencies
+  libraryIndex.uncategorized?.forEach((icon) => {
+    if (items.includes(icon)) {
+      itemsSet.add(icon)
+    }
+  })
+
+  if (libraryIndex.categories) {
+    Object.entries(libraryIndex.categories).forEach(([category, icons]) => {
+      icons.forEach((icon) => {
+        if (items.includes(icon)) {
+          itemsSet.add(icon)
+        }
+      })
+    })
+  }
+
+  // Fetch icon data
+  const payload = await fetchIcons(library, Array.from(itemsSet))
+
+  if (!payload.length) {
+    throw new Error("Selected icons not found.")
+  }
+
+  // Resolve transformers
+  const libConfig = resolveLibraryConfig(config, library)
+  const transformers = libConfig?.transformers
+    ? await resolveTransformers(libConfig.transformers)
+    : []
+
+  // Install icons
+  await installIcons({
+    payload,
+    transformers,
+    targetDir: libConfig?.directory || "",
+    logger,
+  })
+
+  // Run post-install steps
+  if (libConfig?.postinstall?.length) {
+    const cmd =
+      typeof libConfig.postinstall === "string"
+        ? libConfig.postinstall
+        : libConfig.postinstall[0]
+    const args =
+      typeof libConfig.postinstall === "string"
+        ? []
+        : libConfig.postinstall.slice(1)
+
+    if (cmd) {
+      await execa(cmd, args)
+    }
+  }
+
+  return payload
+}

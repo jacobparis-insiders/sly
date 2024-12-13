@@ -1,0 +1,236 @@
+{
+  "$schema": "https://sly-cli.fly.dev/registry/config.v2.json",
+  "config": {
+    "components": {
+      "directory": "./app/components",
+      "postinstall": [],
+      "transformers": [
+        "./pkgless/transformers/rename-utils.ts",
+        "./pkgless/transformers/lucide-imports.ts"
+      ]
+    },
+    "icons": {
+      "directory": "./icons",
+      "postinstall": [],
+      "transformers": []
+    }
+  },
+  "libraries": {
+    "shadcn": {
+      "name": "shadcn-ui",
+      "items": {
+        "button": {
+          "id": "button",
+          "name": "Button",
+          "files": [
+            {
+              "name": "button.tsx",
+              "path": "ui/button.tsx",
+              "version": "f3d14c48cbad1b6a3b3c9c81db9f198a4188f712"
+            }
+          ]
+        },
+        "alert-dialog": {
+          "id": "alert-dialog",
+          "name": "AlertDialog",
+          "files": [
+            {
+              "name": "alert-dialog.tsx",
+              "path": "ui/alert-dialog.tsx"
+            }
+          ]
+        },
+        "badge": {
+          "id": "badge",
+          "name": "Badge",
+          "files": [
+            {
+              "name": "badge.tsx",
+              "path": "ui/badge.tsx"
+            }
+          ]
+        },
+        "breadcrumbs": {
+          "id": "breadcrumbs",
+          "name": "Breadcrumbs",
+          "files": [
+            {
+              "name": "breadcrumbs.tsx",
+              "path": "ui/breadcrumbs.tsx"
+            }
+          ]
+        },
+        "card": {
+          "id": "card",
+          "name": "Card",
+          "files": [
+            {
+              "name": "card.tsx",
+              "path": "ui/card.tsx"
+            }
+          ]
+        },
+        "input": {
+          "id": "input",
+          "name": "Input",
+          "files": [
+            {
+              "name": "input.tsx",
+              "path": "ui/input.tsx",
+              "version": "4a0d4cfdb9f8c2b9aaa0126e0026e0fa4cf34ddb"
+            }
+          ]
+        },
+        "label": {
+          "id": "label",
+          "name": "Label",
+          "files": [
+            {
+              "name": "label.tsx",
+              "path": "ui/label.tsx"
+            }
+          ]
+        },
+        "pagination": {
+          "id": "pagination",
+          "name": "Pagination",
+          "files": [
+            {
+              "name": "pagination.tsx",
+              "path": "ui/pagination.tsx"
+            }
+          ]
+        },
+        "radio-group": {
+          "id": "radio-group",
+          "name": "RadioGroup",
+          "files": [
+            {
+              "name": "radio-group.tsx",
+              "path": "ui/radio-group.tsx"
+            }
+          ]
+        },
+        "resizable": {
+          "id": "resizable",
+          "name": "Resizable",
+          "files": [
+            {
+              "name": "resizable.tsx",
+              "path": "ui/resizable.tsx"
+            }
+          ]
+        },
+        "select": {
+          "id": "select",
+          "name": "Select",
+          "files": [
+            {
+              "name": "select.tsx",
+              "path": "ui/select.tsx"
+            }
+          ]
+        },
+        "separator": {
+          "id": "separator",
+          "name": "Separator",
+          "files": [
+            {
+              "name": "separator.tsx",
+              "path": "ui/separator.tsx"
+            }
+          ]
+        },
+        "sheet": {
+          "id": "sheet",
+          "name": "Sheet",
+          "files": [
+            {
+              "name": "sheet.tsx",
+              "path": "ui/sheet.tsx"
+            }
+          ]
+        },
+        "sidebar": {
+          "id": "sidebar",
+          "name": "Sidebar",
+          "files": [
+            {
+              "name": "sidebar.tsx",
+              "path": "ui/sidebar.tsx",
+              "version": "debd51a854d4b336428d58e4f7702ebc073c3f49"
+            }
+          ]
+        },
+        "skeleton": {
+          "id": "skeleton",
+          "name": "Skeleton",
+          "files": [
+            {
+              "name": "skeleton.tsx",
+              "path": "ui/skeleton.tsx"
+            }
+          ]
+        },
+        "tabs": {
+          "id": "tabs",
+          "name": "Tabs",
+          "files": [
+            {
+              "name": "tabs.tsx",
+              "path": "ui/tabs.tsx"
+            }
+          ]
+        },
+        "textarea": {
+          "id": "textarea",
+          "name": "Textarea",
+          "files": [
+            {
+              "name": "textarea.tsx",
+              "path": "ui/textarea.tsx"
+            }
+          ]
+        },
+        "tooltip": {
+          "id": "tooltip",
+          "name": "Tooltip",
+          "files": [
+            {
+              "name": "tooltip.tsx",
+              "path": "ui/tooltip.tsx"
+            }
+          ]
+        }
+      },
+      "type": "component",
+      "registryUrl": "https://pkgless-shadcn.vercel.app/registry",
+      "itemUrl": "https://pkgless-shadcn.vercel.app/registry/{name}",
+      "config": "components"
+    },
+    "lucide": {
+      "name": "Lucide",
+      "type": "icon",
+      "config": "icons"
+    },
+    "draft": {
+      "type": "github",
+      "registryUrl": "https://github.com/IHIutch/draft-ui/tree/main/packages/ui/src",
+      "config": "components"
+    },
+    "jacob-2": {
+      "type": "github",
+      "registryUrl": "https://github.com/IHIutch/draft-ui/tree/main/packages/ui/src",
+      "config": "components"
+    }
+  },
+  "items": [
+    {
+      "id": "add-item",
+      "type": "gist",
+      "name": "Icon component",
+      "url": "https://gist.github.com/jacobparis/5657e2bcb1074b8bf39f19947d319a60",
+      "overwrite": true
+    }
+  ]
+}

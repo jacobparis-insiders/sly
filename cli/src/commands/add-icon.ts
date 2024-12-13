@@ -2,6 +2,7 @@ import { Command } from "commander"
 import { addIconMachine } from "./add-icon.fsm.js"
 import { z } from "zod"
 import { createActor } from "xstate"
+import { initLibrary } from "./library.js"
 
 export const addIcon = new Command()
   .name("add-icon")
@@ -13,41 +14,40 @@ export const addIcon = new Command()
     "set output directory (override sly.json)",
   )
   .option("-o, --overwrite", "overwrite existing icons.", false)
+  .option(
+    "-s, --save",
+    "save library configuration without adding icons",
+    false,
+  )
   .hook("preAction", () => {
     // Flags override env vars
     const options = addIcon.optsWithGlobals()
 
     process.env.OVERWRITE = options.overwrite ? "true" : ""
     process.env.DIRECTORY = options.directory ?? ""
+    process.env.SAVE = options.save ? "true" : ""
   })
-  .action(async (libArg, iconsArg) => {
+  .action(async (libArg, itemsArg) => {
     const options = addIcon.optsWithGlobals()
 
     const library = z.string().optional().parse(libArg)
     const icons = z
       .array(z.string())
       .default([])
-      .parse(iconsArg || [])
+      .parse(itemsArg || [])
+
+    // If --save flag is used with library but no icons, just save the config
+    if (options.save && library && icons.length === 0) {
+      await initLibrary({ name: library, type: "icon" })
+      return
+    }
 
     const actor = createActor(addIconMachine, {
       input: {
-        libArg: library
-          ? library.startsWith("iconify:")
-            ? library
-            : `iconify:${library}`
-          : undefined,
-        iconsArg: icons,
+        libArg: library,
+        itemsArg: icons,
         targetDir: options.directory,
       },
-      // inspect(inspectionEvent) {
-      //   console.log(inspectionEvent.type)
-
-      //   if (inspectionEvent.type === "@xstate.microstep") {
-      //     for (const transition of inspectionEvent._transitions) {
-      //       console.log(JSON.stringify(transition.toJSON(), null, 2))
-      //     }
-      //   }
-      // },
     })
     actor.start()
   })

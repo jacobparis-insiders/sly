@@ -20,22 +20,23 @@ import {
   libraryItemSchema,
   libraryItemWithContentSchema,
 } from "site/app/schemas.js"
+import { createChooseLibrarySrc } from "../actors/choose-library-src.js"
 import {
-  chooseLibrarySrc,
-  createChooseLibrarySrc,
-} from "../actors/choose-library-src.js"
-import { installComponentsSrc } from "../actors/install-components-src.js"
+  installComponents,
+  installComponentsSrc,
+} from "../actors/install-components-src.js"
 type Component = z.infer<typeof libraryItemWithContentSchema>
 
 export const addComponentMachine = setup({
   types: {
     input: {} as {
       libArg?: string
-      componentsArg?: string[]
+      itemsArg?: string[]
       targetDir?: string
     },
     context: {} as {
       config: Config | undefined
+      packageManager: "npm" | "bun" | "pnpm" | "yarn" | undefined
       payload: Component[]
       library: string | undefined
       targetDir: string | undefined
@@ -120,27 +121,24 @@ export const addComponentMachine = setup({
         }
       }) => {
         const libraryIndex = await getComponentLibraryIndex(input.library)
+        const itemsSet = new Set<string>()
+
         const treeSet = new Set(
-          libraryIndex.resources.filter(
-            (item) => input.selectedComponents?.includes(item.name),
+          libraryIndex.resources.filter((item) =>
+            input.selectedComponents?.includes(item.name),
           ),
         )
+
         treeSet.forEach((item) => {
-          if (item.registryDependencies.length > 0) {
-            item.registryDependencies.forEach((dep: string) => {
-              const dependency = libraryIndex.resources.find(
-                (res) => res.name === dep,
-              )
-              if (dependency) {
-                treeSet.add(dependency)
-              } else {
-                logger.error(`Dependency ${dep} not found in registry`)
-              }
-            })
-          }
+          itemsSet.add(item.name)
+          item.registryDependencies.forEach((dep: string) => {
+            itemsSet.add(dep)
+          })
         })
-        const treeSetItemsThatAreNotSelected = Array.from(treeSet).filter(
-          (item) => !input.selectedComponents?.includes(item.name),
+
+        // TODO: also remove ones already installed
+        const treeSetItemsThatAreNotSelected = Array.from(itemsSet).filter(
+          (item) => !input.selectedComponents?.includes(item),
         )
 
         if (treeSetItemsThatAreNotSelected.length > 0) {
@@ -148,7 +146,7 @@ export const addComponentMachine = setup({
             `The selected components depend on these other components:`,
           )
           treeSetItemsThatAreNotSelected.forEach((item) => {
-            logger.info(`- ${item.name}`)
+            logger.info(`- ${item}`)
           })
         }
 
@@ -162,10 +160,12 @@ export const addComponentMachine = setup({
         invariant(registryUrl, "Registry URL not found")
 
         const payload = await fetchTree(
-          Array.from(treeSet).map(
-            (item) => `${itemUrl?.replace("{name}", item.name)}`,
+          Array.from(itemsSet).map(
+            (item) => `${itemUrl?.replace("{name}", item)}`,
           ),
         )
+
+        console.log("payload", payload)
 
         if (!payload.length)
           throw new Error("Selected components not found. Exiting.")
@@ -247,8 +247,10 @@ export const addComponentMachine = setup({
       return Boolean(context.config || doesNotRequireConfigFile)
     },
     // Most of the guards are negative conditions to move us backwards to the step that fulfills them
-    hasSelectedZeroComponents: ({ context }) =>
-      !context.selectedComponents?.length,
+    hasSelectedZeroComponents: ({ context }) => {
+      console.log("hasSelectedZeroComponents", context.selectedComponents)
+      return !context.selectedComponents?.length
+    },
     hasNoConfig: ({ context }) => !context.config,
     hasNoLibrary: ({ context }) => !context.library,
     hasLibrarySet: ({ context }) => Boolean(context.library),
@@ -263,6 +265,9 @@ export const addComponentMachine = setup({
   },
 }).createMachine({
   context: ({ input }) => {
+    // TODO: infer package manager filesystem
+    const packageManager = input.packageManager || "npm"
+
     return {
       // we can set config here to tell the machine we have one
       // but always read it from setConfig instead of passing as input
@@ -271,7 +276,8 @@ export const addComponentMachine = setup({
       library: input.libArg,
       targetDir: input.targetDir,
       transformers: [],
-      selectedComponents: input.componentsArg || [],
+      selectedComponents: input.itemsArg || [],
+      packageManager: "npm",
       error: undefined,
     }
   },
@@ -498,6 +504,7 @@ export const addComponentMachine = setup({
               targetDir: context.targetDir!,
               selectedComponents: context.selectedComponents || [],
               library: context.library!,
+              packageManager: context.packageManager,
             }),
             onDone: {
               target: "postInstallSteps",
@@ -526,20 +533,6 @@ export const addComponentMachine = setup({
   },
 })
 
-async function fetchComponentTree(library: string, components: Component[]) {
-  const config = await getConfig()
-  invariant(config, "Config not found")
-
-  const { registryUrl, itemUrl } = resolveLibraryUrls(config, library)
-  invariant(registryUrl, "Registry URL not found")
-
-  return fetchTree(
-    registryUrl,
-    library,
-    components.map((item) => `${itemUrl?.replace("{name}", item.name)}`),
-  )
-}
-
 async function getComponentLibraryIndex(library: string) {
   // resolve the library config
   // if it has a url, use that, otherwise use the default
@@ -562,4 +555,79 @@ async function getComponentLibraryIndex(library: string) {
     name: library,
     resources: z.array(libraryItemSchema).parse(resources),
   }
+}
+
+export async function addComponentsFromLibrary({
+  items,
+  library,
+  logger = console.info,
+}: {
+  items: string[]
+  library: string
+  logger?: (message: string) => void
+}) {
+  const config = await getConfig()
+  invariant(config, "Config not found")
+
+  // Get the library index
+  const libraryIndex = await getComponentLibraryIndex(library)
+  const itemsSet = new Set<string>()
+
+  // Collect selected items and their dependencies
+  libraryIndex.resources.forEach((item) => {
+    if (items.includes(item.name)) {
+      itemsSet.add(item.name)
+      item.registryDependencies.forEach((dep: string) => {
+        itemsSet.add(dep)
+      })
+    }
+  })
+
+  // Resolve library URLs
+  const { registryUrl, itemUrl } = resolveLibraryUrls(config, library)
+  invariant(registryUrl, "Registry URL not found")
+
+  // Fetch component data
+  const payload = await fetchTree(
+    Array.from(itemsSet).map((item) => `${itemUrl?.replace("{name}", item)}`),
+  )
+
+  if (!payload.length) {
+    throw new Error("Selected items not found.")
+  }
+
+  // Resolve transformers
+  const libConfig = resolveLibraryConfig(config, library)
+  const transformers = libConfig?.transformers
+    ? await resolveTransformers(libConfig.transformers)
+    : []
+
+  logger(`Resolving ${transformers.length} transformers`)
+
+  // Install items
+  await installComponents({
+    payload,
+    transformers,
+    targetDir: libConfig?.directory || "",
+    selectedComponents: items,
+    library,
+  })
+
+  // Run post-install steps
+  if (libConfig?.postinstall?.length) {
+    const cmd =
+      typeof libConfig.postinstall === "string"
+        ? libConfig.postinstall
+        : libConfig.postinstall[0]
+    const args =
+      typeof libConfig.postinstall === "string"
+        ? []
+        : libConfig.postinstall.slice(1)
+
+    if (cmd) {
+      await execa(cmd, args)
+    }
+  }
+
+  return payload
 }

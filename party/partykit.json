@@ -1,0 +1,9 @@
+{
+  "$schema": "https://www.partykit.io/schema.json",
+  "name": "pkgless",
+  "main": "src/server.ts",
+  "parties": {
+    "cli": "src/cli.ts"
+  },
+  "compatibilityDate": "2024-11-26"
+}

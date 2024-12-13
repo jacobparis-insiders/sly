@@ -1,6 +1,6 @@
 {
-  "name": "@sly-cli/sly",
-  "version": "2.0.0",
+  "name": "pkgless",
+  "version": "0.1.0",
   "description": "Sly is a CLI tool to add components, icons, and utilities as code, not dependencies.",
   "type": "module",
   "exports": {
@@ -9,7 +9,8 @@
     "./ts-loader": "./ts-loader.js"
   },
   "bin": {
-    "sly": "start.js"
+    "sly": "start.js",
+    "pkgless": "./dist/index.js"
   },
   "publishConfig": {
     "access": "public"
@@ -53,13 +54,20 @@
     "execa": "^7.1.1",
     "jsonata": "^2.0.5",
     "lru-cache": "^10.0.0",
+    "nypm": "^0.3.12",
     "ora": "^6.3.1",
+    "partykit": "^0.0.111",
+    "partysocket": "^1.0.2",
     "prompts": "^2.4.2",
+    "read-package-up": "^11.0.0",
+    "tsx": "^4.19.2",
+    "ws": "^8.18.0",
     "zod": "^3.21.4"
   },
   "devDependencies": {
     "@gmrchk/cli-testing-library": "github:jpulec/cli-testing-library#patch-1",
     "@types/prompts": "^2.4.4",
+    "@types/ws": "^8.5.13",
     "@typescript-eslint/eslint-plugin": "^6.1.0",
     "@typescript-eslint/parser": "^6.1.0",
     "eslint": "^8.45.0",
