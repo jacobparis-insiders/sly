@@ -1,16 +1,17 @@
 import { redirect } from "@remix-run/react"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useConnectionId } from "./root"
 import PartySocket from "partysocket"
 import { cookieSessionStorage } from "./routes/api.connect.$id"
 import ws from "ws"
 import {
+  Config,
   ConfigResponseSchema,
   ItemFilesResponseSchema,
 } from "../../lib/schemas"
 import { useSocketFetcher } from "./use-socket-fetcher"
-import { useParty } from "./party"
+import { useParty, usePartyMessages } from "./party"
 
 export function useCliInfo() {
   const fetcher = useSocketFetcher()
@@ -51,6 +52,55 @@ export function useOptionalCli() {
   }
 }
 
+export function useFileTree() {
+  const fetcher = useSocketFetcher()
+
+  useEffect(() => {
+    if (!fetcher.data && fetcher.state === "idle") {
+      fetcher.send({ type: "request-file-tree" })
+    }
+  }, [fetcher])
+
+  console.log("fetcher.data", fetcher.data)
+  return {
+    state: fetcher.state,
+    files: (fetcher.data?.files || []) as Array<string>,
+  }
+}
+
+// TODO: write files into indexedDB
+export function useFiles(paths: Array<string | null>) {
+  const fetcher = useSocketFetcher()
+
+  const pathsKey = paths.filter(Boolean).sort().join(",")
+  const [prevPathsKey, setPrevPathsKey] = useState(pathsKey)
+  if (pathsKey !== prevPathsKey) {
+    setPrevPathsKey(pathsKey)
+    fetcher.reset()
+  }
+
+  useEffect(() => {
+    const files = pathsKey.split(",").filter(Boolean)
+
+    if (!fetcher.data && fetcher.state === "idle" && files.length > 0) {
+      fetcher.send({ type: "request-files", files })
+    }
+  }, [fetcher, pathsKey])
+
+  return {
+    state: fetcher.state,
+    files: fetcher.data?.files || [],
+  }
+}
+
+export function useFile(path: string | null) {
+  const { state, files } = useFiles([path])
+  return {
+    state,
+    file: files[0],
+  }
+}
+
 export function useConfig() {
   const fetcher = useSocketFetcher()
 
@@ -60,31 +110,29 @@ export function useConfig() {
     }
   }, [fetcher])
 
-  console.log("fetcher.data", fetcher.data)
-  console.log("fetcher.state", fetcher.state)
   return {
     state: fetcher.state,
     config: fetcher.data?.value,
   }
 }
 
-export function usePartyMessages({ type }: { type?: string } = {}) {
-  const party = useParty()!
-  const [messages, setMessages] = useState<
-    { messageId: string; type: string }[]
-  >([])
+// export function usePartyMessages({ type }: { type?: string } = {}) {
+//   const party = useParty()!
+//   const [messages, setMessages] = useState<
+//     { messageId: string; type: string }[]
+//   >([])
 
-  useEffect(() => {
-    party.addEventListener("message", (event) => {
-      const data = JSON.parse(event.data)
-      if (type && data.type !== type) return
+//   useEffect(() => {
+//     party.addEventListener("message", (event) => {
+//       const data = JSON.parse(event.data)
+//       if (type && data.type !== type) return
 
-      setMessages((prev) => [...prev, data])
-    })
-  }, [party, type])
+//       setMessages((prev) => [...prev, data])
+//     })
+//   }, [party, type])
 
-  return messages
-}
+//   return messages
+// }
 
 export function useAddIcons() {
   const fetcher = useSocketFetcher()
@@ -93,6 +141,47 @@ export function useAddIcons() {
     state: fetcher.state,
     addIcons: (payload: { libraryId: string; items: string[] }) =>
       fetcher.send({ type: "add-icons", ...payload }),
+  }
+}
+
+export function useAddComponents() {
+  const fetcher = useSocketFetcher()
+  const [messageId, setMessageId] = useState<string | undefined>()
+
+  const messages = usePartyMessages({ messageId })
+  return {
+    state: fetcher.state,
+    messages,
+    addComponents: (payload: { libraryId: string; items: string[] }) => {
+      setMessageId(fetcher.send({ type: "add-components", ...payload }))
+    },
+  }
+}
+
+export function useSendActorEvent() {
+  const fetcher = useSocketFetcher()
+
+  return {
+    state: fetcher.state,
+    sendActorEvent: (payload: { type: string; input: any }) => {
+      fetcher.send({ type: "send-actor-event", input: payload })
+    },
+  }
+}
+
+export function useConfigureLibrary() {
+  const fetcher = useSocketFetcher()
+
+  return {
+    state: fetcher.state,
+    configureLibrary: (payload: {
+      libraryId: string
+      config: {
+        name?: string
+        directory?: string
+        postinstall?: string
+      }
+    }) => fetcher.send({ type: "config-library", ...payload }),
   }
 }
 

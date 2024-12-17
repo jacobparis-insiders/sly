@@ -35,13 +35,13 @@ export function useSocketFetcher() {
   const send = useCallback(
     (payload: Record<string, any>) => {
       // If we have a clientLoader, party seems to be not ready by the time this sends
+      const messageId = `${fetcherKey}-${Date.now()}`
 
       setTimeout(() => {
         if (!party) return
 
         sendAbortSignal() // Abort any ongoing request
 
-        const messageId = `${fetcherKey}-${Date.now()}`
         messageIdRef.current = messageId
         abortControllerRef.current = new AbortController()
 
@@ -62,6 +62,9 @@ export function useSocketFetcher() {
           }),
         )
       }, 1)
+
+      if (!party) return
+      return messageId
     },
     [fetcherKey, sendAbortSignal, party],
   )
@@ -86,8 +89,9 @@ export function useSocketFetcher() {
           ? JSON.parse(event.data)
           : JSON.parse(event.data.split(":").slice(1).join(":"))
 
-        console.log("json", json)
         if (json.messageId !== messageIdRef.current) return
+        if (json.keepAlive) return
+
         messageIdRef.current = null
         abortControllerRef.current = null
 

@@ -25,54 +25,51 @@ export const libraryItemWithContentSchema = z.object({
   ),
 })
 
-export const resolvedLibraryConfigSchema = z
-  .object({
-    registryUrl: z.string().optional(),
-    itemUrl: z.string().optional(),
-    type: z.enum(["component", "icon", "github", "gist"]).optional(),
-    directory: z.string(),
-    postinstall: z.union([z.string().optional(), z.array(z.string())]),
-    transformers: z.array(z.string()),
-  })
-  .strict()
+export const resolvedLibraryConfigSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().optional(),
+  defaultConfig: z.any().optional(),
+  registryUrl: z.string().optional(),
+  itemUrl: z.string().optional(),
+  type: z.enum(["component", "icon", "github", "gist"]).optional(),
+  directory: z.string().optional(),
+  postinstall: z.union([z.string().optional(), z.array(z.string())]),
+  transformers: z.array(z.string()).optional().default([]),
+})
 
-export const libraryConfigSchema = z
-  .object({
-    name: z.string().optional(),
-    items: z
-      .record(
-        z.string(),
-        z.object({
-          id: z.string(),
-          name: z.string().optional(),
-          files: z
-            .array(
-              z.object({
-                type: z.enum(["file"]).optional(),
-                name: z.string().optional(),
-                path: z.string(),
-                version: z.string().optional(),
-              }),
-            )
-            .optional(),
-        }),
-      )
-      .optional(),
-    type: z.enum(["component", "icon", "github", "gist"]).optional(),
-    registryUrl: z.string().optional(),
-    itemUrl: z.string().optional(),
-    config: resolvedLibraryConfigSchema.or(z.string()),
-  })
-  .strict()
+export const libraryConfigSchema = z.object({
+  name: z.string().optional(),
+  items: z
+    .record(
+      z.string(),
+      z.object({
+        id: z.string(),
+        name: z.string().optional(),
+        files: z
+          .array(
+            z.object({
+              type: z.enum(["file"]).optional(),
+              name: z.string().optional(),
+              path: z.string(),
+              version: z.string().optional(),
+            }),
+          )
+          .optional(),
+      }),
+    )
+    .optional(),
+  type: z.enum(["component", "icon", "github", "gist"]).optional(),
+  registryUrl: z.string().optional(),
+  itemUrl: z.string().optional(),
+  config: resolvedLibraryConfigSchema.or(z.string()),
+})
 
-export const ConfigSchema = z
-  .object({
-    $schema: z.string().optional(),
-    config: z.record(z.string(), resolvedLibraryConfigSchema.partial()),
-    libraries: z.record(z.string(), libraryConfigSchema),
-    items: z.array(ItemSchema),
-  })
-  .strict()
+export const ConfigSchema = z.object({
+  $schema: z.string().optional(),
+  config: z.record(z.string(), resolvedLibraryConfigSchema.partial()),
+  libraries: z.record(z.string(), libraryConfigSchema),
+  items: z.array(ItemSchema),
+})
 
 export type LibraryConfig = z.infer<typeof resolvedLibraryConfigSchema>
 export type Config = z.infer<typeof ConfigSchema>

@@ -7,15 +7,22 @@ import {
   getConfigFilepath,
   resolveLibraryConfig,
   setConfig,
+  setLibraryConfig,
 } from "../get-config.js"
 import crypto from "crypto"
-import { addComponentsFromLibrary } from "./add-component.fsm.js"
+import {
+  addComponentMachine,
+  addComponentsFromLibrary,
+} from "./add-component.fsm.js"
 import { ConfigResponseSchema, ConfigSchema } from "../../../lib/schemas.js"
 import { dirname } from "path"
 import fs from "fs/promises"
 import path from "path"
 import { addIconsFromLibrary } from "./add-icon.fsm.js"
 import { installFile } from "../install.js"
+import ignore from "ignore"
+import { pkgless } from "../index.js"
+import { createActor } from "xstate"
 
 const StatusSchema = z.object({
   type: z.literal("status"),
@@ -36,6 +43,17 @@ const UpdateConfigSchema = z.object({
   type: z.literal("update-config"),
   value: ConfigSchema,
   messageId: z.string(),
+})
+
+const RequestFileTreeSchema = z.object({
+  type: z.literal("request-file-tree"),
+  messageId: z.string(),
+})
+
+const RequestFilesSchema = z.object({
+  type: z.literal("request-files"),
+  messageId: z.string(),
+  files: z.array(z.string()),
 })
 
 const RequestItemFilesSchema = z.object({
@@ -59,6 +77,17 @@ const AddComponentsSchema = z.object({
   messageId: z.string(),
 })
 
+const ConfigLibrarySchema = z.object({
+  type: z.literal("config-library"),
+  libraryId: z.string(),
+  config: z.object({
+    name: z.string().optional(),
+    directory: z.string().optional(),
+    postinstall: z.string().optional(),
+  }),
+  messageId: z.string(),
+})
+
 const InstallFilesSchema = z.object({
   type: z.literal("install-files"),
   files: z.array(
@@ -71,15 +100,32 @@ const InstallFilesSchema = z.object({
   messageId: z.string(),
 })
 
+const RunCommandSchema = z.object({
+  type: z.literal("run-command"),
+  command: z.string(),
+  messageId: z.string(),
+})
+
+const SendActorEventSchema = z.object({
+  type: z.literal("send-actor-event"),
+  messageId: z.string(),
+  input: z.record(z.string(), z.any()),
+})
+
 const MessageSchema = z.discriminatedUnion("type", [
   StatusSchema,
   RequestCliSchema,
   RequestConfigSchema,
+  RequestFileTreeSchema,
+  RequestFilesSchema,
   UpdateConfigSchema,
   RequestItemFilesSchema,
   AddIconsSchema,
   AddComponentsSchema,
   InstallFilesSchema,
+  ConfigLibrarySchema,
+  RunCommandSchema,
+  SendActorEventSchema,
 ])
 
 export const login = new Command()
@@ -108,6 +154,7 @@ export const login = new Command()
     })
 
     const connectedApps: Set<string> = new Set()
+    let activeActor: any = null
 
     // print each incoming message from the server to console
     partySocket.addEventListener("message", async (event: { data: string }) => {
@@ -175,6 +222,50 @@ export const login = new Command()
         partySocket.send(JSON.stringify(configResponse))
       }
 
+      if (payload.type === "config-library") {
+        await setLibraryConfig(payload.libraryId, payload.config)
+
+        // reply with config-response?
+        const filepath = await getConfigFilepath()
+        const config = await getConfig()
+
+        const configResponse = ConfigResponseSchema.parse({
+          type: "config-response",
+          messageId: payload.messageId,
+          filepath: filepath?.replace(dirname(process.cwd()), "") || null,
+          value: config,
+        })
+
+        partySocket.send(JSON.stringify(configResponse))
+      }
+
+      if (payload.type === "request-file-tree") {
+        // get the whole file tree for the project
+        // this is a list of all the files in the project
+        // and their paths
+        const files = await getFileTree()
+        console.log("files", files)
+        partySocket.send(
+          JSON.stringify({
+            type: "file-tree-response",
+            files,
+            messageId: payload.messageId,
+          }),
+        )
+      }
+
+      if (payload.type === "request-files") {
+        const files = await getFiles(payload.files)
+        console.log("files", files)
+        partySocket.send(
+          JSON.stringify({
+            type: "files-response",
+            files,
+            messageId: payload.messageId,
+          }),
+        )
+      }
+
       if (payload.type === "update-config") {
         console.info("Updating config", payload.value)
         await setConfig(() => payload.value)
@@ -189,23 +280,43 @@ export const login = new Command()
 
       if (payload.type === "add-components") {
         console.info("Adding", payload.items.join(", "))
-        try {
-          await addComponentsFromLibrary({
-            library: payload.libraryId,
-            items: payload.items,
-            logger: (message: string) => {
-              console.info(message)
-              partySocket.send(
-                JSON.stringify({
-                  type: "add-components-log",
-                  message,
-                  messageId: payload.messageId,
-                }),
-              )
-            },
-          })
-        } catch (error) {
-          console.error(error)
+
+        const actor = createActor(addComponentMachine, {
+          input: {
+            libArg: payload.libraryId,
+            itemsArg: payload.items,
+          },
+        })
+
+        // Clean up the previous actor if it exists
+        if (activeActor) {
+          activeActor.stop()
+        }
+
+        // Set the new actor
+        activeActor = actor
+        actor.on("log", (event) => {
+          partySocket.send(
+            JSON.stringify({
+              type: "add-components-log",
+              message: event.message,
+              messageId: payload.messageId,
+              keepAlive: true,
+            }),
+          )
+        })
+
+        actor.start()
+      }
+
+      if (payload.type === "send-actor-event") {
+        if (activeActor) {
+          console.log("sending actor event", activeActor.id, payload.input)
+          activeActor.send(payload.input)
+        } else {
+          console.error(
+            `No active actor found for messageId: ${payload.messageId}`,
+          )
         }
       }
 
@@ -320,4 +431,45 @@ async function getItemFiles(
   }
 
   return files
+}
+
+async function getFileTree(dir: string = process.cwd()): Promise<string[]> {
+  const ig = ignore()
+  const gitignorePath = path.join(dir, ".gitignore")
+
+  try {
+    const gitignoreContent = await fs.readFile(gitignorePath, "utf-8")
+    ig.add(gitignoreContent)
+  } catch (error) {
+    // If .gitignore doesn't exist, we can safely ignore the error
+  }
+
+  const entries = await fs.readdir(dir, { withFileTypes: true })
+  const files: string[] = []
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name)
+
+    // Skip the .git directory and any ignored paths
+    if (entry.name === ".git" || ig.ignores(path.relative(dir, fullPath))) {
+      continue
+    }
+
+    if (entry.isDirectory()) {
+      files.push(...(await getFileTree(fullPath)))
+    } else {
+      files.push(fullPath.replace(process.cwd(), ""))
+    }
+  }
+
+  return files
+}
+
+async function getFiles(files: string[]) {
+  return Promise.all(
+    files.map(async (file) => {
+      const content = await fs.readFile(file, "utf-8")
+      return { path: file, content }
+    }),
+  )
 }

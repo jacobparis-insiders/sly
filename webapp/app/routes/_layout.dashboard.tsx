@@ -17,9 +17,10 @@ import { Heading } from "#app/components/heading.js"
 import { fetchConfig, useCliInfo, useOptionalCli } from "#app/use-connection.js"
 import { FadeIn } from "#app/components/fade-in.js"
 import { Icon } from "#app/components/icon.js"
-import { Terminal } from "#app/components/terminal.js"
+import { ConnectedTerminal, Terminal } from "#app/components/terminal.js"
 import { useConnectionId } from "#app/root.js"
 import { usePartyMessages } from "#app/party.js"
+import { db } from "#app/db.js"
 
 // Add type for library items
 type LibraryItem = {
@@ -67,44 +68,55 @@ const packageTypes = [
 export async function clientLoader({ request }: ClientLoaderFunctionArgs) {
   const { value: config } = await fetchConfig(request)
 
-  return { config }
+  return { config, libraries: db.libraries }
 }
 
 export default function Index() {
-  const { config } = useLoaderData<typeof clientLoader>()
+  const { config, libraries } = useLoaderData<typeof clientLoader>()
   const { cwd, state, ready } = useOptionalCli()
 
   const navigate = useNavigate()
 
   return (
     <FadeIn show={ready}>
-      <Terminal>
-        {state === "loading"
-          ? `Connecting…`
-          : state === "success"
-            ? `Connected to ${cwd}`
-            : `Disconnected`}
-      </Terminal>
+      <ConnectedTerminal>npx pkgless</ConnectedTerminal>
 
-      <Heading>libraries</Heading>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-        {Object.entries(config?.libraries || {}).map(([libraryKey, lib]) => {
-          const typedLib = lib as LibraryItem
-          return typedLib.type === "component" ? (
-            <ComponentLibraryCard
-              key={libraryKey}
-              library={libraryKey}
-              lib={typedLib as LibraryItem & { type: "component" }}
-            />
-          ) : (
-            <IconLibraryCard
-              key={libraryKey}
-              library={libraryKey}
-              lib={typedLib as LibraryItem & { type: "icon" }}
-            />
-          )
-        })}
-      </div>
+      {libraries.length > 0 && (
+        <>
+          <Heading className="mt-8">libraries</Heading>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            {libraries.map((lib) => (
+              <DefaultItemCard key={lib.key} item={lib} />
+            ))}
+          </div>
+        </>
+      )}
+
+      {config?.libraries && (
+        <>
+          <Heading className="mt-8">libraries</Heading>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            {Object.entries(config?.libraries || {}).map(
+              ([libraryKey, lib]) => {
+                const typedLib = lib as LibraryItem
+                return typedLib.type === "component" ? (
+                  <ComponentLibraryCard
+                    key={libraryKey}
+                    library={libraryKey}
+                    lib={typedLib as LibraryItem & { type: "component" }}
+                  />
+                ) : (
+                  <IconLibraryCard
+                    key={libraryKey}
+                    library={libraryKey}
+                    lib={typedLib as LibraryItem & { type: "icon" }}
+                  />
+                )
+              },
+            )}
+          </div>
+        </>
+      )}
 
       {config?.items?.length > 0 && (
         <>
@@ -117,8 +129,7 @@ export default function Index() {
         </>
       )}
 
-      <Heading className="mt-8">new</Heading>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 mt-4">
         {packageTypes.map((pkg) => (
           <Card
             key={pkg.type}
@@ -145,14 +156,12 @@ function ItemCard({ item }: { item: any }) {
 
 function DefaultItemCard({ item }: { item: any }) {
   const navigate = useNavigate()
+  const href = `/component/${item.id}`
   return (
-    <Card
-      onClick={() => navigate(`/items/${item.id}`)}
-      className="hover:bg-neutral-50"
-    >
+    <Card onClick={() => navigate(href)} className="hover:bg-neutral-50">
       <CardHeader>
         <CardTitle>
-          <Link to={`/items/${item.id}`} className="hover:underline">
+          <Link to={href} className="hover:underline">
             {item.name}
           </Link>
         </CardTitle>

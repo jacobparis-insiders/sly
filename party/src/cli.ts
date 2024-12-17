@@ -160,30 +160,9 @@ export default class Server implements Party.Server {
 
     const { messageId } = parsedMessage
 
-    // CLI sends a message to a specific app
-    if (sender.id === this.cliConnection?.id) {
-      console.log("[CLI->APP] CLI message:", parsedMessage)
-      const targetId = this.messageIdToAppId.get(messageId)
-      if (targetId) {
-        const targetConnection = this.appConnections.get(targetId)
-        if (targetConnection) {
-          targetConnection.send(message)
-          // Clean up the mapping after use
-          this.messageIdToAppId.delete(messageId)
-        } else {
-          console.warn("[ERROR] Target app not found:", targetId)
-        }
-      } else {
-        console.warn("[ERROR] No app mapping found for messageId:", messageId)
-      }
-    }
     // App sends a message to CLI
-    else if (this.appConnections.has(sender.id)) {
+    if (this.appConnections.has(sender.id)) {
       console.log("[APP->CLI] App message from", sender.id, ":", parsedMessage)
-      console.log(
-        "[APP->CLI] Current CLI connection:",
-        this.cliConnection?.id || "none",
-      )
 
       if (this.cliConnection) {
         // Store the mapping of messageId to appId for the response
@@ -204,6 +183,22 @@ export default class Server implements Party.Server {
             messageId,
           }),
         )
+      }
+    }
+
+    // CLI sends a message to a specific app
+    if (sender.id === this.cliConnection?.id) {
+      console.log("[CLI->APP] CLI message:", parsedMessage)
+      const targetId = this.messageIdToAppId.get(messageId)
+      if (targetId) {
+        const targetConnection = this.appConnections.get(targetId)
+        if (targetConnection) {
+          targetConnection.send(message)
+        } else {
+          console.warn("[ERROR] Target app not found:", targetId)
+        }
+      } else {
+        console.warn("[ERROR] No app mapping found for messageId:", messageId)
       }
     }
   }

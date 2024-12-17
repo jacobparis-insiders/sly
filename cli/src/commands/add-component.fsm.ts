@@ -1,9 +1,11 @@
-import { assign, fromPromise, setup } from "xstate"
+import { ActorRef, assign, emit, sendTo, setup } from "xstate"
 import {
   Config,
   getConfig,
+  getConfigForLibrary,
   resolveLibraryConfig,
   resolveLibraryUrls,
+  setConfig,
 } from "~/src/get-config.js"
 import { logger } from "~/src/logger.js"
 import { fetchTree } from "~/src/registry.js"
@@ -12,7 +14,7 @@ import prompts from "prompts"
 import * as z from "zod"
 import { resolveTransformers } from "~/src/transformers.js"
 import { configureComponentLibraries, initLibrary } from "./library.js"
-import { confirmOrQuit } from "../prompts.js"
+import * as clack from "../prompts.js"
 
 import type { Transformer } from "~/src/index.js"
 import { invariant } from "@epic-web/invariant"
@@ -25,6 +27,9 @@ import {
   installComponents,
   installComponentsSrc,
 } from "../actors/install-components-src.js"
+import { fromPromise } from "../utils/from-promise.js"
+import { libraryConfigSchema } from "../../../lib/schemas.js"
+import chalk from "chalk"
 type Component = z.infer<typeof libraryItemWithContentSchema>
 
 export const addComponentMachine = setup({
@@ -43,6 +48,7 @@ export const addComponentMachine = setup({
       transformers: Array<{ default: Transformer }>
       selectedComponents: string[]
       error: string | undefined
+      activeActor: ActorRef<any> | undefined
     },
   },
   actions: {
@@ -58,12 +64,24 @@ export const addComponentMachine = setup({
     }),
   },
   actors: {
-    loadConfigurationSrc: fromPromise(async () => {
+    loadConfigurationSrc: fromPromise(async ({ self }) => {
+      self._parent?.send({ type: "setActiveActor", output: self })
+      self._parent?.send({ type: "log", message: "Loading config..." })
       const config = await getConfig()
+
+      if (!config) {
+        self._parent?.send({
+          type: "log",
+          message: "No config found.",
+        })
+      }
 
       return config
     }),
-    configureLibrariesSrc: fromPromise(async () => {
+    configureLibrariesSrc: fromPromise(async ({ self }) => {
+      console.log("configureLibrariesSrc")
+      self._parent?.send({ type: "setActiveActor", output: self })
+      self._parent?.send({ type: "log", message: "Configuring libraries..." })
       await configureComponentLibraries()
       const config = await getConfig()
       return config
@@ -77,166 +95,239 @@ export const addComponentMachine = setup({
         return true
       },
     }),
-    selectComponentsSrc: fromPromise(
-      async ({
-        input,
-      }: {
-        input: {
-          library: string
-          config: Config
-        }
-      }) => {
-        const libraryIndex = await getComponentLibraryIndex(input.library)
+    selectComponentsSrc: fromPromise(async ({ input, self }) => {
+      self._parent?.send({ type: "setActiveActor", output: self })
 
-        const response = await prompts({
-          type: "autocompleteMultiselect",
-          name: "components",
-          message: "Which items would you like to add?",
-          hint: "Space to select. A to toggle all. Enter to submit.",
-          instructions: false,
-          choices:
-            libraryIndex?.resources.map((entry) => ({
-              title: entry.name,
-              value: entry.name,
-            })) || [],
-          onState: (state) => {
-            if (state.aborted) {
-              process.nextTick(() => {
-                process.exit(0)
-              })
-            }
-          },
-          min: 1,
-        })
-        return response.components
-      },
-    ),
-    fetchComponentTreeSrc: fromPromise(
-      async ({
-        input,
-      }: {
-        input: {
-          library: string
-          selectedComponents: string[]
-        }
-      }) => {
-        const libraryIndex = await getComponentLibraryIndex(input.library)
-        const itemsSet = new Set<string>()
+      self._parent?.send({ type: "log", message: "Selecting components..." })
+      const libraryIndex = await getComponentLibraryIndex(input.library)
 
-        const treeSet = new Set(
-          libraryIndex.resources.filter((item) =>
-            input.selectedComponents?.includes(item.name),
-          ),
-        )
-
-        treeSet.forEach((item) => {
-          itemsSet.add(item.name)
-          item.registryDependencies.forEach((dep: string) => {
-            itemsSet.add(dep)
-          })
-        })
-
-        // TODO: also remove ones already installed
-        const treeSetItemsThatAreNotSelected = Array.from(itemsSet).filter(
-          (item) => !input.selectedComponents?.includes(item),
-        )
-
-        if (treeSetItemsThatAreNotSelected.length > 0) {
-          logger.info(
-            `The selected components depend on these other components:`,
-          )
-          treeSetItemsThatAreNotSelected.forEach((item) => {
-            logger.info(`- ${item}`)
-          })
-        }
-
-        const config = await getConfig()
-        invariant(config, "Config not found")
-
-        const { registryUrl, itemUrl } = resolveLibraryUrls(
-          config,
-          input.library,
-        )
-        invariant(registryUrl, "Registry URL not found")
-
-        const payload = await fetchTree(
-          Array.from(itemsSet).map(
-            (item) => `${itemUrl?.replace("{name}", item)}`,
-          ),
-        )
-
-        console.log("payload", payload)
-
-        if (!payload.length)
-          throw new Error("Selected components not found. Exiting.")
-        return payload
-      },
-    ),
-
-    confirmInstallationSrc: fromPromise(
-      async ({
-        input,
-      }: {
-        input: { library: string; payloadLength: number }
-      }) => {
-        const confirmInstall = await confirmOrQuit(
-          `Ready to install ${input.payloadLength} components from ${input.library}. Proceed?`,
-        )
-        return confirmInstall
-      },
-    ),
-    resolveTransformersSrc: fromPromise(
-      async ({ input }: { input: { library: string } }) => {
-        const config = await getConfig()
-        if (!config) return []
-
-        const libConfig = resolveLibraryConfig(config, input.library)
-
-        return libConfig?.transformers
-          ? await resolveTransformers(libConfig.transformers)
-          : []
-      },
-    ),
-    installComponentsSrc,
-    postInstallStepsSrc: fromPromise(
-      async ({ input }: { input: { library: string } }) => {
-        const config = await getConfig()
-        if (!config) return
-
-        const libConfig = resolveLibraryConfig(config, input.library)
-        if (libConfig?.postinstall && libConfig.postinstall.length > 0) {
-          const cmd =
-            typeof libConfig.postinstall === "string"
-              ? libConfig.postinstall
-              : libConfig.postinstall[0]
-          const args =
-            typeof libConfig.postinstall === "string"
-              ? []
-              : libConfig.postinstall.slice(1)
-
-          if (cmd) {
-            await execa(cmd, args)
+      const response = await prompts({
+        type: "autocompleteMultiselect",
+        name: "components",
+        message: "Which items would you like to add?",
+        hint: "Space to select. A to toggle all. Enter to submit.",
+        instructions: false,
+        choices:
+          libraryIndex?.resources.map((entry) => ({
+            title: entry.name,
+            value: entry.name,
+          })) || [],
+        onState: (state) => {
+          if (state.aborted) {
+            process.nextTick(() => {
+              process.exit(0)
+            })
           }
+        },
+        min: 1,
+      })
+      return response.components
+    }),
+    fetchComponentTreeSrc: fromPromise(async ({ input, self }) => {
+      self._parent?.send({ type: "setActiveActor", output: self })
+
+      self._parent?.send({ type: "log", message: "Fetching component tree..." })
+      const libraryIndex = await getComponentLibraryIndex(input.library)
+      const itemsSet = new Set<string>()
+
+      const treeSet = new Set(
+        libraryIndex.resources.filter((item) =>
+          input.selectedComponents?.includes(item.name),
+        ),
+      )
+
+      treeSet.forEach((item) => {
+        itemsSet.add(item.name)
+        item.registryDependencies.forEach((dep: string) => {
+          itemsSet.add(dep)
+        })
+      })
+
+      // TODO: also remove ones already installed
+      const treeSetItemsThatAreNotSelected = Array.from(itemsSet).filter(
+        (item) => !input.selectedComponents?.includes(item),
+      )
+
+      if (treeSetItemsThatAreNotSelected.length > 0) {
+        logger.info(`The selected components depend on these other components:`)
+        treeSetItemsThatAreNotSelected.forEach((item) => {
+          logger.info(`- ${item}`)
+        })
+      }
+
+      const libConfig = await getConfigForLibrary({
+        libraryId: input.library,
+        requiredFields: ["itemUrl"],
+      })
+
+      const payload = await fetchTree(
+        Array.from(itemsSet).map(
+          (item) => `${libConfig.itemUrl?.replace("{name}", item)}`,
+        ),
+      )
+
+      if (!payload.length)
+        throw new Error("Selected components not found. Exiting.")
+      return payload
+    }),
+
+    confirmInstallationSrc: fromPromise(async ({ input, self }) => {
+      self._parent?.send({ type: "setActiveActor", output: self })
+
+      self._parent?.send({ type: "log", message: "Confirming installation..." })
+      const message = `Ready to install ${input.payloadLength} components from ${input.library}. Proceed?`
+      self._parent?.send({ type: "log", message })
+      const confirmInstall = await Promise.race([
+        clack.confirm({ message }),
+        waitForEvent(self, "input"),
+      ])
+      return confirmInstall
+    }),
+    resolveTransformersSrc: fromPromise(async ({ input, self }) => {
+      self._parent?.send({ type: "log", message: "Resolving transformers..." })
+      const config = await getConfig()
+      if (!config) return []
+
+      const libConfig = resolveLibraryConfig(config, input.library)
+
+      return libConfig?.transformers
+        ? await resolveTransformers(libConfig.transformers)
+        : []
+    }),
+    installComponentsSrc,
+    postInstallStepsSrc: fromPromise(async ({ input, self }) => {
+      self._parent?.send({ type: "setActiveActor", output: self })
+
+      self._parent?.send({
+        type: "log",
+        message: "Resolving post-install steps...",
+      })
+      const config = await getConfig()
+      if (!config) return
+
+      const libConfig = resolveLibraryConfig(config, input.library)
+      if (libConfig?.postinstall && libConfig.postinstall.length > 0) {
+        const cmd =
+          typeof libConfig.postinstall === "string"
+            ? libConfig.postinstall
+            : libConfig.postinstall[0]
+        const args =
+          typeof libConfig.postinstall === "string"
+            ? []
+            : libConfig.postinstall.slice(1)
+
+        if (cmd) {
+          await execa(cmd, args)
         }
-      },
-    ),
+      }
+    }),
 
-    // Replaced setTargetDirSrc with configureLibrarySrc
-    configureLibrarySrc: fromPromise(
-      async ({ input }: { input: { library: string } }) => {
-        const config = await getConfig()
-        invariant(config, "Config not found")
-
+    // we expect to get a target dir out of this
+    getLibraryTargetDirSrc: fromPromise(async ({ input, self }) => {
+      self._parent?.send({ type: "setActiveActor", output: self })
+      // TODO: a better wrapper?
+      const inputEvent = () => {
+        return new Promise((resolve) => {
+          self.on("input", (event) => {
+            // TODO: we should probably support multiple input types?
+            if (event.type === "input") {
+              resolve(event.input)
+            }
+          })
+        })
+      }
+      let config = await getConfig()
+      if (config) {
         const libConfig = resolveLibraryConfig(config, input.library)
         console.log("resolving", input.library, libConfig)
         if (libConfig?.directory) {
           return libConfig
-        } else {
-          await initLibrary({ name: input.library })
-          return config.libraries[input.library]
         }
-      },
-    ),
+      }
+
+      const abortController = new AbortController()
+      self._parent?.send({
+        type: "log",
+        message: "Configuring library...",
+      })
+
+      const answers = await z
+        .object({
+          directory: z.string().optional().default(""),
+          postinstall: z
+            .string()
+            .optional()
+            .default("")
+            .transform((value) =>
+              value.trim() ? value.trim().split(" ") : [],
+            ),
+        })
+        .parseAsync(
+          await Promise.race([
+            inputEvent(),
+            clack.group({
+              directory: () => {
+                return clack.text({
+                  message: `Pick a directory for ${chalk.cyan(input.library)}`,
+                  signal: abortController.signal,
+                })
+              },
+              postinstall: () => {
+                return clack.text({
+                  message: `Run a command after installing ${chalk.cyan(input.library)}?`,
+                  signal: abortController.signal,
+                })
+              },
+            }),
+          ]),
+        )
+        .catch((error) => {
+          console.error(error)
+          process.exit(1)
+        })
+
+      console.log("answers", answers)
+      const newLibConfig = libraryConfigSchema.parse({
+        config: {
+          directory: answers.directory,
+          postinstall: answers.postinstall,
+        },
+      })
+
+      const message = `Save settings to ${chalk.cyan("pkgless.json")}?`
+      self._parent?.send({ type: "log", message })
+
+      const shouldWrite = await Promise.race([
+        clack.confirm({ message }),
+        inputEvent(),
+      ])
+      if (!shouldWrite) return newLibConfig.config
+
+      // if no config at all
+      config ??= {
+        config: {},
+        libraries: {},
+        items: [],
+      }
+
+      // if config but no library
+      config.libraries[input.library] = {
+        type: "component",
+        config: newLibConfig.config,
+      }
+
+      await setConfig(config)
+      return config.libraries[input.library]
+
+      // return await initLibrary({
+      //   name: input.library,
+      //   remote: ({ abortController }) => {
+      //     // need to listen for new events and then resolve here
+
+      //     return promise
+      //   },
+      // })
+    }),
   },
   guards: {
     // If enough args are passed then we don't need a config file
@@ -257,6 +348,7 @@ export const addComponentMachine = setup({
     hasNoLibraries: ({ context }) =>
       Object.keys(context.config?.libraries || {}).length === 0,
     eventHasNoOutput: ({ event }) => !("output" in event) || !event.output,
+
     eventIsConfigureLibraries: ({ event }) =>
       event.output.includes("Configure libraries ->"),
     hasNoTargetDir: ({ context }) => !context.targetDir, // Added guard
@@ -264,10 +356,21 @@ export const addComponentMachine = setup({
     hasError: ({ context }) => Boolean(context.error),
   },
 }).createMachine({
+  on: {
+    log: { actions: emit(({ event }) => event) },
+    setActiveActor: {
+      actions: assign({
+        activeActor: ({ event }) => event.output,
+      }),
+    },
+    input: {
+      actions: sendTo(
+        ({ context }) => context.activeActor,
+        ({ event }) => event,
+      ),
+    },
+  },
   context: ({ input }) => {
-    // TODO: infer package manager filesystem
-    const packageManager = input.packageManager || "npm"
-
     return {
       // we can set config here to tell the machine we have one
       // but always read it from setConfig instead of passing as input
@@ -279,6 +382,7 @@ export const addComponentMachine = setup({
       selectedComponents: input.itemsArg || [],
       packageManager: "npm",
       error: undefined,
+      activeActor: undefined,
     }
   },
   // use this container state so we can bail on any error
@@ -309,8 +413,9 @@ export const addComponentMachine = setup({
             src: "loadConfigurationSrc",
             onDone: [
               {
+                // idea: if there's no config, send to configureLibraries
                 guard: "eventHasNoOutput",
-                target: "configureLibraries",
+                target: "configureLibrary",
               },
               {
                 reenter: true,
@@ -321,9 +426,12 @@ export const addComponentMachine = setup({
                 }),
               },
             ],
-            onError: {
-              target: "configureLibraries",
-            },
+            actions: assign({
+              activeActor: ({ self }) => {
+                console.log("setting loadConfiguration actor?", self)
+                return self
+              },
+            }),
           },
         },
 
@@ -341,16 +449,14 @@ export const addComponentMachine = setup({
             onError: {
               actions: "setError",
             },
+            actions: assign({
+              activeActor: ({ self }) => self,
+            }),
           },
         },
 
         chooseLibrary: {
           always: [
-            {
-              // we need config to invoke chooseLibrarySrc
-              target: "configureLibraries",
-              guard: "hasNoConfig",
-            },
             {
               // if we already have a lib, move forward to selectComponents
               target: "selectComponents",
@@ -377,6 +483,9 @@ export const addComponentMachine = setup({
             onError: {
               actions: "setError",
             },
+            actions: assign({
+              activeActor: ({ self }) => self,
+            }),
           },
         },
         selectComponents: {
@@ -402,6 +511,9 @@ export const addComponentMachine = setup({
             onError: {
               actions: "setError",
             },
+            actions: assign({
+              activeActor: ({ self }) => self,
+            }),
           },
         },
         exit: {
@@ -438,13 +550,28 @@ export const addComponentMachine = setup({
             onError: {
               actions: "setError",
             },
+            actions: assign({
+              activeActor: ({ self }) => self,
+            }),
           },
         },
 
         configureLibrary: {
-          // New state replacing setTargetDir
+          always: [
+            {
+              target: "chooseLibrary",
+              guard: "hasNoLibrary",
+            },
+          ],
           invoke: {
-            src: "configureLibrarySrc",
+            id: "getLibraryTargetDir",
+            src: "getLibraryTargetDirSrc",
+            actions: assign({
+              activeActor: ({ self }) => {
+                console.log("setting active actor?", self)
+                return self
+              },
+            }),
             input: ({ context }) => ({
               library: context.library!,
             }),
@@ -476,6 +603,9 @@ export const addComponentMachine = setup({
             onError: {
               actions: "setError",
             },
+            actions: assign({
+              activeActor: ({ self }) => self,
+            }),
           },
         },
         resolveTransformers: {
@@ -493,6 +623,9 @@ export const addComponentMachine = setup({
             onError: {
               actions: "setError",
             },
+            actions: assign({
+              activeActor: ({ self }) => self,
+            }),
           },
         },
         installComponents: {
@@ -512,6 +645,9 @@ export const addComponentMachine = setup({
             onError: {
               actions: "setError",
             },
+            actions: assign({
+              activeActor: ({ self }) => self,
+            }),
           },
         },
         postInstallSteps: {
@@ -526,6 +662,9 @@ export const addComponentMachine = setup({
             onError: {
               actions: "setError",
             },
+            actions: assign({
+              activeActor: ({ self }) => self,
+            }),
           },
         },
       },
@@ -533,30 +672,29 @@ export const addComponentMachine = setup({
   },
 })
 
-async function getComponentLibraryIndex(library: string) {
-  // resolve the library config
+async function getComponentLibraryIndex(libraryId: string) {
+  // resolve the libraryId config
   // if it has a url, use that, otherwise use the default
-  // then use the library index from the registry
-  const config = await getConfig()
-  invariant(config, "Config not found")
+  // then use the libraryId index from the registry
+  const libConfig = await getConfigForLibrary({
+    libraryId,
+    requiredFields: ["registryUrl"],
+  })
 
-  const { registryUrl } = resolveLibraryUrls(config, library)
-  if (!registryUrl) {
-    throw new Error(`Library ${library} not found`)
-  }
-
-  const resources = await fetch(registryUrl, {
+  const resources = await fetch(libConfig.registryUrl, {
     headers: {
       "Content-Type": "application/json",
     },
   }).then((res) => res.json())
 
   return {
-    name: library,
+    name: libraryId,
     resources: z.array(libraryItemSchema).parse(resources),
   }
 }
 
+// currently only used by login
+// update this to invoke the fsm and emit its events
 export async function addComponentsFromLibrary({
   items,
   library,
@@ -566,9 +704,6 @@ export async function addComponentsFromLibrary({
   library: string
   logger?: (message: string) => void
 }) {
-  const config = await getConfig()
-  invariant(config, "Config not found")
-
   // Get the library index
   const libraryIndex = await getComponentLibraryIndex(library)
   const itemsSet = new Set<string>()
@@ -583,22 +718,23 @@ export async function addComponentsFromLibrary({
     }
   })
 
-  // Resolve library URLs
-  const { registryUrl, itemUrl } = resolveLibraryUrls(config, library)
-  invariant(registryUrl, "Registry URL not found")
+  const libConfig = await getConfigForLibrary({
+    libraryId: library,
+    requiredFields: ["itemUrl", "registryUrl"],
+  })
 
   // Fetch component data
   const payload = await fetchTree(
-    Array.from(itemsSet).map((item) => `${itemUrl?.replace("{name}", item)}`),
+    Array.from(itemsSet).map(
+      (item) => `${libConfig.itemUrl?.replace("{name}", item)}`,
+    ),
   )
 
   if (!payload.length) {
     throw new Error("Selected items not found.")
   }
 
-  // Resolve transformers
-  const libConfig = resolveLibraryConfig(config, library)
-  const transformers = libConfig?.transformers
+  const transformers = libConfig.transformers
     ? await resolveTransformers(libConfig.transformers)
     : []
 
@@ -630,4 +766,17 @@ export async function addComponentsFromLibrary({
   }
 
   return payload
+}
+
+function waitForEvent(
+  listenable: {
+    on: (event: string, listener: (event: any) => void) => void
+  },
+  event: string,
+) {
+  return new Promise((resolve) => {
+    listenable.on(event, (event) => {
+      resolve(event)
+    })
+  })
 }

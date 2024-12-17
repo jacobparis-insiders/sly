@@ -1,3 +1,4 @@
+import { useOptionalCli } from "#app/use-connection.js"
 import { cn } from "#app/utils/misc.js"
 
 export function Terminal({
@@ -16,5 +17,38 @@ export function Terminal({
     >
       {children}
     </div>
+  )
+}
+
+export function ConnectedTerminal({
+  children,
+  ...props
+}: {
+  children?:
+    | React.ReactNode
+    | ((props: { prompt: React.ReactNode }) => React.ReactNode)
+} & Omit<React.ComponentProps<typeof Terminal>, "children">) {
+  const { cwd, state } = useOptionalCli()
+
+  const prompt = (
+    <div className="text-rose-400/90">
+      {state === "loading"
+        ? "Connecting…"
+        : state === "success"
+          ? cwd
+          : "Connection failed"}
+    </div>
+  )
+  return (
+    <Terminal {...props}>
+      {typeof children === "function" ? (
+        children({ prompt })
+      ) : (
+        <>
+          {prompt}
+          {children}
+        </>
+      )}
+    </Terminal>
   )
 }

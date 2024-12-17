@@ -28,6 +28,7 @@ const program = new Command()
     // This runs before every command, so this is our global state
     const options = program.optsWithGlobals()
 
+    process.env.PKGLESS_REGISTRY_URL ??= "http://localhost:5173/api/registry"
     // Flags override env vars
     process.env.YES = options.yes ? "true" : ""
     process.env.CWD = options.cwd

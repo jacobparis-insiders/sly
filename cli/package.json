@@ -42,6 +42,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@clack/core": "https://pkg.pr.new/jacobparis/clack/@clack/core@5",
     "@epic-web/cachified": "^5.1.2",
     "@epic-web/invariant": "^1.0.0",
     "@octokit/rest": "^21.0.2",

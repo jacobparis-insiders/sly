@@ -6,6 +6,7 @@ import ora from "ora"
 import { logger } from "./logger.js"
 import {
   ItemSchema,
+  LibraryConfig,
   libraryConfigSchema,
   resolvedLibraryConfigSchema,
 } from "../../lib/schemas.js"
@@ -32,14 +33,12 @@ function getExplorer() {
   return explorer
 }
 
-export const configSchema = z
-  .object({
-    $schema: z.string().optional(),
-    config: z.record(z.string(), resolvedLibraryConfigSchema.partial()),
-    libraries: z.record(z.string(), libraryConfigSchema),
-    items: z.array(ItemSchema),
-  })
-  .strict()
+export const configSchema = z.object({
+  $schema: z.string().optional(),
+  config: z.record(z.string(), resolvedLibraryConfigSchema.partial()),
+  libraries: z.record(z.string(), libraryConfigSchema).optional().default({}),
+  items: z.array(ItemSchema).optional().default([]),
+})
 
 export type Config = z.infer<typeof configSchema>
 
@@ -141,10 +140,76 @@ export function resolveLibraryConfig(config: Config, library: string) {
   return null
 }
 
+// good function
+export async function getConfigForLibrary<T extends keyof LibraryConfig>({
+  libraryId,
+  requiredFields,
+}: {
+  libraryId: string
+  requiredFields?: Array<T>
+}) {
+  const config = await getConfig()
+  if (config) {
+    const libConfig = resolveLibraryConfig(config, libraryId)
+
+    // Check if all required fields are present in the local config
+    const hasAllRequiredFields =
+      !requiredFields ||
+      requiredFields.every((field) => field in (libConfig || {}))
+
+    if (libConfig && hasAllRequiredFields) {
+      return resolvedLibraryConfigSchema.parse(libConfig) as LibraryConfig &
+        Required<Pick<LibraryConfig, T>>
+    }
+  }
+
+  // If not all required fields are present, fetch from the registry
+  const library = await fetch(
+    `${process.env.PKGLESS_REGISTRY_URL}/${libraryId}`,
+  ).then((res) => res.json())
+
+  if (!library) {
+    throw new Error(`Library ${libraryId} not found`)
+  }
+
+  return resolvedLibraryConfigSchema.parse(library) as LibraryConfig &
+    Required<Pick<LibraryConfig, T>>
+}
+
+/** @deprecated */
 export function resolveLibraryUrls(config: Config, library: string) {
   const libConfig = config.libraries[library]
   return {
     registryUrl: libConfig?.registryUrl,
     itemUrl: libConfig?.itemUrl,
   }
+}
+
+export async function setLibraryConfig(
+  libraryId: string,
+  {
+    name,
+    directory,
+    postinstall,
+  }: { name?: string; directory?: string; postinstall?: string },
+) {
+  return setConfig((config) => {
+    // if library doesn't exist
+    const lib = (config.libraries[libraryId] ??= {})
+
+    if (name) {
+      const namedConfig = (config.config[name] ??= {})
+      namedConfig.directory = directory
+      namedConfig.postinstall = postinstall
+      lib.config = name
+    } else {
+      if (typeof lib.config === "string") {
+        lib.config = {}
+      } else {
+        lib.config ??= {}
+      }
+      lib.config.directory = directory
+      lib.config.postinstall = postinstall
+    }
+  })
 }

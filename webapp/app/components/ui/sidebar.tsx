@@ -19,6 +19,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "#app/components/ui/tooltip.tsx"
+import { IconName } from "../icons/icons"
 
 const SIDEBAR_COOKIE_NAME = "sidebar:state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -270,8 +271,10 @@ Sidebar.displayName = "Sidebar"
 
 const SidebarTrigger = React.forwardRef<
   React.ElementRef<typeof Button>,
-  Omit<React.ComponentProps<typeof Button>, "type">
->(({ className, onClick, ...props }, ref) => {
+  Omit<React.ComponentProps<typeof Button>, "type"> & {
+    icon?: IconName
+  }
+>(({ className, onClick, icon = "panel-left", ...props }, ref) => {
   const { toggleSidebar } = useSidebar()
 
   return (
@@ -287,7 +290,7 @@ const SidebarTrigger = React.forwardRef<
       }}
       {...props}
     >
-      <Icon name="panel-left" />
+      <Icon name={icon} />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   )

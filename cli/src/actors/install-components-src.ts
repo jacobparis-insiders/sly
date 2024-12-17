@@ -1,6 +1,3 @@
-import { fromPromise } from "xstate"
-import { logger } from "~/src/logger.js"
-import { execa } from "execa"
 import * as z from "zod"
 import { confirm } from "../prompts.js"
 import { existsSync } from "fs"
@@ -12,6 +9,7 @@ import { libraryItemWithContentSchema } from "site/app/schemas.js"
 import { installFile } from "../install.js"
 import { readPackageUp } from "read-package-up"
 import { addDependency, addDevDependency, detectPackageManager } from "nypm"
+import { fromPromise } from "../utils/from-promise.js"
 
 type Component = z.infer<typeof libraryItemWithContentSchema>
 
@@ -111,7 +109,7 @@ export async function installComponents({
 
     const packageManager = await detectPackageManager(process.env.CWD!)
     if (dependencies.length) {
-      logger.info(
+      logger(
         `${shouldInstall ? "" : "skip: "}${packageManager?.name || "npm"} ${
           packageManager?.command || "install"
         } ${dependencies.join(" ")}`,
@@ -124,7 +122,7 @@ export async function installComponents({
     }
 
     if (devDependencies.length) {
-      logger.info(
+      logger(
         `${shouldInstall ? "" : "skip: "}${packageManager?.name || "npm"} ${
           packageManager?.command || "install"
         } --save-dev ${devDependencies.join(" ")}`,
@@ -138,12 +136,12 @@ export async function installComponents({
   }
 
   if (alreadyInstalled.length) {
-    logger.warn(
+    logger(
       `Skipped installing ${alreadyInstalled.join(
         ", ",
       )}. Run the following command to overwrite.`,
     )
-    logger.info(
+    logger(
       `> pkgless add ${input.library} ${alreadyInstalled.join(
         " ",
       )} --overwrite`,
@@ -152,7 +150,13 @@ export async function installComponents({
 }
 
 export const installComponentsSrc = fromPromise(
-  ({ input }: { input: Parameters<typeof installComponents>[0] }) => {
-    return installComponents(input)
+  ({ input, self }: { input: Parameters<typeof installComponents>[0] }) => {
+    return installComponents({
+      ...input,
+      logger: (message) => {
+        console.log(message)
+        self._parent?.send({ type: "log", message })
+      },
+    })
   },
 )

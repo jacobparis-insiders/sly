@@ -49,43 +49,22 @@ EXAMPLES:
   <example>
     <operation>Rebase a diff onto a new file</operation>
     <output>
-      <pkglessArtifact id="rebase-diff" title="Rebase Diff Onto New File">
-        <pkglessAction type="file" filePath="path/to/updated-file.js">
-          // Updated file content here after applying the diff
-        </pkglessAction>
-      </pkglessArtifact>
-    </output>
-  </example>
-
-  <example>
-    <operation>Compare two versions of a file to generate a diff</operation>
-    <output>
-      <pkglessArtifact id="compare-files" title="Generate Diff From Files">
-        <pkglessAction type="file" filePath="path/to/original-file.js">
-          // Original file content
-        </pkglessAction>
-        <pkglessAction type="file" filePath="path/to/modified-file.js">
-          // Modified file content
-        </pkglessAction>
-        <pkglessAction type="diff">
-          // Internal diff representation (not visible to the user)
-        </pkglessAction>
-      </pkglessArtifact>
+      // Updated file content here after applying the diff
     </output>
   </example>
 </examples>
-`
+`;
 }
 
 export function getDiffApplicationPrompt({
   base,
   diff,
 }: {
-  base: string | undefined
-  diff: string | undefined
+  base: string | undefined;
+  diff: string | undefined;
 }) {
   if (!base || !diff) {
-    throw Error("Base and diff are required")
+    throw Error('Base and diff are required');
   }
 
   return `
@@ -106,12 +85,12 @@ Apply the changes while:
 - Resolving any conflicts intelligently
 - Ensuring the result is syntactically valid
 
-Respond ONLY with the modified content, without any explanation or additional text.`
+Respond ONLY with the modified content, without any explanation or additional text.`;
 }
 
 export function getContinuePrompt() {
   return `
 Continue your prior response. IMPORTANT: Immediately begin from where you left off without any interruptions.
 Do not repeat any content, including artifact and action tags.
-`
+`;
 }

@@ -49,7 +49,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export default function GistUrlForm() {
   const { gists } = useLoaderData<typeof loader>()
-  console.log(gists)
 
   return (
     <div>
@@ -81,7 +80,7 @@ export default function GistUrlForm() {
       <Heading className="mt-8">browse your gists</Heading>
       <GitHubLoginButton className="mt-2 shadow-smooth" />
 
-      <div className="mt-4 grid grid-cols-4 gap-4">
+      <div className="mt-4 grid grid-cols-3 gap-4">
         {gists.map((gist) => (
           <GithubItemCard item={gist} />
         ))}

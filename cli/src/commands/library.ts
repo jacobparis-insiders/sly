@@ -2,9 +2,9 @@ import { getConfig, resolveLibraryConfig, setConfig } from "~/src/get-config.js"
 import { logger } from "~/src/logger.js"
 import { Command } from "commander"
 import chalk from "chalk"
-import prompts from "prompts"
+import oldPrompts from "prompts"
 import { getRegistryIndex } from "~/src/registry.js"
-import { confirmOrQuit } from "../prompts.js"
+import * as prompts from "../prompts.js"
 import { z } from "zod"
 import { getIconifyIndex } from "../iconify.js"
 import { libraryConfigSchema } from "../../../lib/schemas.js"
@@ -57,7 +57,7 @@ export async function configureLibraries() {
       libraries: z.array(z.string()),
     })
     .parseAsync(
-      await prompts([
+      await oldPrompts([
         {
           type: "multiselect",
           name: "libraries",
@@ -100,7 +100,7 @@ export async function configureComponentLibraries() {
       libraries: z.array(z.string()),
     })
     .parseAsync(
-      await prompts([
+      await oldPrompts([
         {
           type: "autocompleteMultiselect",
           name: "libraries",
@@ -137,7 +137,7 @@ export async function configureIconLibraries() {
       libraries: z.array(z.string()),
     })
     .parseAsync(
-      await prompts([
+      await oldPrompts([
         {
           type: "autocompleteMultiselect",
           name: "libraries",
@@ -178,7 +178,7 @@ export async function chooseLibrary(
       library: z.string(),
     })
     .parseAsync(
-      await prompts({
+      await oldPrompts({
         type: "select",
         name: "library",
         message: `Which library would you like to use?`,
@@ -205,17 +205,23 @@ export async function initLibrary({
   name,
   displayName,
   type,
+  remote,
 }: {
   name: string
   displayName?: string
   type?: "component" | "icon" | "github"
+  remote?: (opts: {
+    abortController: AbortController
+  }) => Promise<Record<string, any>>
 }) {
   console.log("initializing library", name, type)
-  const config = await getConfig()
+  const config = (await getConfig()) || { config: {}, libraries: {} }
 
-  // If library already exists, preserve its existing config
+  config.libraries ??= {}
   const existingLibrary = config?.libraries[name]
-  const existingConfig = (config && resolveLibraryConfig(config, name)) ?? {
+  // If library already exists, preserve its existing config
+  const existingConfig = (existingLibrary &&
+    resolveLibraryConfig(config, name)) ?? {
     directory: "./components",
     postinstall: [],
     transformers: [],
@@ -232,7 +238,7 @@ export async function initLibrary({
     : []
 
   if (topLevelConfigs.length > 0) {
-    const { configChoice } = await prompts({
+    const { configChoice } = await oldPrompts({
       type: "select",
       name: "configChoice",
       message: `Use an existing config for ${chalk.cyan(
@@ -267,33 +273,46 @@ export async function initLibrary({
     }
   }
 
+  const abortController = new AbortController()
+
   const answers = await z
     .object({
-      directory: z.string(),
+      directory: z.string().optional().default(""),
       postinstall: z
         .string()
+        .optional()
+        .default("")
         .transform((value) => (value.trim() ? value.trim().split(" ") : [])),
     })
     .parseAsync(
-      await prompts([
-        {
-          type: "text",
-          name: "directory",
-          message: `Pick a directory for ${chalk.cyan(name)}`,
-          initial: existingConfig.directory,
-        },
-        {
-          type: "text",
-          name: "postinstall",
-          message: `Run a command after installing ${chalk.cyan(name)}?`,
-          initial: Array.isArray(existingConfig.postinstall)
-            ? existingConfig.postinstall.join(" ")
-            : existingConfig.postinstall,
-        },
+      await Promise.race([
+        remote?.({ abortController }),
+        prompts.group({
+          directory: () => {
+            return prompts.text({
+              defaultValue: existingConfig.directory,
+              message: `Pick a directory for ${chalk.cyan(name)}`,
+              signal: abortController.signal,
+            })
+          },
+          postinstall: () => {
+            return prompts.text({
+              defaultValue: Array.isArray(existingConfig.postinstall)
+                ? existingConfig.postinstall.join(" ")
+                : existingConfig.postinstall,
+              message: `Run a command after installing ${chalk.cyan(name)}?`,
+              signal: abortController.signal,
+            })
+          },
+        }),
       ]),
     )
-    .catch(() => process.exit(1))
+    .catch((error) => {
+      console.error(error)
+      process.exit(1)
+    })
 
+  console.log("answers", answers)
   const newConfig = libraryConfigSchema.parse({
     config: {
       directory: answers.directory,
@@ -302,24 +321,18 @@ export async function initLibrary({
     },
   })
 
-  await confirmOrQuit(`Save settings to ${chalk.cyan("sly.json")}?`)
+  await prompts.confirmOrQuit(`Save settings to ${chalk.cyan("sly.json")}?`)
 
-  await setConfig((config) => {
-    if (!config.libraries) {
-      config.libraries = {}
-    }
+  config.libraries[name] = {
+    ...existingLibrary,
+    type: type || existingLibrary?.type,
+    config: newConfig.config,
+  }
 
-    // Merge with existing library config if it exists
-    config.libraries[name] = {
-      ...existingLibrary,
-      type: type || existingLibrary?.type,
-      config: newConfig.config,
-    }
+  if (displayName) {
+    config.libraries[name].name = displayName
+  }
 
-    if (displayName) {
-      config.libraries[name].name = displayName
-    }
-
-    return config
-  })
+  await setConfig(config)
+  return config.libraries[name]
 }

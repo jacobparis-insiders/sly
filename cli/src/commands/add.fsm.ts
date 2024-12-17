@@ -1,4 +1,4 @@
-import { assign, createMachine, fromPromise, setup } from "xstate"
+import { assign, emit, createMachine, fromPromise, setup } from "xstate"
 import { addIconMachine } from "./add-icon.fsm.js"
 import prompts from "prompts"
 import { addComponentMachine } from "./add-component.fsm.js"
@@ -85,7 +85,12 @@ export const addMachine = setup({
     },
   },
   actors: {
-    loadConfig: fromPromise(getConfig),
+    loadConfig: fromPromise(async () => {
+      emit({ type: "log", message: "Loading config..." })
+      const config = await getConfig()
+
+      return config
+    }),
     addIconSrc: addIconMachine,
     addComponentSrc: addComponentMachine,
     menuSrc: fromPromise(async ({ input }: { input: { config?: Config } }) => {
@@ -222,7 +227,6 @@ export const addMachine = setup({
               ? v1Libraries[context.libArg]
               : context.libArg
 
-          console.log({ context })
           return {
             // if no libArg, return undefined
             libArg: libArg,

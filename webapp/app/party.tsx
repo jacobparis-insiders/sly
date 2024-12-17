@@ -73,19 +73,20 @@ export function useParty() {
 
 const filteredMessages = createSelector(
   [
-    (state: { messages: any[]; type: string }) => state.messages,
-    (state: { type: string }) => state.type,
+    (state: { messages: any[]; messageId: string }) => state.messages,
+    (state: { messageId: string }) => state.messageId,
   ],
-  (messages, type) => messages.filter((msg) => msg.type === type),
+  (messages, messageId) =>
+    messages.filter((msg) => msg.messageId === messageId),
 )
 
-export function usePartyMessages({ type }: { type?: string } = {}) {
+export function usePartyMessages({ messageId }: { messageId?: string } = {}) {
   const messages = use(PartyMessagesContext)
 
   if (messages === undefined)
     throw new Error("usePartyMessages must be used within PartyMessagesContext")
 
-  if (!type) return messages
+  if (!messageId) return messages
 
-  return filteredMessages({ messages, type })
+  return filteredMessages({ messages, messageId })
 }

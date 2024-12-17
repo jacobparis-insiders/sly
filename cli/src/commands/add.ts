@@ -50,4 +50,12 @@ export const add = new Command()
       },
     })
     actor.start()
+
+    await new Promise((resolve) => {
+      actor.subscribe((state) => {
+        if (state.status === "done") {
+          resolve(state.context)
+        }
+      })
+    })
   })

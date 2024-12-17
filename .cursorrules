@@ -2,6 +2,15 @@
 
 - Never put setState in a useEffect. This is always a bug. Derive these values during render. 
 - Always put event handlers inline right in the component. Avoid any situations that require intermediate variable or function names
+- Never use multiple arguments in a function, always use an object.
+
+XState
+
+We're using XState 5, so use the new syntax
+```diff
+- assign((context, event) => {
++ assign(({ event }) => {
+```
 
 ## Global Rules
 - At the end of every conversation, review what was learned or decided and write it to this file.
