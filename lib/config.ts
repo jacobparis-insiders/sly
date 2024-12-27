@@ -27,6 +27,7 @@ export function resolveLibraryUrls(config: Config, library: string) {
   }
 }
 
+/** @deprecated */
 export async function getLocalStorageConfig() {
   const storedConfig = localStorage.getItem("sly-config")
 

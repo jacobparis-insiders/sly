@@ -17,25 +17,39 @@ import { Button } from "#app/components/ui/button.tsx"
 import { Slider } from "#app/components/ui/slider.tsx"
 import { format } from "date-fns"
 import { cn } from "#app/utils/misc.js"
-import { PreDiffView } from "#app/components/pre-diff-view.js"
+import { PreDiffViewWithTokens } from "#app/components/pre-diff-view.js"
 import { Icon } from "#app/components/icon.js"
+import { db } from "#app/db.js"
+import { tokenize, diffTokens } from "@pkgless/diff"
+import { Card, CardHeader } from "#app/components/ui/card.js"
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  const { libraryId, id } = params
-  invariant(id, "No item ID found in params")
-  invariant(libraryId, "No library ID found in params")
+  const libraryId = params.libraryId
+  invariant(libraryId, "Library ID is required")
+
+  const library = db.libraries.find((lib) => lib.id === libraryId)
+  invariant(library, "Library not found")
+
+  const id = params.id
+  invariant(id, "Item ID is required")
 
   const connection = await getConnection(request)
   try {
     const config = await connection?.getConfig()
 
-    if (!config?.value.libraries[libraryId]) {
-      throw new Error(`Library ${libraryId} not found`)
-    }
+    const item = config?.value?.libraries[libraryId]?.items?.[id]
 
-    const item = config.value.libraries[libraryId].items?.[id]
     if (!item) {
-      throw new Error(`Item ${id} not found in library ${libraryId}`)
+      return {
+        library,
+        libraryId,
+        config,
+        files: [],
+        registryFiles: [],
+        id,
+        item: null,
+        name: null,
+      }
     }
 
     const itemFiles = await connection?.getItemFiles(libraryId, [id])
@@ -50,12 +64,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }
     })
 
-    const itemUrl = config.value.libraries[libraryId]?.itemUrl
-    if (!itemUrl) {
-      throw new Error("No item URL provided in config")
-    }
-
-    const registryUrl = itemUrl.replace("{name}", id)
+    const registryUrl = library.itemUrl.replace("{name}", id)
     const registryResponse = await fetch(registryUrl, {
       headers: {
         "Content-Type": "application/json",
@@ -70,11 +79,67 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
     const registryData = await registryResponse.json()
 
+    // Compute diffs for each file and each version
+    const filesWithDiffs = files.map((file) => {
+      const registryFile = registryData.files.find((f) => f.path === file.name)
+      const versions = [
+        ...(registryFile?.history || []),
+        {
+          commit: registryFile.commit,
+          hash: registryFile.hash,
+          content: registryFile.content,
+          timestamp: registryFile.timestamp,
+        },
+      ]
+
+      const versionDiffs = versions.map((version) => {
+        const diffArray = diffTokens({
+          a: tokenize({
+            content: version.content,
+            language: "typescript",
+          }),
+          b: tokenize({
+            content: file.content,
+            language: "typescript",
+          }),
+        })
+        return {
+          commit: version.commit,
+          diffArray,
+        }
+      })
+
+      // Find the file configuration with a matching filename
+      const fileConfig = item.files?.find((f) => f.path === file.name)
+
+      // Generate diff for base vs registry
+      const baseContent = getHistoricalVersionContentFromHistory(
+        versions,
+        fileConfig?.version,
+      )
+      const baseVsRegistryDiff = diffTokens({
+        a: tokenize({
+          content: baseContent,
+          language: "typescript",
+        }),
+        b: tokenize({
+          content: registryFile.content,
+          language: "typescript",
+        }),
+      })
+
+      return {
+        ...file,
+        versionDiffs,
+        baseVsRegistryDiff,
+      }
+    })
+
     return {
       id: item.id,
       name: item.name,
       libraryId,
-      files,
+      files: filesWithDiffs,
       registryFiles: registryData.files,
       config,
     }
@@ -131,11 +196,9 @@ function SliderView({
       if (version) {
         return versions.findIndex((entry) => entry.commit === version) || 0
       } else {
-        // Check if the file content matches any version content exactly
         const exactMatchIndex = versions.findIndex(
           (version) => version.content === file.content,
         )
-
         return exactMatchIndex !== -1 ? exactMatchIndex : 0
       }
     },
@@ -146,26 +209,9 @@ function SliderView({
   }
 
   const selectedVersion = versions[selectedVersionIndex]
-
-  const baseContent = getHistoricalVersionContentFromHistory(
-    versions,
-    selectedVersion.commit,
+  const selectedDiff = file.versionDiffs.find(
+    (diff) => diff.commit === selectedVersion.commit,
   )
-
-  const isExactMatch = baseContent === file.content
-
-  // const completionDiffLines = completion
-  //   ? patienceDiff(
-  //       file.content.split("\n").slice(0, completion.split("\n").length),
-  //       completion.split("\n"),
-  //     ).lines.map((part) =>
-  //       part.bIndex === -1
-  //         ? `- ${part.line}`
-  //         : part.aIndex === -1
-  //           ? `+ ${part.line}`
-  //           : `  ${part.line}`,
-  //     )
-  //   : []
 
   return (
     <>
@@ -179,10 +225,17 @@ function SliderView({
         Set version
       </Button>
 
-      <div className="mt-2 border rounded-lg bg-neutral-100 shadow-smooth">
-        <div className="border-b px-4 py-2 sticky top-0 bg-neutral-100 rounded-t-lg shadow-smooth">
-          <div className="text-sm font-medium">{file.name}</div>
-          <div className="flex items-center gap-2">
+      <Card className={cn("font-mono py-0")}>
+        <CardHeader
+          className={cn(
+            "flex flex-col justify-between px-2 py-2 shadow-smooth border-b",
+          )}
+        >
+          <div className="flex items-center gap-x-2 px-2">
+            <span className="font-bold">patch</span>
+            <span className="font-medium">{file.name}</span>
+          </div>
+          <div className="flex items-center gap-2 px-2 mt-2">
             <div className="space-y-4 w-full">
               <p className="text-sm text-muted-foreground">
                 Adjust the slider until the diff only shows your own
@@ -218,20 +271,17 @@ function SliderView({
               </div>
             </div>
           </div>
-        </div>
+        </CardHeader>
         <div className="font-mono text-sm">
-          {isExactMatch ? (
-            <div className="px-4 py-2">
-              File contents match registry exactly{" "}
-            </div>
+          {selectedDiff ? (
+            <PreDiffViewWithTokens diffArray={selectedDiff.diffArray} />
           ) : (
-            <PreDiffView
-              baseContent={baseContent}
-              changedContent={file.content}
-            />
+            <div className="px-4 py-2">
+              File contents match registry exactly
+            </div>
           )}
         </div>
-      </div>
+      </Card>
     </>
   )
 }
@@ -307,62 +357,76 @@ function NonSliderView({
   //   : []
 
   return (
-    <div className="mt-2 border rounded-lg bg-neutral-100 shadow-smooth">
-      <div className="border-b px-4 py-2 sticky top-0 bg-neutral-100 rounded-t-lg shadow-smooth">
-        <div className="text-sm font-medium">{file.name}</div>
-        <div className="flex items-center gap-2">
-          {registryFile && (
-            <Select value={comparisonType} onValueChange={setComparisonType}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue>
-                  <span className="flex items-center gap-2">
-                    <GitCompare className="h-4 w-4" />
-                    {comparisonType === "base-vs-registry"
-                      ? "Update"
-                      : "Current"}
-                  </span>
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="base-vs-registry">Update</SelectItem>
-                <SelectItem value="base-vs-current">Current</SelectItem>
-              </SelectContent>
-            </Select>
+    <Card className={cn("font-mono py-0")}>
+      <div>
+        <CardHeader
+          className={cn(
+            "flex justify-between px-2 py-2",
+            diffExtracted && "shadow-smooth border-b",
           )}
+        >
+          <div className="flex items-center gap-x-2 px-2">
+            <span className="font-bold">patch</span>
+            <span className="font-medium">{file.name}</span>
+          </div>
 
-          <Button
-            variant={diffExtracted ? "outline" : "primary"}
-            onClick={() => setDiffExtracted(!diffExtracted)}
-            disabled={comparisonType === "base-vs-current"}
-          >
-            {diffExtracted ? "Cancel" : "Extract Diff"}
-            {diffExtracted ? (
-              <Icon name="x" className="ml-2 h-4 w-4" />
-            ) : (
-              <Scissors className="ml-2 h-4 w-4" />
+          <div className="flex items-center gap-2">
+            {registryFile && (
+              <Select value={comparisonType} onValueChange={setComparisonType}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue>
+                    <span className="flex items-center gap-2">
+                      <GitCompare className="h-4 w-4" />
+                      {comparisonType === "base-vs-registry"
+                        ? "Update"
+                        : "Current"}
+                    </span>
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="base-vs-registry">Update</SelectItem>
+                  <SelectItem value="base-vs-current">Current</SelectItem>
+                </SelectContent>
+              </Select>
             )}
-          </Button>
-          {diffExtracted && (
-            <Button variant="outline" onClick={rebaseDiff}>
-              Rebase Diff
-              <Sparkle className="ml-2 h-4 w-4" />
+
+            <Button
+              type="button"
+              variant="outline"
+              className="shadow-smooth"
+              onClick={() => setDiffExtracted(!diffExtracted)}
+              disabled={comparisonType === "base-vs-current"}
+            >
+              {diffExtracted ? (
+                <Icon name="x" className="-ml-2 size-4" />
+              ) : (
+                <Scissors className="-ml-2 size-4" />
+              )}
+              {diffExtracted ? "cancel" : "diff"}
             </Button>
-          )}
-        </div>
+            {diffExtracted && (
+              <Button
+                type="button"
+                variant="outline"
+                className="shadow-smooth"
+                onClick={rebaseDiff}
+              >
+                <Icon name="play" className="-ml-2 size-4" />
+                continue
+              </Button>
+            )}
+          </div>
+        </CardHeader>
       </div>
 
-      <div className="font-mono text-sm">
+      <div className="text-sm pt-4 px-4">
         {isExactMatch ? (
-          <div className="px-4 py-2">File contents match registry exactly </div>
+          <div className="py-2">File contents match registry exactly </div>
         ) : (
-          <PreDiffView
-            baseContent={baseContent}
-            changedContent={changedContent}
-            diffExtracted={diffExtracted}
-          />
+          <PreDiffViewWithTokens diffArray={file.baseVsRegistryDiff} />
         )}
       </div>
-    </div>
+    </Card>
   )
 }
 

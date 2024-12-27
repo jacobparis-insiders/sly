@@ -22,7 +22,7 @@ export function ComponentLibraryCard({
   }
 }) {
   const libraryUrl = `/component/${library}?registryUrl=${encodeURIComponent(
-    lib.registryUrl || "",
+    lib.registryUrl || ""
   )}`
   const navigate = useNavigate()
 
@@ -33,9 +33,6 @@ export function ComponentLibraryCard({
           <Icon name="box" className="h-5 w-5 mr-2" />
           {lib.name || library}
         </CardTitle>
-        <CardDescription>
-          {Object.keys(lib.items || {}).length} items
-        </CardDescription>
       </CardHeader>
     </Card>
   )

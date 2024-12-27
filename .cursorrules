@@ -1,10 +1,25 @@
 # .cursorrules
 
-- Never put setState in a useEffect. This is always a bug. Derive these values during render. 
-- Always put event handlers inline right in the component. Avoid any situations that require intermediate variable or function names
+## General 
+- Prefer reusing existing code over writing new code.
+- Avoid patterns that require coming up with new names for things.
+- Prefer colocation whenever possible. Moving code further from where it is used is neither clean nor simple. 
 - Never use multiple arguments in a function, always use an object.
+- Never use window.confirm, window.prompt, or similar browser APIs.
 
-XState
+## Typescript
+
+- NEVER use typescript enums, always use inline string unions instead.
+- Do not use interfaces
+- NEVER define types, prefer inline types.
+
+## React 
+- Avoid setting boolean states. Always use an enum (as a string union). It is sometimes ok to derive booleans from enums, using either the `is` or `should` prefix. 
+- NEVER update state variables in useEffect. This is always a bug. Derive these values during render. 
+- NEVER create separate event handler functions like handleClick or handleSubmit. ALWAYS inline these handlers.
+- do not make "render" functions that simply move JSX to a variable. keep it colocated with the component.
+
+## XState 5
 
 We're using XState 5, so use the new syntax
 ```diff

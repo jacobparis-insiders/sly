@@ -10,10 +10,7 @@ import {
   setLibraryConfig,
 } from "../get-config.js"
 import crypto from "crypto"
-import {
-  addComponentMachine,
-  addComponentsFromLibrary,
-} from "./add-component.fsm.js"
+import { addComponentMachine } from "./add-component.fsm.js"
 import { ConfigResponseSchema, ConfigSchema } from "../../../lib/schemas.js"
 import { dirname } from "path"
 import fs from "fs/promises"
@@ -21,7 +18,6 @@ import path from "path"
 import { addIconsFromLibrary } from "./add-icon.fsm.js"
 import { installFile } from "../install.js"
 import ignore from "ignore"
-import { pkgless } from "../index.js"
 import { createActor } from "xstate"
 
 const StatusSchema = z.object({
@@ -209,8 +205,11 @@ export const login = new Command()
       }
 
       if (payload.type === "request-config") {
+        console.log("request-config")
         const filepath = await getConfigFilepath()
+        console.log("filepath", filepath)
         const config = await getConfig()
+        console.log("config", config)
 
         const configResponse = ConfigResponseSchema.parse({
           type: "config-response",
@@ -219,6 +218,7 @@ export const login = new Command()
           value: config,
         })
 
+        console.log("configResponse", configResponse)
         partySocket.send(JSON.stringify(configResponse))
       }
 
@@ -302,6 +302,16 @@ export const login = new Command()
               message: event.message,
               messageId: payload.messageId,
               keepAlive: true,
+            }),
+          )
+        })
+        actor.on("config", (event) => {
+          console.log("config", event)
+          partySocket.send(
+            JSON.stringify({
+              type: "config-response",
+              messageId: payload.messageId,
+              value: event,
             }),
           )
         })

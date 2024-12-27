@@ -2,7 +2,6 @@ import { useLoaderData } from "@remix-run/react"
 import { getIconifyIndex } from "../../../lib/iconify.js"
 import type { BreadcrumbHandle } from "#app/components/ui/breadcrumbs.js"
 import { IconLibraryCard } from "#app/components/icon-library-card.tsx"
-import { ComponentLibraryCard } from "#app/components/component-library-card.tsx"
 
 export const handle: BreadcrumbHandle = {
   breadcrumb: "iconify",

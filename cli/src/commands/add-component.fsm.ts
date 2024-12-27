@@ -4,7 +4,6 @@ import {
   getConfig,
   getConfigForLibrary,
   resolveLibraryConfig,
-  resolveLibraryUrls,
   setConfig,
 } from "~/src/get-config.js"
 import { logger } from "~/src/logger.js"
@@ -13,11 +12,10 @@ import { execa } from "execa"
 import prompts from "prompts"
 import * as z from "zod"
 import { resolveTransformers } from "~/src/transformers.js"
-import { configureComponentLibraries, initLibrary } from "./library.js"
+import { configureComponentLibraries } from "./library.js"
 import * as clack from "../prompts.js"
 
 import type { Transformer } from "~/src/index.js"
-import { invariant } from "@epic-web/invariant"
 import {
   libraryItemSchema,
   libraryItemWithContentSchema,
@@ -175,12 +173,29 @@ export const addComponentMachine = setup({
       self._parent?.send({ type: "setActiveActor", output: self })
 
       self._parent?.send({ type: "log", message: "Confirming installation..." })
-      const message = `Ready to install ${input.payloadLength} components from ${input.library}. Proceed?`
+      const message = `Ready to install ${input.payload.length} components from ${input.library}. Proceed?`
       self._parent?.send({ type: "log", message })
       const confirmInstall = await Promise.race([
         clack.confirm({ message }),
         waitForEvent(self, "input"),
       ])
+
+      // write the items to the config
+      const config = await getConfig()
+      if (!config) return
+
+      // TODO: use util for mutating config
+      config.libraries[input.library] ??= {}
+      config.libraries[input.library].items ??= {}
+      for (const item of input.payload) {
+        config.libraries[input.library].items[item.name] = item
+      }
+
+      self._parent?.send({
+        type: "config",
+        message: await setConfig(config),
+      })
+
       return confirmInstall
     }),
     resolveTransformersSrc: fromPromise(async ({ input, self }) => {
@@ -202,6 +217,7 @@ export const addComponentMachine = setup({
         type: "log",
         message: "Resolving post-install steps...",
       })
+
       const config = await getConfig()
       if (!config) return
 
@@ -225,21 +241,11 @@ export const addComponentMachine = setup({
     // we expect to get a target dir out of this
     getLibraryTargetDirSrc: fromPromise(async ({ input, self }) => {
       self._parent?.send({ type: "setActiveActor", output: self })
-      // TODO: a better wrapper?
-      const inputEvent = () => {
-        return new Promise((resolve) => {
-          self.on("input", (event) => {
-            // TODO: we should probably support multiple input types?
-            if (event.type === "input") {
-              resolve(event.input)
-            }
-          })
-        })
-      }
+
       let config = await getConfig()
       if (config) {
         const libConfig = resolveLibraryConfig(config, input.library)
-        console.log("resolving", input.library, libConfig)
+
         if (libConfig?.directory) {
           return libConfig
         }
@@ -250,6 +256,24 @@ export const addComponentMachine = setup({
         type: "log",
         message: "Configuring library...",
       })
+
+      const results = await Promise.race([
+        waitForEvent(self, "input").then((event) => event.input),
+        clack.group({
+          directory: () => {
+            return clack.text({
+              message: `Pick a directory for ${chalk.cyan(input.library)}`,
+              signal: abortController.signal,
+            })
+          },
+          postinstall: () => {
+            return clack.text({
+              message: `Run a command after installing ${chalk.cyan(input.library)}?`,
+              signal: abortController.signal,
+            })
+          },
+        }),
+      ])
 
       const answers = await z
         .object({
@@ -262,31 +286,12 @@ export const addComponentMachine = setup({
               value.trim() ? value.trim().split(" ") : [],
             ),
         })
-        .parseAsync(
-          await Promise.race([
-            inputEvent(),
-            clack.group({
-              directory: () => {
-                return clack.text({
-                  message: `Pick a directory for ${chalk.cyan(input.library)}`,
-                  signal: abortController.signal,
-                })
-              },
-              postinstall: () => {
-                return clack.text({
-                  message: `Run a command after installing ${chalk.cyan(input.library)}?`,
-                  signal: abortController.signal,
-                })
-              },
-            }),
-          ]),
-        )
+        .parseAsync(results)
         .catch((error) => {
           console.error(error)
           process.exit(1)
         })
 
-      console.log("answers", answers)
       const newLibConfig = libraryConfigSchema.parse({
         config: {
           directory: answers.directory,
@@ -294,13 +299,28 @@ export const addComponentMachine = setup({
         },
       })
 
+      self._parent?.send({ type: "log", message: "Using config" })
+      self._parent?.send({
+        type: "log",
+        message: JSON.stringify(newLibConfig, null, 2),
+      })
+
       const message = `Save settings to ${chalk.cyan("pkgless.json")}?`
       self._parent?.send({ type: "log", message })
 
       const shouldWrite = await Promise.race([
         clack.confirm({ message }),
-        inputEvent(),
+        waitForEvent(self, "input").then((event) => {
+          console.log("event", event)
+          return event.input
+        }),
       ])
+
+      self._parent?.send({
+        type: "log",
+        message: shouldWrite ? "yes" : "no",
+      })
+
       if (!shouldWrite) return newLibConfig.config
 
       // if no config at all
@@ -316,7 +336,11 @@ export const addComponentMachine = setup({
         config: newLibConfig.config,
       }
 
-      await setConfig(config)
+      self._parent?.send({
+        type: "config",
+        message: await setConfig(config),
+      })
+
       return config.libraries[input.library]
 
       // return await initLibrary({
@@ -358,6 +382,7 @@ export const addComponentMachine = setup({
 }).createMachine({
   on: {
     log: { actions: emit(({ event }) => event) },
+    config: { actions: emit(({ event }) => event) },
     setActiveActor: {
       actions: assign({
         activeActor: ({ event }) => event.output,
@@ -593,7 +618,7 @@ export const addComponentMachine = setup({
             src: "confirmInstallationSrc",
             input: ({ context }) => ({
               library: context.library!,
-              payloadLength: context.payload?.length || 0,
+              payload: context.payload,
             }),
             onDone: [
               {

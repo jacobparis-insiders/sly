@@ -1,5 +1,29 @@
 import { z } from "zod"
 
+export const RegistryLibrarySchema = z.object({
+  id: z.string(),
+  name: z.string().optional(),
+  dependencies: z.array(z.string()).optional().default([]),
+  devDependencies: z.array(z.string()).optional().default([]),
+  registryDependencies: z.array(z.string()).optional().default([]),
+})
+
+/**
+ * The response when fetching the root index
+ */
+export const RegistryIndexSchema = z.object({
+  version: z.string(),
+  libraries: z.array(RegistryLibrarySchema),
+})
+
+/**
+ * The response when fetching a library index
+ */
+export const RegistryLibraryIndexSchema = z.object({
+  version: z.string(),
+  resources: z.array(RegistryLibrarySchema),
+})
+
 export const ItemSchema = z.object({
   id: z.string(),
   type: z.enum(["component", "icon", "github", "gist"]),
@@ -9,16 +33,18 @@ export const ItemSchema = z.object({
 })
 
 export const libraryItemSchema = z.object({
-  name: z.string(),
+  id: z.string(),
+  name: z.string().optional(),
   dependencies: z.array(z.string()).optional(),
   registryDependencies: z.array(z.string()).optional(),
 })
 
 export const libraryItemWithContentSchema = z.object({
-  name: z.string(),
+  id: z.string(),
+  name: z.string().optional(),
   files: z.array(
     z.object({
-      name: z.string(),
+      path: z.string(),
       content: z.string(),
       type: z.enum(["file"]).optional(),
     }),
@@ -33,7 +59,7 @@ export const resolvedLibraryConfigSchema = z.object({
   itemUrl: z.string().optional(),
   type: z.enum(["component", "icon", "github", "gist"]).optional(),
   directory: z.string().optional(),
-  postinstall: z.union([z.string().optional(), z.array(z.string())]),
+  postinstall: z.string().optional(),
   transformers: z.array(z.string()).optional().default([]),
 })
 

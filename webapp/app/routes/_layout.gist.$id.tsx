@@ -1,31 +1,30 @@
-import { type LoaderFunctionArgs } from '@remix-run/node';
-import { Form, useLoaderData } from '@remix-run/react';
-import { Octokit } from '@octokit/rest';
-import { invariant } from '@epic-web/invariant';
-import { Button } from '#app/components/ui/button.js';
-import { Icon } from '#app/components/icon.js';
-import { ConnectedTerminal, Terminal } from '#app/components/terminal.js';
-import { FadeIn } from '#app/components/fade-in.js';
-import { cn } from '#app/utils/misc.js';
-import { BreadcrumbHandle } from '#app/components/ui/breadcrumbs.js';
-import { Heading } from '#app/components/heading.js';
-import { Card, CardHeader } from '#app/components/ui/card.js';
-import { CodeEditor } from '#app/components/code-editor.js';
-import { useSpinDelay } from 'spin-delay';
-import { usePartyMessages } from '#app/party.js';
+import { type LoaderFunctionArgs } from "@remix-run/node"
+import { Form, useLoaderData } from "@remix-run/react"
+import { Octokit } from "@octokit/rest"
+import { invariant } from "@epic-web/invariant"
+import { Button } from "#app/components/ui/button.js"
+import { Icon } from "#app/components/icon.js"
+import { ConnectedTerminal, Terminal } from "#app/components/terminal.js"
+import { FadeIn } from "#app/components/fade-in.js"
+import { cn } from "#app/utils/misc.js"
+import { BreadcrumbHandle } from "#app/components/ui/breadcrumbs.js"
+import { Heading } from "#app/components/heading.js"
+import { Card, CardHeader } from "#app/components/ui/card.js"
+import { CodeEditor } from "#app/components/code-editor.js"
+import { useSpinDelay } from "spin-delay"
+import { usePartyMessages } from "#app/party.js"
 import {
   useFile,
   useFiles,
   useFileTree,
   useInstallFiles,
-} from '#app/use-connection.js';
-import { useCopyToClipboard } from '#app/utils/use-copy-to-clipboard.js';
-import { useEffect, useState } from 'react';
-import { Line } from '#app/components/pre-diff-view.js';
-import { cachified } from '#app/cache.server.js';
-import { getUser } from '#app/auth.server.js';
-import { ChevronRight, ChevronDown, LucideSearch } from 'lucide-react';
-import { processCollapsibleDiff } from '#app/utils/process-collapsible-diff.js';
+} from "#app/use-connection.js"
+import { useCopyToClipboard } from "#app/utils/use-copy-to-clipboard.js"
+import { useEffect, useState } from "react"
+import { cachified } from "#app/cache.server.js"
+import { getUser } from "#app/auth.server.js"
+import { ChevronRight, ChevronDown, LucideSearch } from "lucide-react"
+import { processCollapsibleDiff } from "#app/utils/process-collapsible-diff.js"
 import {
   Sidebar,
   SidebarContent,
@@ -33,61 +32,61 @@ import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
-} from '#app/components/ui/sidebar.js';
-import { FileTreeMenu } from '#app/components/file-tree-menu.js';
-import { Input } from '#app/components/ui/input.js';
-import { useCompletion } from 'ai/react';
+} from "#app/components/ui/sidebar.js"
+import { FileTreeMenu } from "#app/components/file-tree-menu.js"
+import { Input } from "#app/components/ui/input.js"
+import { useCompletion } from "ai/react"
 
 export const handle: BreadcrumbHandle = {
-  breadcrumb: ' ',
-};
+  breadcrumb: " ",
+}
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  const { id } = params;
-  invariant(id, 'No gist ID found in params');
+  const { id } = params
+  invariant(id, "No gist ID found in params")
 
-  const user = await getUser(request);
+  const user = await getUser(request)
   const octokit = new Octokit({
     auth: user?.tokens.access_token,
-  });
+  })
   const { data } = await cachified({
     key: `gist-${id}`,
     getFreshValue: () => octokit.gists.get({ gist_id: id }),
     ttl: 1000 * 60 * 60 * 24, // 1 day
-  });
+  })
 
-  invariant(data.files, 'No files found in gist');
-  return { breadcrumbLabel: data.description, gist: data };
+  invariant(data.files, "No files found in gist")
+  return { breadcrumbLabel: data.description, gist: data }
 }
 
 export default function GistPage() {
-  const { gist } = useLoaderData<typeof loader>();
-  const [copied, copyToClipboard] = useCopyToClipboard();
-  const { installFiles, state: installState } = useInstallFiles();
-  const isRunning = useSpinDelay(installState === 'loading', {
+  const { gist } = useLoaderData<typeof loader>()
+  const [copied, copyToClipboard] = useCopyToClipboard()
+  const { installFiles, state: installState } = useInstallFiles()
+  const isRunning = useSpinDelay(installState === "loading", {
     delay: 100,
     minDuration: 1000,
-  });
-  const messages = usePartyMessages({ type: 'add-icons-response-log' });
-  const [confirmState, setConfirmState] = useState(false);
+  })
+  const messages = usePartyMessages({ type: "add-icons-response-log" })
+  const [confirmState, setConfirmState] = useState(false)
 
-  if (!gist) return <div className="p-6">No gist found</div>;
+  if (!gist) return <div className="p-6">No gist found</div>
 
-  const installCommand = `npx pkgless add gist ${gist.id}`;
+  const installCommand = `npx pkgless add gist ${gist.id}`
 
   const files = Object.entries(gist.files).map(([filename, file]) => ({
-    type: 'file',
-    path: filename.replaceAll('\\', '/'),
+    type: "file",
+    path: filename.replaceAll("\\", "/"),
     content: file!.content,
-  }));
+  }))
 
-  const hasPatchFiles = files.some((file) => file.path.endsWith('.diff'));
+  const hasPatchFiles = files.some((file) => file.path.endsWith(".diff"))
 
   return (
     <div className="p-6">
       <FadeIn show className="max-w-3xl">
         <div className="flex justify-between items-center">
-          <Heading>{gist.description || 'Unnamed Gist'}</Heading>
+          <Heading>{gist.description || "Unnamed Gist"}</Heading>
         </div>
 
         <ConnectedTerminal>{installCommand}</ConnectedTerminal>
@@ -99,7 +98,7 @@ export default function GistPage() {
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  setConfirmState(false);
+                  setConfirmState(false)
                 }}
               >
                 Apply patches
@@ -109,10 +108,10 @@ export default function GistPage() {
                 variant="outline"
                 onClick={() => {
                   const filesWithoutPatches = files.filter(
-                    (file) => file.type !== 'patch',
-                  );
-                  installFiles({ files: filesWithoutPatches });
-                  setConfirmState(false);
+                    (file) => file.type !== "patch",
+                  )
+                  installFiles({ files: filesWithoutPatches })
+                  setConfirmState(false)
                 }}
               >
                 Install without patches
@@ -124,15 +123,15 @@ export default function GistPage() {
                 type="button"
                 variant="outline"
                 className={cn(
-                  'shadow-smooth transition-colors gap-4',
+                  "shadow-smooth transition-colors gap-4",
                   isRunning &&
-                    'hover:bg-black bg-black text-white hover:text-white',
+                    "hover:bg-black bg-black text-white hover:text-white",
                 )}
                 onClick={() => {
                   if (hasPatchFiles) {
-                    setConfirmState(true);
+                    setConfirmState(true)
                   } else {
-                    installFiles({ files });
+                    installFiles({ files })
                   }
                 }}
               >
@@ -144,15 +143,15 @@ export default function GistPage() {
                 type="button"
                 variant="outline"
                 className={cn(
-                  'shadow-smooth transition-colors',
+                  "shadow-smooth transition-colors",
                   copied &&
-                    'hover:bg-white border-green-500/40 hover:border-green-500/40 hover:text-green-800',
+                    "hover:bg-white border-green-500/40 hover:border-green-500/40 hover:text-green-800",
                 )}
                 onClick={() => copyToClipboard(installCommand)}
               >
                 <Icon
-                  name={copied ? 'copy-check' : 'copy'}
-                  className={cn('-ml-2 size-4')}
+                  name={copied ? "copy-check" : "copy"}
+                  className={cn("-ml-2 size-4")}
                 />
                 copy
               </Button>
@@ -162,7 +161,7 @@ export default function GistPage() {
                 <input
                   type="hidden"
                   name="description"
-                  value={gist.description || ''}
+                  value={gist.description || ""}
                 />
                 {Object.entries(gist.files).map(
                   ([filename, file]: [string, any], index) => (
@@ -185,7 +184,7 @@ export default function GistPage() {
                       <input
                         type="hidden"
                         name={`files[${index}].type`}
-                        value={filename.endsWith('.diff') ? 'patch' : 'file'}
+                        value={filename.endsWith(".diff") ? "patch" : "file"}
                       />
                     </>
                   ),
@@ -228,8 +227,8 @@ export default function GistPage() {
 
         <div>
           {Object.entries(gist.files).map(([filename, file]: [string, any]) =>
-            filename.endsWith('.diff') ? (
-              <PatchCard name={filename} file={file} className="mt-4" />
+            filename.endsWith(".diff") ? (
+              <LinePatchCard name={filename} file={file} className="mt-4" />
             ) : (
               <FileCard file={file} className="mt-4" />
             ),
@@ -237,73 +236,73 @@ export default function GistPage() {
         </div>
       </FadeIn>
     </div>
-  );
+  )
 }
 
-export function PatchCard({
+export function LinePatchCard({
   name,
   file,
   className,
 }: {
-  name: string;
-  file: { path: string; content: string; language: string };
-  className?: string;
+  name: string
+  file: { path: string; content: string; language: string }
+  className?: string
 }) {
-  const [state, setState] = useState<'idle' | 'diff' | 'rebase' | 'success'>(
-    'idle',
-  );
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const selectedFileName = selectedFile;
+  const [state, setState] = useState<"idle" | "diff" | "rebase" | "success">(
+    "idle",
+  )
+  const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  const selectedFileName = selectedFile
   const handleFileSelect = (path: string) => {
-    setSelectedFile(path);
-  };
+    setSelectedFile(path)
+  }
 
-  const sections = processCollapsibleDiff(file.content.split('\n'));
+  const sections = processCollapsibleDiff(file.content.split("\n"))
 
   const [collapsedSections, setCollapsedSections] = useState(
     sections.map(() => true),
-  );
+  )
 
   // Initialize inclusion state for each changed section with null for indeterminate
   const [includedSections, setIncludedSections] = useState<(boolean | null)[]>(
     sections.map(() => null),
-  );
+  )
 
   const toggleCollapse = (index: number) => {
     setCollapsedSections((prev) =>
       prev.map((collapsed, i) => (i === index ? !collapsed : collapsed)),
-    );
-  };
+    )
+  }
 
   const excludeSection = (index: number) => {
     setIncludedSections((prev) =>
       prev.map((included, i) => (i === index ? false : included)),
-    );
-  };
+    )
+  }
 
-  const [baseContent, setBaseContent] = useState('');
-  const [hasRebased, setHasRebased] = useState(false);
+  const [baseContent, setBaseContent] = useState("")
+  const [hasRebased, setHasRebased] = useState(false)
   const { completion, isLoading, complete } = useCompletion({
-    api: '/api/rebase',
-  });
+    api: "/api/rebase",
+  })
 
   if (isLoading && !hasRebased) {
-    setHasRebased(true);
+    setHasRebased(true)
   }
 
   console.log(
     sections
-      .filter((section) => section.type !== 'unchanged')
-      .map((section) => section.lines.join('\n'))
-      .join('\n'),
-  );
+      .filter((section) => section.type !== "unchanged")
+      .map((section) => section.lines.join("\n"))
+      .join("\n"),
+  )
 
   return (
-    <Card className={cn('font-mono py-0', className)}>
+    <Card className={cn("font-mono py-0", className)}>
       <CardHeader
         className={cn(
-          'justify-between px-2 py-2 ',
-          state === 'rebase' && 'shadow-smooth border-b',
+          "justify-between px-2 py-2 ",
+          state === "rebase" && "shadow-smooth border-b",
         )}
       >
         <div className="flex items-center gap-x-2 px-2">
@@ -312,13 +311,13 @@ export function PatchCard({
         </div>
 
         <div className="flex gap-2">
-          {state === 'idle' && (
+          {state === "idle" && (
             <Button
               type="button"
               variant="outline"
               className="shadow-smooth"
               onClick={() => {
-                setState('diff');
+                setState("diff")
               }}
             >
               <Icon name="play" className="-ml-2 size-4" />
@@ -326,14 +325,14 @@ export function PatchCard({
             </Button>
           )}
 
-          {state === 'diff' && (
+          {state === "diff" && (
             <>
               <Button
                 type="button"
                 variant="outline"
                 className="shadow-smooth"
                 onClick={() => {
-                  setState('idle');
+                  setState("idle")
                 }}
               >
                 <Icon name="x" className="-ml-2 size-4" />
@@ -345,7 +344,7 @@ export function PatchCard({
                 variant="outline"
                 className="shadow-smooth"
                 onClick={() => {
-                  setState('rebase');
+                  setState("rebase")
                 }}
               >
                 <Icon name="play" className="-ml-2 size-4" />
@@ -354,14 +353,14 @@ export function PatchCard({
             </>
           )}
 
-          {state === 'rebase' && (
+          {state === "rebase" && (
             <>
               <Button
                 type="button"
                 variant="outline"
                 className="shadow-smooth"
                 onClick={() => {
-                  setState('idle');
+                  setState("idle")
                 }}
               >
                 <Icon name="x" className="-ml-2 size-4" />
@@ -374,7 +373,7 @@ export function PatchCard({
                   variant="outline"
                   className="shadow-smooth"
                   onClick={() => {
-                    setState('success');
+                    setState("success")
                   }}
                 >
                   <Icon name="check" className="-ml-2 size-4" />
@@ -389,12 +388,12 @@ export function PatchCard({
                     complete(
                       JSON.stringify({
                         diff: sections
-                          .filter((section) => section.type !== 'unchanged')
-                          .map((section) => section.lines.join('\n'))
-                          .join('\n'),
+                          .filter((section) => section.type !== "unchanged")
+                          .map((section) => section.lines.join("\n"))
+                          .join("\n"),
                         base: baseContent,
                       }),
-                    );
+                    )
                   }}
                 >
                   <Icon name="cooking-pot" className="-ml-2 size-4" />
@@ -406,13 +405,13 @@ export function PatchCard({
         </div>
       </CardHeader>
 
-      {state !== 'rebase' ? (
-        <pre className={cn('overflow-auto text-sm pt-4')}>
+      {state !== "rebase" ? (
+        <pre className={cn("overflow-auto text-sm pt-4")}>
           {sections.map((section, sectionIndex) => {
-            if (section.type === 'changed') {
+            if (section.type === "changed") {
               return (
                 <div key={sectionIndex} className="relative">
-                  {state === 'diff' &&
+                  {state === "diff" &&
                     includedSections[sectionIndex] === null && (
                       <div className="absolute -top-2 right-2 flex gap-2 z-10">
                         <Button
@@ -421,33 +420,33 @@ export function PatchCard({
                           className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200"
                           onClick={() => excludeSection(sectionIndex)}
                         >
-                          {'Exclude'}
+                          {"Exclude"}
                         </Button>
                       </div>
                     )}
                   {section.lines.map((line, lineIndex) => {
-                    const inclusionState = includedSections[sectionIndex];
+                    const inclusionState = includedSections[sectionIndex]
                     if (inclusionState === false) {
                       // If not included, hide green additions and turn red ones into unchanged
-                      return line.startsWith('+') ? null : (
+                      return line.startsWith("+") ? null : (
                         <Line
                           key={lineIndex}
-                          line={' ' + line.slice(1)}
+                          line={" " + line.slice(1)}
                           diffExtracted={true}
                         />
-                      );
+                      )
                     }
                     // Default behavior: show all lines
                     return (
                       <Line
                         key={lineIndex}
                         line={line}
-                        diffExtracted={state === 'diff'}
+                        diffExtracted={state === "diff"}
                       />
-                    );
+                    )
                   })}
                 </div>
-              );
+              )
             }
 
             if (section.lines.length < 4 || !collapsedSections[sectionIndex]) {
@@ -455,9 +454,9 @@ export function PatchCard({
                 <Line
                   key={lineIndex}
                   line={line}
-                  diffExtracted={state === 'diff'}
+                  diffExtracted={state === "diff"}
                 />
-              ));
+              ))
             }
 
             return (
@@ -465,8 +464,8 @@ export function PatchCard({
                 <button
                   onClick={() => toggleCollapse(sectionIndex)}
                   className={cn(
-                    'flex items-center gap-2 text-neutral-500 bg-neutral-200/50  w-full',
-                    'hover:text-neutral-700 hover:bg-neutral-200/70',
+                    "flex items-center gap-2 text-neutral-500 bg-neutral-200/50  w-full",
+                    "hover:text-neutral-700 hover:bg-neutral-200/70",
                   )}
                 >
                   {collapsedSections[sectionIndex] ? (
@@ -483,11 +482,11 @@ export function PatchCard({
                       key={lineIndex}
                       line={line}
                       className="bg-neutral-200/50"
-                      diffExtracted={state === 'diff'}
+                      diffExtracted={state === "diff"}
                     />
                   ))}
               </div>
-            );
+            )
           })}
         </pre>
       ) : hasRebased ? (
@@ -501,12 +500,12 @@ export function PatchCard({
         <FileViewer
           selectedFile={selectedFileName}
           onFileSelect={handleFileSelect}
-          onChange={(value) => setBaseContent(value || '')}
+          onChange={(value) => setBaseContent(value || "")}
           className="overflow-hidden"
         />
       )}
     </Card>
-  );
+  )
 }
 
 function FileViewer({
@@ -515,26 +514,26 @@ function FileViewer({
   onChange,
   className,
 }: {
-  selectedFile: string | null;
-  onFileSelect: (path: string) => void;
-  onChange: (value: string) => void;
-  className?: string;
+  selectedFile: string | null
+  onFileSelect: (path: string) => void
+  onChange: (value: string) => void
+  className?: string
 }) {
-  const [content, setContent] = useState('');
-  const [search, setSearch] = useState('');
+  const [content, setContent] = useState("")
+  const [search, setSearch] = useState("")
 
-  const { files } = useFileTree();
-  const { state, file } = useFile(selectedFile);
+  const { files } = useFileTree()
+  const { state, file } = useFile(selectedFile)
 
   useEffect(() => {
-    if (state === 'success' && file) {
-      setContent(file.content);
-      onChange(file.content);
+    if (state === "success" && file) {
+      setContent(file.content)
+      onChange(file.content)
     }
-  }, [state, file]);
+  }, [state, file])
 
   return (
-    <div className={cn('overflow-hidden', className)}>
+    <div className={cn("overflow-hidden", className)}>
       <SidebarProvider className="relative">
         <div className="flex h-full grow">
           <Sidebar className="border-r absolute border-sidebar-border">
@@ -563,26 +562,26 @@ function FileViewer({
             <CodeEditor
               value={content}
               onChange={(value) => {
-                setContent(value || '');
-                onChange(value || '');
+                setContent(value || "")
+                onChange(value || "")
               }}
             />
           </div>
         </div>
       </SidebarProvider>
     </div>
-  );
+  )
 }
 
 export function FileCard({
   file,
   className,
 }: {
-  file: { path: string; content: string; language: string };
-  className?: string;
+  file: { path: string; content: string; language: string }
+  className?: string
 }) {
   return (
-    <Card className={cn('font-mono', className)}>
+    <Card className={cn("font-mono", className)}>
       <CardHeader>
         <Heading>{file.path}</Heading>
       </CardHeader>
@@ -592,5 +591,31 @@ export function FileCard({
         options={{ readOnly: true }}
       />
     </Card>
-  );
+  )
+}
+
+export function Line({
+  line,
+  className,
+}: {
+  line: string
+  className?: string
+}) {
+  return (
+    <div
+      className={cn(
+        "px-4 transition-all duration-100 ",
+        {
+          "text-green-600 dark:text-green-600 bg-green-500/5":
+            line.startsWith("+"),
+          "text-red-600 dark:text-red-600 bg-red-500/5": line.startsWith("-"),
+          "opacity-30": !line.startsWith("+") && !line.startsWith("-"),
+        },
+        className,
+      )}
+      style={{ whiteSpace: "pre-wrap" }}
+    >
+      {line}
+    </div>
+  )
 }

@@ -83,7 +83,7 @@ export async function getConfig(): Promise<Config | null> {
   }
 }
 
-export async function setConfig(fn: (config: Config) => Config) {
+export async function setConfig(fn: ((config: Config) => Config) | Config) {
   const spinner = ora(`Saving pkgless.json settings…`).start()
 
   const config = (await getConfig()) ?? {
@@ -95,7 +95,9 @@ export async function setConfig(fn: (config: Config) => Config) {
     libraries: {},
   }
 
-  const newConfig = configSchema.parse(fn(config))
+  const newConfig = configSchema.parse(
+    typeof fn === "function" ? fn(config) : fn,
+  )
   const configFile = await getConfigFilepath()
 
   await fs.writeFile(
@@ -106,6 +108,7 @@ export async function setConfig(fn: (config: Config) => Config) {
 
   spinner.succeed()
   await new Promise((resolve) => setTimeout(resolve, 1))
+  return newConfig
 }
 
 export async function overwriteConfig(config: Config) {
@@ -121,6 +124,7 @@ export async function overwriteConfig(config: Config) {
   return new Promise((resolve) => setTimeout(resolve, 1))
 }
 
+/** @deprecated */
 export function resolveLibraryConfig(config: Config, library: string) {
   const libConfig = config.libraries[library]?.config
   let resolvedConfig

@@ -16,10 +16,11 @@ import { BreadcrumbHandle } from "#app/components/ui/breadcrumbs.js"
 import { Octokit } from "@octokit/rest"
 import { getUser } from "#app/auth.server.js"
 import { CodeEditor } from "#app/components/code-editor.js"
-import { SimpleDiffView } from "#app/components/pre-diff-view.js"
 import { useCompletion } from "ai/react"
 import { z } from "zod"
 import { parseRequest } from "#app/utils/parse-request.js"
+import { PreDiffViewWithTokens } from "#app/components/pre-diff-view.js"
+import { diffTokens, tokenize } from "@pkgless/diff"
 
 export const handle: BreadcrumbHandle = {
   breadcrumb: "new",
@@ -33,7 +34,7 @@ const CreateGistSchema = z.object({
       name: z.string(),
       content: z.string(),
       language: z.string().optional(),
-    }),
+    })
   ),
 })
 
@@ -46,7 +47,7 @@ const NewPkgSchema = z.object({
       content: z.string(),
       language: z.string().optional(),
       type: z.enum(["file", "patch"]).optional().default("file"),
-    }),
+    })
   ),
 })
 
@@ -86,7 +87,7 @@ export async function action({ request }: { request: Request }) {
       files.map((file) => [
         sanitizeGistName(file.name),
         { content: file.content },
-      ]),
+      ])
     )
 
     // TODO: any sanitation for what kind of gists we can create?
@@ -200,7 +201,7 @@ export default function CreatePackagePage() {
             onRemoveFile={removeFile}
             onUpdateFileName={updateFileName}
           />
-        ),
+        )
       )}
 
       <div className="flex items-center gap-x-4">
@@ -323,7 +324,7 @@ function EditPatchCard({
       JSON.stringify({
         diff: file.content,
         base: baseContent,
-      }),
+      })
     )
     setPatchState("applying")
   }
@@ -422,9 +423,11 @@ function EditPatchCard({
       )}
 
       {patchState === "applying" && (
-        <SimpleDiffView
-          baseContent={baseContent}
-          changedContent={completion || ""}
+        <PreDiffViewWithTokens
+          diffArray={diffTokens({
+            a: tokenize({ content: baseContent, language: "typescript" }),
+            b: tokenize({ content: completion || "", language: "typescript" }),
+          })}
         />
       )}
 

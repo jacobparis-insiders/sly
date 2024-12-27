@@ -11,6 +11,7 @@ import { Icon } from "#app/components/icon.js"
 import { invariant } from "@epic-web/invariant"
 import { z } from "zod"
 import { LibraryConfig, libraryItemSchema } from "../../../lib/schemas.js"
+import { resolveLibraryConfig } from "../../../lib/config.js"
 import type { BreadcrumbHandle } from "#app/components/ui/breadcrumbs.js"
 import { CartProvider, useCart } from "#app/cart-context.tsx"
 import {
@@ -110,8 +111,8 @@ function LibraryContent() {
   } = useCart("component")
   const { configureLibrary, state: configState } = useConfigureLibrary()
 
-  const libraryConfig = config?.libraries[libraryId]
-
+  const libraryConfig = config ? resolveLibraryConfig(config, libraryId) : null
+  const libraryItems = config?.libraries[libraryId]?.items
   async function handleAddToCart(componentName: string) {
     addToCart({
       library: libraryId,
@@ -134,8 +135,9 @@ function LibraryContent() {
   })
 
   const cursorRef = useRef<number>(0)
+  const [showConfigCard, setShowConfigCard] = useState(false)
+
   useEffect(() => {
-    // check messages from the cursor to the latest
     const recentMessages = messages.slice(cursorRef.current)
 
     if (
@@ -143,10 +145,7 @@ function LibraryContent() {
         message.message?.includes("Configuring library..."),
       )
     ) {
-      sendActorEvent({
-        type: "input",
-        input: { directory: "asdf" },
-      })
+      setButtonState("config")
     }
 
     if (
@@ -154,10 +153,7 @@ function LibraryContent() {
         message.message?.includes("Save settings to"),
       )
     ) {
-      sendActorEvent({
-        type: "input",
-        input: false,
-      })
+      setButtonState("confirm")
     }
 
     if (
@@ -165,19 +161,23 @@ function LibraryContent() {
         message.message?.includes("Ready to install"),
       )
     ) {
-      sendActorEvent({
-        type: "input",
-        input: true,
-      })
+      setButtonState("confirm")
     }
 
     cursorRef.current = messages.length
   }, [messages])
 
+  const handleConfigSubmit = (config: LibraryConfig) => {}
+
   const [copied, copyToClipboard] = useCopyToClipboard()
 
   const [command, setCommand] = useState("")
   const navigate = useNavigate()
+
+  const [buttonState, setButtonState] = useState<"idle" | "config" | "confirm">(
+    "idle",
+  )
+
   return (
     <div>
       <Heading>{library.name}</Heading>
@@ -191,114 +191,128 @@ function LibraryContent() {
                   {prompt}
                   npx pkgless add {libraryId}{" "}
                   {cartState.items.map((item) => item.component).join(" ")}
-                  {/* <div className="mt-4">
-                    {libraryConfig ? "Configuration found" : "No config found."}
-                    <dl className="grid grid-cols-2 gap-x-2">
-                      <dt>Directory</dt>
-                      <dd>{libraryConfig?.directory || "Not set"}</dd>
-                      <dt>Postinstall</dt>
-                      <dd>{libraryConfig?.postinstall || "Not set"}</dd>
-                    </dl>
-                  </div> */}
                 </div>
-                <div>
-                  {messages.map((message) => message.message).join("\n")}
-                </div>
+                {messages.map((message) => (
+                  <pre key={message.id}>{message.message}</pre>
+                ))}
               </>
             )}
           </ConnectedTerminal>
         </div>
 
-        <div className="flex gap-x-2 items-center mt-2">
-          <Button
-            type="button"
-            variant="outline"
-            className={cn(
-              "shadow-smooth transition-colors gap-4",
-              isRunning &&
-                "hover:bg-black bg-black text-white hover:text-white",
+        <div className="mt-2">
+          {buttonState === "idle" &&
+            cartState.items.length > 0 &&
+            !isRunning && (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={cn(
+                    "shadow-smooth transition-colors gap-4",
+                    isRunning &&
+                      "hover:bg-black bg-black text-white hover:text-white",
+                  )}
+                  onClick={() => {
+                    addComponents({
+                      libraryId,
+                      items: cartState.items.map((item) => item.component),
+                    })
+                  }}
+                >
+                  <Icon name="play" className="-ml-2 size-4" />
+                  Run
+                </Button>
+              </>
             )}
-            onClick={() => {
-              addComponents({
-                libraryId,
-                items: cartState.items.map((item) => item.component),
-              })
-            }}
-          >
-            <Icon name="play" className="-ml-2 size-4" />
-            Run
-          </Button>
 
-          <Button
-            type="button"
-            variant="outline"
-            className={cn(
-              "shadow-smooth transition-colors",
-              copied &&
-                "hover:bg-white border-green-500/40 hover:border-green-500/40 hover:text-green-800",
-            )}
-            onClick={() => copyToClipboard(installCommand)}
-          >
-            <Icon
-              name={copied ? "copy-check" : "copy"}
-              className={cn("-ml-2 size-4")}
+          {buttonState === "idle" && !isRunning && (
+            <Button
+              type="button"
+              variant="outline"
+              className="shadow-smooth transition-colors"
+              onClick={() => {
+                setButtonState("config")
+              }}
+            >
+              Config
+            </Button>
+          )}
+          {buttonState === "config" && (
+            <LibraryConfigCard
+              libraryName={library.name}
+              defaultConfig={libraryConfig}
+              onChange={({ command }) => {
+                setCommand(command)
+              }}
+              onSave={({ config }) => {
+                sendActorEvent({
+                  type: "input",
+                  input: {
+                    directory: config.directory,
+                    postinstall: config.postinstall,
+                  },
+                })
+              }}
             />
-            copy
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            className={cn(
-              "shadow-smooth transition-colors",
-              configState === "loading" && "bg-gray-200",
-            )}
-            onClick={() =>
-              configureLibrary({ libraryId, config: { directory: command } })
-            }
-            disabled={configState === "loading"}
-          >
-            <Icon name="settings" className="-ml-2 size-4" />
-            Set Config
-          </Button>
-        </div>
-      </div>
-
-      {/* <LibraryConfigCard
-        libraryName={library.name}
-        onChange={({ command, config }) => {
-          setCommand(command)
-          configureLibrary({ libraryId, config })
-        }}
-      />
-
-      <div className="flex-1">
-        <ConnectedTerminal>
-          {({ prompt }) => (
+          )}
+          {buttonState === "confirm" && (
             <>
-              {prompt}
-              <div>{command}</div>
+              <Button
+                type="button"
+                variant="outline"
+                className="shadow-smooth transition-colors"
+                onClick={() => {
+                  sendActorEvent({ type: "input", input: true })
+                  // TODO: should probably set this based on message response
+                  setButtonState("idle")
+                }}
+              >
+                Yes
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="shadow-smooth transition-colors"
+                onClick={() => {
+                  sendActorEvent({ type: "input", input: false })
+                  // TODO: should probably set this based on message response
+                  setButtonState("idle")
+                }}
+              >
+                No
+              </Button>
             </>
           )}
-        </ConnectedTerminal>
+        </div>
       </div>
 
-      {config ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Object.entries(config.libraries[libraryId]?.items || {}).map(
-            ([component, { id }]) => (
-              <LibraryItem
-                key={id}
-                title={component}
-                id={id}
-                libraryId={libraryId}
-              />
-            ),
-          )}
+      {/* Display configured items if they exist, directly above the available items */}
+      {libraryItems && (
+        <div className="mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+            {Object.keys(libraryItems).map((itemId) => (
+              <div
+                key={itemId}
+                className={cn(
+                  "rounded-lg border bg-card text-card-foreground shadow-smooth py-4 cursor-default flex",
+                  "relative shadow-smooth z-10 w-full text-5xl  h-auto",
+                  "hover:bg-neutral-50 hover:border-neutral-300",
+                )}
+                onClick={() => {
+                  navigate(`/component/${libraryId}/items/${itemId}`)
+                }}
+              >
+                <CardHeader className="flex flex-row justify-between items-center gap-x-2">
+                  <CardTitle>{itemId}</CardTitle>
+                </CardHeader>
+              </div>
+            ))}
+          </div>
         </div>
-      ) : null} */}
+      )}
 
-      <Heading className="mt-4">available</Heading>
+      <Heading className="mt-4">Available</Heading>
 
       {cartState.items.length > 0 && (
         <Button
@@ -319,7 +333,6 @@ function LibraryContent() {
             className={cn(
               "rounded-lg border bg-card text-card-foreground shadow-smooth py-4 cursor-default flex",
               "relative shadow-smooth z-10 w-full text-5xl  h-auto",
-
               isInCart({ library: libraryId, component: component.name })
                 ? "border-green-400 bg-green-50 dark:bg-green-900/20 hover:border-green-500 text-green-500"
                 : "hover:bg-neutral-50 hover:border-neutral-300",
@@ -391,6 +404,11 @@ function LibraryConfigCard({
   libraryName,
   onChange,
   onSave,
+  defaultConfig = {
+    directory: "",
+    postinstall: "",
+    transformers: [],
+  },
 }: {
   libraryName: string
   onChange: ({
@@ -407,14 +425,13 @@ function LibraryConfigCard({
     command: string
     config: LibraryConfig
   }) => void
+  defaultConfig?: LibraryConfig
 }) {
   const [savedConfigs, setSavedConfigs] = useState<LibraryConfig[]>([])
-  const [currentConfig, setCurrentConfig] = useState<LibraryConfig>({
-    directory: "",
-    postinstall: "",
-  })
+  const [currentConfig, setCurrentConfig] =
+    useState<LibraryConfig>(defaultConfig)
   const [templateName, setTemplateName] = useState("")
-  const [cardState, setCardState] = useState<"idle" | "edit" | "create">("idle")
+  const [cardState, setCardState] = useState<"idle" | "edit" | "create">("edit")
 
   const handleLoadConfig = (config: LibraryConfig) => {
     setCurrentConfig(config)
@@ -519,11 +536,11 @@ function LibraryConfigCard({
               </Label>
               <Input
                 id="postinstall"
-                value={currentConfig.postinstall}
+                value={currentConfig.postinstall || ""}
                 onChange={(e) => {
                   const config = {
                     ...currentConfig,
-                    postinstall: e.target.value,
+                    postinstall: e.target.value.trim(),
                   }
                   setCurrentConfig(config)
                   onChange({
@@ -572,7 +589,10 @@ function LibraryConfigCard({
                 setCurrentConfig(newConfig)
                 setCardState("idle")
                 setTemplateName("")
-                onChange({ command: generateCommand(), config: currentConfig })
+                onSave({
+                  command: generateCommand(currentConfig),
+                  config: currentConfig,
+                })
               }}
               disabled={!templateName}
             >
@@ -596,7 +616,10 @@ function LibraryConfigCard({
               onClick={() => {
                 setCardState("idle")
 
-                onSave({ command: generateCommand(), config: currentConfig })
+                onSave({
+                  command: generateCommand(currentConfig),
+                  config: currentConfig,
+                })
               }}
             >
               Save

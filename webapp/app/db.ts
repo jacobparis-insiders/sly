@@ -4,12 +4,34 @@ export const db = {
       id: "shadcn",
       name: "shadcn/ui",
       type: "component",
-      registryUrl: "https://ui.shadcn.com/r",
-      itemUrl: "https://ui.shadcn.com/r/styles/default/{name}.json",
+      registryUrl: "https://pkgless-shadcn.vercel.app/registry",
+      itemUrl: "https://pkgless-shadcn.vercel.app/registry/{name}",
       defaultConfig: {
         directory: "./app/components",
       },
     },
+    {
+      id: "xstate-machines",
+      name: "xstate-machines",
+      type: "component",
+      registryUrl: "https://xstate.dev/registry",
+      itemUrl: "https://xstate.dev/machines/{name}",
+      defaultConfig: {
+        directory: "./app/machines",
+      },
+    },
+
+    {
+      id: "just-utils",
+      name: "just-utils",
+      type: "utils",
+      registryUrl: "https://just-utils.dev/registry",
+      itemUrl: "https://just-utils.dev/utils/{name}",
+      defaultConfig: {
+        directory: "./app/utils",
+      },
+    },
+
     {
       id: "shadcn-new-york",
       name: "shadcn/ui-new-york",
@@ -36,6 +58,8 @@ export const db = {
       type: "component",
       registryUrl:
         "https://github.com/IHIutch/draft-ui/tree/main/packages/ui/src",
+      itemUrl:
+        "https://github.com/IHIutch/draft-ui/tree/main/packages/ui/src/{name}",
       defaultConfig: {
         directory: "./app/components",
       },
@@ -52,26 +76,3 @@ export const db = {
     },
   ],
 }
-
-// "aceternity": {
-//   "registryUrl": "https://ui.aceternity.com/registry",
-//   "itemUrl": "https://ui.aceternity.com/registry/components/ui/{name}.json",
-//   "config": "components:ui"
-// },
-// "draft-ui": {
-//   "registryUrl": "https://github.com/IHIutch/draft-ui/tree/main/packages/ui/src",
-//   "config": "components:ui"
-// },
-// "jolly-ui": {
-//   "registryUrl": "https://jollyui.dev/registry",
-//   "itemUrl": "https://jollyui.dev/default/{name}",
-//   "config": "components:ui"
-// },
-// "iconify:covid": {
-//   "name": "Covid Icons",
-//   "config": {
-//     "directory": "./svg-icons",
-//     "postinstall": [],
-//     "transformers": []
-//   }
-// }

@@ -6,7 +6,7 @@ export default function transformComponents(input: string) {
   // handle registry component imports
   input = input.replaceAll(
     /@\/registry\/default\/([^"\s]+)/g,
-    "#app/components/$1.tsx",
+    "#app/components/$1.tsx"
   )
 
   return input

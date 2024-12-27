@@ -1,4 +1,6 @@
-module.exports = {
+import typography from "@tailwindcss/typography"
+
+export default {
   plugins: {
     tailwindcss: {
       darkMode: ["class"],
@@ -70,7 +72,10 @@ module.exports = {
           },
         },
       },
-      plugins: [require("./container-queries.cjs")],
+      plugins: [
+        // require("./container-queries.cjs"),
+        typography,
+      ],
     },
     autoprefixer: {},
   },

@@ -6,7 +6,6 @@ import PartySocket from "partysocket"
 import { cookieSessionStorage } from "./routes/api.connect.$id"
 import ws from "ws"
 import {
-  Config,
   ConfigResponseSchema,
   ItemFilesResponseSchema,
 } from "../../lib/schemas"
@@ -232,7 +231,7 @@ export function useConnection() {
         const message = JSON.stringify({ type: "update-config", value: config })
         party.send(message)
       },
-      [party],
+      [party]
     ),
 
     addIcons: useCallback(
@@ -251,7 +250,7 @@ export function useConnection() {
 
         return messageId
       },
-      [party],
+      [party]
     ),
 
     messages,
@@ -362,8 +361,8 @@ export async function partyFetch({
       abortController.abort()
       reject(
         new Error(
-          `PartyFetch timeout after ${timeoutMs}ms for type: ${payload.type}`,
-        ),
+          `PartyFetch timeout after ${timeoutMs}ms for type: ${payload.type}`
+        )
       )
     }, timeoutMs)
 
@@ -385,8 +384,9 @@ export async function partyFetch({
           abortController.abort()
         }
       },
-      { signal: abortController.signal },
+      { signal: abortController.signal }
     )
+
     party.send(message)
   })
 }
@@ -441,6 +441,8 @@ export async function fetchConfig(request: Request) {
     query: {
       source: "webapp/fetchConfig",
     },
+    // client ?? server
+    WebSocket: globalThis.WebSocket ?? ws,
   })
 
   try {

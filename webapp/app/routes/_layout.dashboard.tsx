@@ -13,14 +13,14 @@ import {
 } from "#app/components/ui/card.tsx"
 import { Icon as IconifyIcon } from "@iconify/react"
 import { ComponentLibraryCard } from "#app/components/component-library-card.js"
-import { Heading } from "#app/components/heading.js"
 import { fetchConfig, useCliInfo, useOptionalCli } from "#app/use-connection.js"
 import { FadeIn } from "#app/components/fade-in.js"
 import { Icon } from "#app/components/icon.js"
 import { ConnectedTerminal, Terminal } from "#app/components/terminal.js"
-import { useConnectionId } from "#app/root.js"
-import { usePartyMessages } from "#app/party.js"
 import { db } from "#app/db.js"
+import { getIconifyIndex } from "../../../lib/iconify"
+import { cachified } from "#app/cache.server.js"
+import { LoaderFunctionArgs } from "@vercel/remix"
 
 // Add type for library items
 type LibraryItem = {
@@ -34,46 +34,84 @@ type LibraryItem = {
 
 const packageTypes = [
   {
+    type: "component",
+    title: "Components",
+    description: "Browse component libraries",
+    link: "/component",
+  },
+  {
     type: "icon",
-    title: "Add Icon",
-    description: "Add from Iconify",
+    title: "Icons",
+    description: "Browse Iconify libraries",
     link: "/iconify",
   },
   {
+    type: "repo",
+    title: "Repositories",
+    description: "Add another repo as a library",
+    link: "/github",
+  },
+  {
     type: "gist",
-    title: "Add Gist",
-    description: "Import a GitHub Gist",
+    title: "Gists",
+    description: "Add someone's Gists as a library",
     link: "/gist",
   },
   {
-    type: "diff",
-    title: "Add Diff",
-    description: "Add a code diff",
-    link: "/diff",
-  },
-  {
     type: "commit",
-    title: "Add Commit",
-    description: "Add a commit",
+    title: "Commits",
+    description: "Adapt a commit to your project",
     link: "/commit",
   },
   {
     type: "pr",
-    title: "Add Pull Request",
-    description: "Add a pull request",
+    title: "Pull Requests",
+    description: "Import a whole PR",
     link: "/pr",
   },
 ]
 
-export async function clientLoader({ request }: ClientLoaderFunctionArgs) {
+export async function loader({ request }: LoaderFunctionArgs) {
   const { value: config } = await fetchConfig(request)
+  const iconifyCollections = await cachified({
+    key: "iconify-index",
+    async getFreshValue() {
+      return getIconifyIndex()
+    },
+  })
 
-  return { config, libraries: db.libraries }
+  // Create a set to track unique library keys
+  const uniqueLibraryKeys = new Set<string>()
+
+  // Combine and de-duplicate libraries
+  const libraries = [
+    ...(config?.libraries ? Object.entries(config.libraries) : []),
+    ...db.libraries.map((lib) => [lib.id, lib]),
+  ]
+    .filter(([libraryKey]) => {
+      if (uniqueLibraryKeys.has(libraryKey)) {
+        return false
+      }
+      uniqueLibraryKeys.add(libraryKey)
+      return true
+    })
+    .map(([libraryKey, lib]) => {
+      // Check if the library matches any iconify collection by name
+      const matchingCollection = iconifyCollections[libraryKey]
+      if (matchingCollection) {
+        console.log("matchingCollection", matchingCollection)
+        lib.samples = matchingCollection.samples
+      }
+      return [libraryKey, lib]
+    })
+
+  return { config, libraries }
 }
 
 export default function Index() {
-  const { config, libraries } = useLoaderData<typeof clientLoader>()
-  const { cwd, state, ready } = useOptionalCli()
+  const { config, libraries } = useLoaderData<typeof loader>()
+  console.log(libraries)
+  const { ready } = useOptionalCli()
 
   const navigate = useNavigate()
 
@@ -83,48 +121,23 @@ export default function Index() {
 
       {libraries.length > 0 && (
         <>
-          <Heading className="mt-8">libraries</Heading>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-            {libraries.map((lib) => (
-              <DefaultItemCard key={lib.key} item={lib} />
-            ))}
-          </div>
-        </>
-      )}
-
-      {config?.libraries && (
-        <>
-          <Heading className="mt-8">libraries</Heading>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-            {Object.entries(config?.libraries || {}).map(
-              ([libraryKey, lib]) => {
-                const typedLib = lib as LibraryItem
-                return typedLib.type === "component" ? (
-                  <ComponentLibraryCard
-                    key={libraryKey}
-                    library={libraryKey}
-                    lib={typedLib as LibraryItem & { type: "component" }}
-                  />
-                ) : (
-                  <IconLibraryCard
-                    key={libraryKey}
-                    library={libraryKey}
-                    lib={typedLib as LibraryItem & { type: "icon" }}
-                  />
-                )
-              },
-            )}
-          </div>
-        </>
-      )}
-
-      {config?.items?.length > 0 && (
-        <>
-          <Heading>items</Heading>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {config.items.map((item: { id: string }) => (
-              <ItemCard key={item.id} item={item} />
-            ))}
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {libraries.map(([libraryKey, lib]) => {
+              const typedLib = lib as LibraryItem
+              return typedLib.type === "icon" ? (
+                <IconLibraryCard
+                  key={libraryKey}
+                  library={libraryKey}
+                  lib={typedLib as LibraryItem & { type: "icon" }}
+                />
+              ) : (
+                <ComponentLibraryCard
+                  key={libraryKey}
+                  library={libraryKey}
+                  lib={typedLib as LibraryItem & { type: "component" }}
+                />
+              )
+            })}
           </div>
         </>
       )}
@@ -150,27 +163,6 @@ export default function Index() {
   )
 }
 
-function ItemCard({ item }: { item: any }) {
-  return <DefaultItemCard item={item} />
-}
-
-function DefaultItemCard({ item }: { item: any }) {
-  const navigate = useNavigate()
-  const href = `/component/${item.id}`
-  return (
-    <Card onClick={() => navigate(href)} className="hover:bg-neutral-50">
-      <CardHeader>
-        <CardTitle>
-          <Link to={href} className="hover:underline">
-            {item.name}
-          </Link>
-        </CardTitle>
-        <CardDescription>{item.description}</CardDescription>
-      </CardHeader>
-    </Card>
-  )
-}
-
 function IconLibraryCard({
   library,
   lib,
@@ -184,9 +176,7 @@ function IconLibraryCard({
     author?: string
   }
 }) {
-  const libraryUrl = `/icon/${library}?registryUrl=${encodeURIComponent(
-    lib.registryUrl || "",
-  )}`
+  const libraryUrl = `/icon/${library}`
   const navigate = useNavigate()
 
   return (
@@ -194,15 +184,19 @@ function IconLibraryCard({
       <CardHeader>
         <CardTitle>{lib.name || library}</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="flex space-x-2">
-          {Object.keys(lib.items || {})
-            .slice(0, 6)
-            .map((iconName) => (
-              <IconifyIcon key={iconName} icon={iconName} className="h-5 w-5" />
+      {lib.samples.length > 0 ? (
+        <CardContent>
+          <div className="flex space-x-2 mt-4">
+            {lib.samples.map((iconName) => (
+              <IconifyIcon
+                key={iconName}
+                icon={`${library}:${iconName}`}
+                className="h-5 w-5"
+              />
             ))}
-        </div>
-      </CardContent>
+          </div>
+        </CardContent>
+      ) : null}
     </Card>
   )
 }

@@ -3,7 +3,15 @@ import { defineConfig } from "vite"
 import { vercelPreset } from "@vercel/remix/vite"
 import { iconsSpritesheet } from "vite-plugin-icons-spritesheet"
 import babel from "vite-plugin-babel"
+import tailwindcss from "tailwindcss"
+import autoprefixer from "autoprefixer"
+
 export default defineConfig({
+  css: {
+    postcss: {
+      plugins: [tailwindcss, autoprefixer],
+    },
+  },
   plugins: [
     iconsSpritesheet({
       // Defaults to false, should it generate TS types for you
@@ -28,7 +36,7 @@ export default defineConfig({
         // unstable_optimizeDeps: true,
         v3_routeConfig: false,
         v3_singleFetch: true,
-        v3_lazyRouteDiscovery: true,
+        v3_lazyRouteDiscovery: false,
         v3_fetcherPersist: true,
         v3_relativeSplatPath: true,
         v3_throwAbortReason: true,

@@ -2,24 +2,23 @@
  * Most of this code comes from the shadcn/ui CLI
  * @link https://github.com/shadcn/ui/blob/main/packages/cli/src/utils/registry/index.ts
  */
-import {
-  libraryIndexSchema,
-  libraryItemWithContentSchema,
-  registryIndexSchema,
-} from "site/app/schemas.js"
+
 import * as z from "zod"
 
 import { cachified } from "./cache.js"
 import { logger } from "./logger.js"
 import { CachifiedOptions } from "@epic-web/cachified"
-
-const baseUrl = process.env.REGISTRY_URL || "https://sly-cli.fly.dev"
+import {
+  libraryItemWithContentSchema,
+  RegistryIndexSchema,
+  RegistryLibraryIndexSchema,
+} from "../../lib/schemas.js"
 
 export async function getRegistryIndex() {
   try {
     const [result] = await fetchRegistry([`index.json`])
 
-    return registryIndexSchema.parse(result)
+    return RegistryIndexSchema.parse(result)
   } catch (error) {
     throw new Error(`Failed to fetch the registry index`)
   }
@@ -29,7 +28,7 @@ export async function getLibraryIndex(library: string) {
   try {
     const [result] = await fetchRegistry([`${library}.json`])
 
-    return libraryIndexSchema.parse(result)
+    return RegistryLibraryIndexSchema.parse(result)
   } catch (error) {
     throw new Error(`Failed to fetch ${library} index from registry.`)
   }
