@@ -3,15 +3,9 @@ import { defineConfig } from "vite"
 import { vercelPreset } from "@vercel/remix/vite"
 import { iconsSpritesheet } from "vite-plugin-icons-spritesheet"
 import babel from "vite-plugin-babel"
-import tailwindcss from "tailwindcss"
-import autoprefixer from "autoprefixer"
+import tailwindcss from "@tailwindcss/vite"
 
 export default defineConfig({
-  css: {
-    postcss: {
-      plugins: [tailwindcss, autoprefixer],
-    },
-  },
   plugins: [
     iconsSpritesheet({
       // Defaults to false, should it generate TS types for you
@@ -49,5 +43,6 @@ export default defineConfig({
         plugins: [["babel-plugin-react-compiler"]],
       },
     }),
+    tailwindcss(),
   ],
 })

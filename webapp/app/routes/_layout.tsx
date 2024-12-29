@@ -145,7 +145,7 @@ function Layout({ children }: { children?: React.ReactNode }) {
           <SidebarInset className="flex-1">
             <div>
               <div className="bg-diamond absolute inset-0" />
-              <div className="relative grid grid-cols-[repeat(auto-fit,_100px)]">
+              <div className="relative grid grid-cols-[repeat(auto-fit,100px)]">
                 <div className="col-span-full w-full relative z-10 my-auto flex h-svh max-w-7xl flex-1 flex-col items-start justify-center px-4 sm:px-6 lg:px-8">
                   <div className="flex h-full flex-col w-full">
                     <header className="flex h-14 lg:h-[60px] items-center justify-between gap-4 mb-8">

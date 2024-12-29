@@ -17,7 +17,7 @@ export function IconifyThumbnail({
       <button
         type="button"
         className={cn(
-          "rounded-lg border bg-card text-card-foreground shadow-smooth py-4 cursor-default flex flex-col items-center justify-center",
+          "rounded-lg border border-border bg-card text-card-foreground shadow-smooth py-4 cursor-default flex flex-col items-center justify-center",
           "relative shadow-smooth z-10 w-full text-5xl aspect-square h-auto",
           isSelected
             ? "border-green-400 bg-green-50 dark:bg-green-900/20 hover:border-green-500 text-green-500"

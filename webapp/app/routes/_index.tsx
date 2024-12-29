@@ -26,7 +26,7 @@ export default function Index() {
   return (
     <div>
       <div className="bg-diamond absolute inset-0" />
-      <div className="relative grid grid-cols-[repeat(auto-fit,_100px)] justify-center">
+      <div className="relative grid grid-cols-[repeat(auto-fit,100px)] justify-center">
         <DiamondLightsOut />
 
         <FadeIn

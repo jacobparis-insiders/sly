@@ -1,5 +1,5 @@
 import { use, createContext, useState, useEffect, useMemo, useRef } from "react"
-import { useConnectionId } from "./root"
+import { useConnectionId } from "./root.jsx"
 import usePartySocket from "partysocket/react"
 
 import { createSelector } from "reselect"
@@ -40,7 +40,7 @@ export function PartyProvider({ children }: { children: React.ReactNode }) {
 
         setMessages((prev) => [...prev, data])
       },
-      { signal: abortController.signal },
+      { signal: abortController.signal }
     )
 
     party.addEventListener(
@@ -48,7 +48,7 @@ export function PartyProvider({ children }: { children: React.ReactNode }) {
       () => {
         abortController.abort()
       },
-      { signal: abortController.signal },
+      { signal: abortController.signal }
     )
     return () => {
       abortController.abort()
@@ -76,8 +76,7 @@ const filteredMessages = createSelector(
     (state: { messages: any[]; messageId: string }) => state.messages,
     (state: { messageId: string }) => state.messageId,
   ],
-  (messages, messageId) =>
-    messages.filter((msg) => msg.messageId === messageId),
+  (messages, messageId) => messages.filter((msg) => msg.messageId === messageId)
 )
 
 export function usePartyMessages({ messageId }: { messageId?: string } = {}) {

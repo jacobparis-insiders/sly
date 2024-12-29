@@ -295,7 +295,7 @@ function LibraryContent() {
               <div
                 key={itemId}
                 className={cn(
-                  "rounded-lg border bg-card text-card-foreground shadow-smooth py-4 cursor-default flex",
+                  "rounded-lg border border-border bg-card text-card-foreground shadow-smooth py-4 cursor-default flex",
                   "relative shadow-smooth z-10 w-full text-5xl  h-auto",
                   "hover:bg-neutral-50 hover:border-neutral-300",
                 )}
@@ -331,7 +331,7 @@ function LibraryContent() {
           <div
             key={component.name}
             className={cn(
-              "rounded-lg border bg-card text-card-foreground shadow-smooth py-4 cursor-default flex",
+              "rounded-lg border border-border bg-card text-card-foreground shadow-smooth py-4 cursor-default flex",
               "relative shadow-smooth z-10 w-full text-5xl  h-auto",
               isInCart({ library: libraryId, component: component.name })
                 ? "border-green-400 bg-green-50 dark:bg-green-900/20 hover:border-green-500 text-green-500"
@@ -487,7 +487,7 @@ function LibraryConfigCard({
               placeholder="Template name"
               value={templateName}
               onChange={(e) => setTemplateName(e.target.value)}
-              className="text-sm h-8 px-2 flex-grow"
+              className="text-sm h-8 px-2 grow"
             />
           </div>
         ) : null}

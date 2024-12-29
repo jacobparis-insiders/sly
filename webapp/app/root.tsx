@@ -5,10 +5,11 @@ import {
   redirect,
   Scripts,
   ScrollRestoration,
+  useMatches,
   useRouteLoaderData,
 } from "@remix-run/react"
 import { Analytics } from "@vercel/analytics/react"
-import "#app/tailwind.css"
+import tailwind from "#app/tailwind.css?url"
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
@@ -32,6 +33,7 @@ export function useRootLoaderData() {
 }
 
 export function useConnectionId() {
+  console.log(useMatches())
   return useRootLoaderData().connectionId
 }
 
@@ -55,6 +57,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="stylesheet" href={tailwind} />
         <Meta />
         <Links />
       </head>

@@ -163,7 +163,7 @@ export default function LibraryConfigCard({
               placeholder="Template name"
               value={templateName}
               onChange={(e) => setTemplateName(e.target.value)}
-              className="text-sm h-8 px-2 flex-grow"
+              className="text-sm h-8 px-2 grow"
             />
             <Button
               onClick={handleSubmitTemplate}

@@ -61,7 +61,7 @@ export function GithubItemCard({
               className="relative bg-white font-mono text-xs overflow-hidden"
               style={{ height: "80px" }}
             >
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white z-10" />
+              <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-white z-10" />
               <pre className="overflow-hidden">
                 <code>{snippet}</code>
               </pre>

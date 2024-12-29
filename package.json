@@ -7,8 +7,5 @@
   ],
   "trustedDependencies": [
     "@gmrchk/cli-testing-library"
-  ],
-  "overrides": {
-    "vite": "5.1.0"
-  }
+  ]
 }
