@@ -1,4 +1,8 @@
-import { streamText as _streamText, convertToCoreMessages } from "ai"
+import {
+  streamText as _streamText,
+  convertToCoreMessages,
+  generateText as _generateText,
+} from "ai"
 import { getAnthropicModel } from "./model.server"
 import { getAnthropicApiKey } from "./api-key.server"
 import { MAX_TOKENS } from "./constants.server"
@@ -16,6 +20,22 @@ export async function streamText(
   options?: StreamingOptions,
 ) {
   return _streamText({
+    model: getAnthropicModel(getAnthropicApiKey()),
+    system: getSystemPrompt(),
+    maxTokens: MAX_TOKENS,
+    headers: {
+      "anthropic-beta": "max-tokens-3-5-sonnet-2024-07-15",
+    },
+    messages: convertToCoreMessages(messages),
+    ...options,
+  })
+}
+
+export async function generateText(
+  messages: Messages,
+  options?: StreamingOptions,
+) {
+  return _generateText({
     model: getAnthropicModel(getAnthropicApiKey()),
     system: getSystemPrompt(),
     maxTokens: MAX_TOKENS,

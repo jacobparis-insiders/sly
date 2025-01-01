@@ -10,7 +10,8 @@
     "build": "remix vite:build",
     "dev": "remix vite:dev",
     "typecheck": "tsc",
-    "test": "vitest"
+    "test": "vitest",
+    "eval:dev": "evalite watch"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^1.0.5",
@@ -77,7 +78,6 @@
     "tailwindcss": "^4.0.0-beta.8",
     "tsconfig-paths": "^4.2.0",
     "tsx": "^4.19.2",
-    "vitest": "^2.1.5",
     "zod": "3.21.4"
   },
   "devDependencies": {
@@ -86,14 +86,17 @@
     "@remix-run/eslint-config": "^2.15.1",
     "@tailwindcss/typography": "^0.5.15",
     "@types/diff": "^6.0.0",
+    "autoevals": "^0.0.111",
     "babel-plugin-react-compiler": "^19.0.0-beta-37ed2a7-20241206",
     "eslint": "^8.38.0",
+    "evalite": "^0.8.2",
     "shadcn": "^2.1.6",
     "typescript": "^5.1.6",
     "vite": "^5.4.11",
     "vite-plugin-babel": "^1.2.0",
     "vite-plugin-icons-spritesheet": "^2.2.1",
-    "vite-tsconfig-paths": "^4.2.1"
+    "vite-tsconfig-paths": "^4.2.1",
+    "vitest": "^2.1.8"
   },
   "engines": {
     "node": "20"
