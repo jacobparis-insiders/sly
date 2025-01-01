@@ -1,8 +1,9 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @layer base {
   :root {
-    --tw-shadow-color: 0, 0, 0, 0.05;
+    --tw-shadow-color: 0, 0, 0, 1;
 
     --background: 0 0% 100%;
     --foreground: 0 0% 3.9%;
@@ -111,6 +112,8 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-xs: calc(var(--radius) - 8px);
+
+  --shadow-smooth: 0px 4px 44px rgba(0,0,0, 0.05);
 }
 
 @layer base {

@@ -53,22 +53,24 @@ EXAMPLES:
     </output>
   </example>
 </examples>
-`;
+`
 }
 
 export function getDiffApplicationPrompt({
   base,
   diff,
 }: {
-  base: string | undefined;
-  diff: string | undefined;
+  base: string | undefined
+  diff: string | undefined
 }) {
   if (!base || !diff) {
-    throw Error('Base and diff are required');
+    throw Error("Base and diff are required")
   }
 
   return `
 Apply the following diff to the base content, focusing on the intent of the changes rather than exact syntax or formatting. Only modify the base if the diff indicates a change is needed. It's normal for the base to differ in ways that the diff does not care.
+
+The diff is formatted as a partial text file wrapped tokens like [+ addition +] or [- deletion -].
 
 <base_content>
 ${base}
@@ -85,12 +87,12 @@ Apply the changes while:
 - Resolving any conflicts intelligently
 - Ensuring the result is syntactically valid
 
-Respond ONLY with the modified content, without any explanation or additional text.`;
+Respond ONLY with the modified content, without any explanation or additional text.`
 }
 
 export function getContinuePrompt() {
   return `
 Continue your prior response. IMPORTANT: Immediately begin from where you left off without any interruptions.
 Do not repeat any content, including artifact and action tags.
-`;
+`
 }

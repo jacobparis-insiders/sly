@@ -60,7 +60,6 @@ export function useFileTree() {
     }
   }, [fetcher])
 
-  console.log("fetcher.data", fetcher.data)
   return {
     state: fetcher.state,
     files: (fetcher.data?.files || []) as Array<string>,
@@ -231,7 +230,7 @@ export function useConnection() {
         const message = JSON.stringify({ type: "update-config", value: config })
         party.send(message)
       },
-      [party]
+      [party],
     ),
 
     addIcons: useCallback(
@@ -250,7 +249,7 @@ export function useConnection() {
 
         return messageId
       },
-      [party]
+      [party],
     ),
 
     messages,
@@ -361,8 +360,8 @@ export async function partyFetch({
       abortController.abort()
       reject(
         new Error(
-          `PartyFetch timeout after ${timeoutMs}ms for type: ${payload.type}`
-        )
+          `PartyFetch timeout after ${timeoutMs}ms for type: ${payload.type}`,
+        ),
       )
     }, timeoutMs)
 
@@ -384,7 +383,7 @@ export async function partyFetch({
           abortController.abort()
         }
       },
-      { signal: abortController.signal }
+      { signal: abortController.signal },
     )
 
     party.send(message)

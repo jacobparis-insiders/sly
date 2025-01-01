@@ -8,11 +8,10 @@ export function CodeEditor({
   ...props
 }: ComponentProps<typeof MonacoEditor> & { name?: string }) {
   const editorRef = useRef(null)
-
+  console.log("value", value)
   const lineCount = value?.split("\n").length ?? 8
   const lineHeight = 21
   const padding = 20
-
   return (
     <>
       <MonacoEditor

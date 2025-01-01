@@ -4,38 +4,37 @@ import { Octokit } from "@octokit/rest"
 import { invariant } from "@epic-web/invariant"
 import { Button } from "#app/components/ui/button.js"
 import { Icon } from "#app/components/icon.js"
-import { ConnectedTerminal, Terminal } from "#app/components/terminal.js"
+import { ConnectedTerminal } from "#app/components/terminal.js"
 import { FadeIn } from "#app/components/fade-in.js"
 import { cn } from "#app/utils/misc.js"
 import { BreadcrumbHandle } from "#app/components/ui/breadcrumbs.js"
 import { Heading } from "#app/components/heading.js"
-import { Card, CardHeader } from "#app/components/ui/card.js"
+import { Card } from "#app/components/ui/card.js"
 import { CodeEditor } from "#app/components/code-editor.js"
 import { useSpinDelay } from "spin-delay"
-import { usePartyMessages } from "#app/party.js"
-import {
-  useFile,
-  useFiles,
-  useFileTree,
-  useInstallFiles,
-} from "#app/use-connection.js"
+import { useFile, useFileTree, useInstallFiles } from "#app/use-connection.js"
 import { useCopyToClipboard } from "#app/utils/use-copy-to-clipboard.js"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { cachified } from "#app/cache.server.js"
 import { getUser } from "#app/auth.server.js"
-import { ChevronRight, ChevronDown, LucideSearch } from "lucide-react"
-import { processCollapsibleDiff } from "#app/utils/process-collapsible-diff.js"
 import {
   Sidebar,
   SidebarContent,
   SidebarHeader,
-  SidebarInset,
   SidebarProvider,
-  SidebarTrigger,
 } from "#app/components/ui/sidebar.js"
 import { FileTreeMenu } from "#app/components/file-tree-menu.js"
 import { Input } from "#app/components/ui/input.js"
-import { useCompletion } from "ai/react"
+import {
+  tokenize,
+  diffTokens,
+  diffArrayToString,
+  diffStringToArray,
+} from "@pkgless/diff"
+import { PreDiffViewWithTokens } from "#app/components/pre-diff-view.js"
+import { createMachine, assign, matchesState, fromObservable } from "xstate"
+import { useMachine } from "@xstate/react"
+import { createFetchObservable } from "#app/utils/observable-fetch.js"
 
 export const handle: BreadcrumbHandle = {
   breadcrumb: " ",
@@ -56,32 +55,58 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   })
 
   invariant(data.files, "No files found in gist")
-  return { breadcrumbLabel: data.description, gist: data }
+  return {
+    breadcrumbLabel: data.description,
+    gist: {
+      id: data.id,
+      description: data.description,
+    },
+    files:
+      Object.entries(data.files).map(([filename, file]) => ({
+        type: "file",
+        path: filename.replaceAll("\\", "/"),
+        content: file!.content,
+        language: file!.language,
+      })) || [],
+  }
 }
 
 export default function GistPage() {
-  const { gist } = useLoaderData<typeof loader>()
+  const { gist, files: initialFiles } = useLoaderData<typeof loader>()
+  const [files, setFiles] = useState(initialFiles)
   const [copied, copyToClipboard] = useCopyToClipboard()
   const { installFiles, state: installState } = useInstallFiles()
   const isRunning = useSpinDelay(installState === "loading", {
     delay: 100,
     minDuration: 1000,
   })
-  const messages = usePartyMessages({ type: "add-icons-response-log" })
   const [confirmState, setConfirmState] = useState(false)
+  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
+
+  const [fileViewerState, setFileViewerState] = useState<"idle" | "applying">(
+    "idle",
+  )
+  console.log(fileViewerState)
+  const { files: _projectFiles } = useFileTree()
+  const projectFiles = _projectFiles.map((file) => ({
+    path: file.replace(/^\//, ""),
+    content: "",
+    type: "file",
+  }))
+  const [selectedProjectPath, setSelectedProjectPath] = useState<string | null>(
+    null,
+  )
+  const { state, file: projectFile } = useFile(selectedProjectPath)
+
+  const baseContent =
+    state === "success" ? projectFile?.content || "" : "Loading…"
 
   if (!gist) return <div className="p-6">No gist found</div>
 
   const installCommand = `npx pkgless add gist ${gist.id}`
 
-  const files = Object.entries(gist.files).map(([filename, file]) => ({
-    type: "file",
-    path: filename.replaceAll("\\", "/"),
-    content: file!.content,
-  }))
-
   const hasPatchFiles = files.some((file) => file.path.endsWith(".diff"))
-
+  const selectedFile = files.find((file) => file.path === selectedFilePath)
   return (
     <div className="p-6">
       <FadeIn show className="max-w-3xl">
@@ -163,32 +188,30 @@ export default function GistPage() {
                   name="description"
                   value={gist.description || ""}
                 />
-                {Object.entries(gist.files).map(
-                  ([filename, file]: [string, any], index) => (
-                    <>
-                      <input
-                        type="hidden"
-                        name={`files[${index}].name`}
-                        value={filename}
-                      />
-                      <input
-                        type="hidden"
-                        name={`files[${index}].content`}
-                        value={file.content}
-                      />
-                      <input
-                        type="hidden"
-                        name={`files[${index}].language`}
-                        value={file.language?.toLowerCase()}
-                      />
-                      <input
-                        type="hidden"
-                        name={`files[${index}].type`}
-                        value={filename.endsWith(".diff") ? "patch" : "file"}
-                      />
-                    </>
-                  ),
-                )}
+                {files.map((file, index) => (
+                  <>
+                    <input
+                      type="hidden"
+                      name={`files[${index}].name`}
+                      value={file.path}
+                    />
+                    <input
+                      type="hidden"
+                      name={`files[${index}].content`}
+                      value={file.content}
+                    />
+                    <input
+                      type="hidden"
+                      name={`files[${index}].language`}
+                      value={file.language?.toLowerCase()}
+                    />
+                    <input
+                      type="hidden"
+                      name={`files[${index}].type`}
+                      value={file.type}
+                    />
+                  </>
+                ))}
                 <Button
                   type="submit"
                   variant="outline"
@@ -217,327 +240,79 @@ export default function GistPage() {
           )}
         </div>
 
-        {messages.length > 0 && (
-          <div className="mt-2">
-            {messages.map((log) => (
-              <div key={log.messageId}>{log.message}</div>
-            ))}
-          </div>
-        )}
+        <Card className="mt-4 pt-0 shadow-smooth">
+          <FileViewer
+            selectedFile={selectedFile}
+            baseContent={baseContent}
+            onFileSelect={(path: string) => {
+              if (matchesState(fileViewerState, "diff.applying")) {
+                setSelectedProjectPath(path)
+              } else {
+                setSelectedFilePath(path)
+              }
+            }}
+            onChange={({ oldPath, newFile }) => {
+              setFiles((prevFiles) =>
+                prevFiles.map((file) =>
+                  file.path === oldPath ? { ...file, ...newFile } : file,
+                ),
+              )
 
-        <div>
-          {Object.entries(gist.files).map(([filename, file]: [string, any]) =>
-            filename.endsWith(".diff") ? (
-              <LinePatchCard name={filename} file={file} className="mt-4" />
-            ) : (
-              <FileCard file={file} className="mt-4" />
-            ),
-          )}
-        </div>
+              if (oldPath !== newFile.path) {
+                setSelectedFilePath(newFile.path)
+              }
+            }}
+            className="rounded-md "
+            files={
+              matchesState(fileViewerState, "diff.applying")
+                ? projectFiles
+                : files
+            }
+            onStateChange={(state) => {
+              setFileViewerState(state)
+            }}
+          />
+        </Card>
       </FadeIn>
     </div>
   )
 }
 
-export function LinePatchCard({
-  name,
-  file,
-  className,
-}: {
-  name: string
-  file: { path: string; content: string; language: string }
-  className?: string
-}) {
-  const [state, setState] = useState<"idle" | "diff" | "rebase" | "success">(
-    "idle",
-  )
-  const [selectedFile, setSelectedFile] = useState<string | null>(null)
-  const selectedFileName = selectedFile
-  const handleFileSelect = (path: string) => {
-    setSelectedFile(path)
-  }
-
-  const sections = processCollapsibleDiff(file.content.split("\n"))
-
-  const [collapsedSections, setCollapsedSections] = useState(
-    sections.map(() => true),
-  )
-
-  // Initialize inclusion state for each changed section with null for indeterminate
-  const [includedSections, setIncludedSections] = useState<(boolean | null)[]>(
-    sections.map(() => null),
-  )
-
-  const toggleCollapse = (index: number) => {
-    setCollapsedSections((prev) =>
-      prev.map((collapsed, i) => (i === index ? !collapsed : collapsed)),
-    )
-  }
-
-  const excludeSection = (index: number) => {
-    setIncludedSections((prev) =>
-      prev.map((included, i) => (i === index ? false : included)),
-    )
-  }
-
-  const [baseContent, setBaseContent] = useState("")
-  const [hasRebased, setHasRebased] = useState(false)
-  const { completion, isLoading, complete } = useCompletion({
-    api: "/api/rebase",
-  })
-
-  if (isLoading && !hasRebased) {
-    setHasRebased(true)
-  }
-
-  console.log(
-    sections
-      .filter((section) => section.type !== "unchanged")
-      .map((section) => section.lines.join("\n"))
-      .join("\n"),
-  )
-
-  return (
-    <Card className={cn("font-mono py-0", className)}>
-      <CardHeader
-        className={cn(
-          "justify-between px-2 py-2 ",
-          state === "rebase" && "shadow-smooth border-b",
-        )}
-      >
-        <div className="flex items-center gap-x-2 px-2">
-          <span className="font-bold">patch</span>
-          <span className="font-medium">{name}</span>
-        </div>
-
-        <div className="flex gap-2">
-          {state === "idle" && (
-            <Button
-              type="button"
-              variant="outline"
-              className="shadow-smooth"
-              onClick={() => {
-                setState("diff")
-              }}
-            >
-              <Icon name="play" className="-ml-2 size-4" />
-              apply
-            </Button>
-          )}
-
-          {state === "diff" && (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                className="shadow-smooth"
-                onClick={() => {
-                  setState("idle")
-                }}
-              >
-                <Icon name="x" className="-ml-2 size-4" />
-                cancel
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                className="shadow-smooth"
-                onClick={() => {
-                  setState("rebase")
-                }}
-              >
-                <Icon name="play" className="-ml-2 size-4" />
-                continue
-              </Button>
-            </>
-          )}
-
-          {state === "rebase" && (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                className="shadow-smooth"
-                onClick={() => {
-                  setState("idle")
-                }}
-              >
-                <Icon name="x" className="-ml-2 size-4" />
-                cancel
-              </Button>
-
-              {hasRebased ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="shadow-smooth"
-                  onClick={() => {
-                    setState("success")
-                  }}
-                >
-                  <Icon name="check" className="-ml-2 size-4" />
-                  accept
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="shadow-smooth"
-                  onClick={() => {
-                    complete(
-                      JSON.stringify({
-                        diff: sections
-                          .filter((section) => section.type !== "unchanged")
-                          .map((section) => section.lines.join("\n"))
-                          .join("\n"),
-                        base: baseContent,
-                      }),
-                    )
-                  }}
-                >
-                  <Icon name="cooking-pot" className="-ml-2 size-4" />
-                  apply
-                </Button>
-              )}
-            </>
-          )}
-        </div>
-      </CardHeader>
-
-      {state !== "rebase" ? (
-        <pre className={cn("overflow-auto text-sm pt-4")}>
-          {sections.map((section, sectionIndex) => {
-            if (section.type === "changed") {
-              return (
-                <div key={sectionIndex} className="relative">
-                  {state === "diff" &&
-                    includedSections[sectionIndex] === null && (
-                      <div className="absolute -top-2 right-2 flex gap-2 z-10">
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200"
-                          onClick={() => excludeSection(sectionIndex)}
-                        >
-                          {"Exclude"}
-                        </Button>
-                      </div>
-                    )}
-                  {section.lines.map((line, lineIndex) => {
-                    const inclusionState = includedSections[sectionIndex]
-                    if (inclusionState === false) {
-                      // If not included, hide green additions and turn red ones into unchanged
-                      return line.startsWith("+") ? null : (
-                        <Line
-                          key={lineIndex}
-                          line={" " + line.slice(1)}
-                          diffExtracted={true}
-                        />
-                      )
-                    }
-                    // Default behavior: show all lines
-                    return (
-                      <Line
-                        key={lineIndex}
-                        line={line}
-                        diffExtracted={state === "diff"}
-                      />
-                    )
-                  })}
-                </div>
-              )
-            }
-
-            if (section.lines.length < 4 || !collapsedSections[sectionIndex]) {
-              return section.lines.map((line, lineIndex) => (
-                <Line
-                  key={lineIndex}
-                  line={line}
-                  diffExtracted={state === "diff"}
-                />
-              ))
-            }
-
-            return (
-              <div key={sectionIndex}>
-                <button
-                  onClick={() => toggleCollapse(sectionIndex)}
-                  className={cn(
-                    "flex items-center gap-2 text-neutral-500 bg-neutral-200/50  w-full",
-                    "hover:text-neutral-700 hover:bg-neutral-200/70",
-                  )}
-                >
-                  {collapsedSections[sectionIndex] ? (
-                    <ChevronRight className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                  {section.lines.length} unchanged lines
-                </button>
-
-                {!collapsedSections[sectionIndex] &&
-                  section.lines.map((line, lineIndex) => (
-                    <Line
-                      key={lineIndex}
-                      line={line}
-                      className="bg-neutral-200/50"
-                      diffExtracted={state === "diff"}
-                    />
-                  ))}
-              </div>
-            )
-          })}
-        </pre>
-      ) : hasRebased ? (
-        <div className="flex-1">
-          <div className="px-1 py-1 border-b flex gap-x-2 items-center mb-2">
-            <h2 className="text-sm text-muted-foreground">{selectedFile}</h2>
-          </div>
-          <CodeEditor options={{ readOnly: true }} value={completion} />
-        </div>
-      ) : (
-        <FileViewer
-          selectedFile={selectedFileName}
-          onFileSelect={handleFileSelect}
-          onChange={(value) => setBaseContent(value || "")}
-          className="overflow-hidden"
-        />
-      )}
-    </Card>
-  )
-}
-
 function FileViewer({
   selectedFile,
+  baseContent,
   onFileSelect,
   onChange,
   className,
+  files,
+  onStateChange,
 }: {
-  selectedFile: string | null
+  baseContent: string
+  selectedFile: { path: string; content: string; type: string } | null
   onFileSelect: (path: string) => void
-  onChange: (value: string) => void
+  onChange: ({
+    oldPath,
+    newFile,
+  }: {
+    oldPath: string
+    newFile: { path: string; content: string; type: string }
+  }) => void
   className?: string
+  files: Array<{ path: string; content: string; type: string }>
+  onStateChange: (state: string) => void
 }) {
-  const [content, setContent] = useState("")
   const [search, setSearch] = useState("")
-
-  const { files } = useFileTree()
-  const { state, file } = useFile(selectedFile)
-
-  useEffect(() => {
-    if (state === "success" && file) {
-      setContent(file.content)
-      onChange(file.content)
-    }
-  }, [state, file])
-
+  const [prevFiles, setPrevFiles] = useState(files)
+  if (prevFiles !== files) {
+    setPrevFiles(files)
+    setSearch("")
+  }
   return (
     <div className={cn("overflow-hidden", className)}>
       <SidebarProvider className="relative">
         <div className="flex h-full grow">
           <Sidebar className="border-r absolute border-sidebar-border">
-            <SidebarHeader className="p-0 border-b">
+            <SidebarHeader className="p-0 border-b border-sidebar-border">
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -547,25 +322,35 @@ function FileViewer({
             </SidebarHeader>
             <SidebarContent>
               <FileTreeMenu
-                paths={files.filter((path) =>
-                  path.toLowerCase().includes(search.toLowerCase()),
-                )}
+                paths={files
+                  .filter(({ path }) =>
+                    path.toLowerCase().includes(search.toLowerCase()),
+                  )
+                  .map(({ path }) => path)}
                 onFileSelect={(path) => onFileSelect(path)}
               />
             </SidebarContent>
           </Sidebar>
           <div className="flex-1">
-            <div className="px-1 py-1 border-b flex gap-x-2 items-center mb-2">
-              <SidebarTrigger />
-              <h2 className="text-sm text-muted-foreground">{selectedFile}</h2>
-            </div>
-            <CodeEditor
-              value={content}
-              onChange={(value) => {
-                setContent(value || "")
-                onChange(value || "")
-              }}
-            />
+            {selectedFile ? (
+              selectedFile.type === "file" ? (
+                <FileEditor
+                  key={selectedFile.path}
+                  file={selectedFile}
+                  onChange={onChange}
+                />
+              ) : (
+                <DiffEditor
+                  key={selectedFile.path}
+                  file={selectedFile}
+                  onChange={onChange}
+                  onStateChange={(state) => {
+                    onStateChange(`diff.${state}`)
+                  }}
+                  baseContent={baseContent}
+                />
+              )
+            ) : null}
           </div>
         </div>
       </SidebarProvider>
@@ -573,24 +358,512 @@ function FileViewer({
   )
 }
 
-export function FileCard({
+function FileEditor({
   file,
-  className,
+  onChange,
 }: {
-  file: { path: string; content: string; language: string }
-  className?: string
+  file: { path: string; content: string; type: string }
+  onChange: ({
+    oldPath,
+    newFile,
+  }: {
+    oldPath: string
+    newFile: { path: string; content: string; type: string }
+  }) => void
 }) {
+  const fileContent = file?.content || ""
+
+  // Updated initial context with file content
+  const fileStateMachine = createMachine(
+    {
+      id: "fileStateMachine",
+      initial: "view",
+      context: {
+        content: fileContent,
+        baseContent: fileContent,
+        currentContent: fileContent,
+        diffArray: [],
+      },
+      states: {
+        view: {
+          on: {
+            TOGGLE_EDIT: "edit",
+            VIEW_DIFF: "diffEdit",
+          },
+        },
+        edit: {
+          on: {
+            SAVE_EDITS: {
+              target: "view",
+              actions: "saveEdits",
+            },
+            CANCEL_EDIT: {
+              target: "view",
+              actions: "cancelEdit",
+            },
+          },
+        },
+        diffEdit: {
+          on: {
+            CONTINUE: {
+              target: "view",
+              actions: ["computeDiff", "saveAsDiff"],
+            },
+            CANCEL: {
+              target: "view",
+              actions: "cancelEdit",
+            },
+          },
+        },
+      },
+    },
+    {
+      actions: {
+        saveEdits: assign(({ context, event }) => ({
+          content: event.payload,
+        })),
+        cancelEdit: assign(({ context }) => ({
+          content: context.content,
+          baseContent: context.baseContent,
+          currentContent: context.currentContent,
+        })),
+        computeDiff: assign(({ context, event }) => {
+          const diffArray = diffTokens({
+            a: tokenize({
+              content: event.payload.baseContent,
+              language: "typescript",
+            }),
+            b: tokenize({
+              content: event.payload.currentContent,
+              language: "typescript",
+            }),
+          })
+          return {
+            diffArray,
+            content: diffArrayToString(diffArray),
+          }
+        }),
+        saveAsDiff: ({ context, event }) => {
+          onChange({
+            oldPath: file.path,
+            newFile: {
+              path: `${file.path}.diff`,
+              content: context.content,
+              type: "diff",
+            },
+          })
+        },
+      },
+    },
+  )
+
+  const [state, send] = useMachine(fileStateMachine)
+  const [content, setContent] = useState(fileContent) // Initialize with file content
+
+  // Update content when file changes
+  useEffect(() => {
+    setContent(fileContent)
+  }, [fileContent])
+
   return (
-    <Card className={cn("font-mono", className)}>
-      <CardHeader>
-        <Heading>{file.path}</Heading>
-      </CardHeader>
-      <CodeEditor
-        language={file.language}
-        value={file.content}
-        options={{ readOnly: true }}
-      />
-    </Card>
+    <div>
+      <div className="px-1 py-1 border-b border-sidebar-border flex gap-x-2 justify-between mb-2">
+        <div className="flex items-center gap-x-2">
+          <h2 className="text-sm text-muted-foreground">{file.path}</h2>
+        </div>
+
+        <div className="flex items-center gap-x-2 px-[2px]">
+          {state.matches("diffEdit") ? (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-tr-sm rounded-br-none px-4"
+                onClick={() => {
+                  send({
+                    type: "CONTINUE",
+                    payload: {
+                      baseContent: state.context.baseContent,
+                      currentContent: content,
+                    },
+                  })
+                }}
+              >
+                <Icon name="play" className="-ml-2 size-4" />
+                Continue
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-tr-sm rounded-br-none px-4"
+                onClick={() => send({ type: "CANCEL" })}
+              >
+                <Icon name="x" className="-ml-2 size-4" />
+                Cancel
+              </Button>
+            </>
+          ) : state.matches("edit") ? (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-tr-sm rounded-br-none px-4"
+                onClick={() => send({ type: "SAVE_EDITS", payload: content })}
+              >
+                <Icon name="play" className="-ml-2 size-4" />
+                Save
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-tr-sm rounded-br-none px-4"
+                onClick={() => send({ type: "CANCEL_EDIT" })}
+              >
+                <Icon name="x" className="-ml-2 size-4" />
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-tr-sm rounded-br-none px-4"
+                onClick={() => send({ type: "VIEW_DIFF" })}
+              >
+                <Icon name="scissors" className="-ml-2 size-4" />
+                Diff
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-tr-sm rounded-br-none px-4"
+                onClick={() => send({ type: "TOGGLE_EDIT" })}
+              >
+                <Icon name="edit" className="-ml-2 size-4" />
+                Edit
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {state.matches("diffEdit") ? (
+        <div className="flex gap-x-4">
+          <CodeEditor
+            value={state.context.baseContent}
+            onChange={(value) => setContent(value || "")}
+            className="w-1/2"
+          />
+          <CodeEditor
+            value={content}
+            onChange={(value) => setContent(value || "")}
+            className="w-1/2"
+          />
+        </div>
+      ) : (
+        <CodeEditor
+          value={content}
+          onChange={(value) => setContent(value || "")}
+        />
+      )}
+    </div>
+  )
+}
+
+function DiffEditor({
+  file,
+  onChange,
+  onStateChange,
+  baseContent,
+}: {
+  file: { path: string; content: string; type: string }
+  onChange: ({
+    oldPath,
+    newFile,
+  }: {
+    oldPath: string
+    newFile: { path: string; content: string; type: string }
+  }) => void
+  onStateChange: (state: string) => void
+  baseContent: string
+}) {
+  const fileContent = file?.content || ""
+
+  const rebaseActor = fromObservable(({ input }) =>
+    createFetchObservable({
+      url: "/api/rebase",
+      options: {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      },
+    }),
+  )
+
+  const diffStateMachine = createMachine({
+    id: "diffStateMachine",
+    initial: "view",
+    context: {
+      currentContent: fileContent,
+      diffArray: diffStringToArray(fileContent),
+      newContent: "",
+      error: null,
+      rebaseOutput: "",
+    },
+    states: {
+      view: {
+        on: {
+          TOGGLE_EDIT: "edit",
+          APPLY_DIFF: "applying",
+        },
+      },
+      edit: {
+        on: {
+          SAVE_EDITS: {
+            target: "view",
+            actions: "saveEdits",
+          },
+          CANCEL_EDIT: {
+            target: "view",
+            actions: "cancelEdit",
+          },
+        },
+      },
+      applying: {
+        on: {
+          SAVE_APPLY: {
+            target: "rebase",
+            actions: "saveNewContent",
+          },
+          CANCEL_APPLY: {
+            target: "view",
+            actions: "cancelApply",
+          },
+        },
+      },
+      rebase: {
+        invoke: {
+          src: rebaseActor,
+          input: ({ context }) => ({
+            prompt: JSON.stringify({
+              diff: diffArrayToString(context.diffArray),
+              base: baseContent,
+            }),
+          }),
+          onSnapshot: {
+            actions: assign(({ context, event }) => {
+              return {
+                rebaseOutput:
+                  context.rebaseOutput + (event.snapshot.context || ""),
+              }
+            }),
+          },
+        },
+        on: {
+          error: {
+            target: "error",
+            actions: assign(({ event }) => ({
+              error: event.data.message,
+            })),
+          },
+          complete: {
+            target: "view",
+            actions: ["applyDiff", "notifyParent"],
+          },
+          CANCEL: {
+            target: "view",
+            actions: "cancelApply",
+          },
+        },
+      },
+      error: {
+        on: {
+          RETRY: "rebase",
+          CANCEL: {
+            target: "view",
+            actions: "cancelApply",
+          },
+        },
+      },
+    },
+  })
+
+  const [state, send] = useMachine(diffStateMachine)
+  const [newBaseContent, setNewBaseContent] = useState("")
+  const [prevBaseContent, setPrevBaseContent] = useState(baseContent)
+  if (prevBaseContent !== baseContent) {
+    setPrevBaseContent(baseContent)
+    setNewBaseContent(baseContent)
+  }
+
+  const previousState = useRef(state.value)
+  useEffect(() => {
+    if (previousState.current !== state.value) {
+      onStateChange(state.value)
+      previousState.current = state.value
+    }
+  }, [state.value])
+
+  return (
+    <div>
+      <div className="px-1 py-1 border-b border-sidebar-border flex gap-x-2 justify-between mb-2">
+        <div className="flex items-center gap-x-2">
+          <h2 className="text-sm text-muted-foreground">{file.path}</h2>
+        </div>
+
+        <div className="flex items-center gap-x-2">
+          {state.matches("rebase") ? (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-tr-sm rounded-br-none px-4"
+                onClick={() =>
+                  send({
+                    type: "CONFIRM",
+                    payload: { newContent: state.context.newContent },
+                  })
+                }
+              >
+                <Icon name="check" className="-ml-2 size-4" />
+                Confirm
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-tr-sm rounded-br-none px-4"
+                onClick={() => send({ type: "CANCEL" })}
+              >
+                <Icon name="x" className="-ml-2 size-4" />
+                Cancel
+              </Button>
+            </>
+          ) : state.matches("applying") ? (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-tr-sm rounded-br-none px-4"
+                onClick={() =>
+                  send({
+                    type: "SAVE_APPLY",
+                    payload: { newContent: newBaseContent },
+                  })
+                }
+              >
+                <Icon name="play" className="-ml-2 size-4" />
+                Apply
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-tr-sm rounded-br-none px-4"
+                onClick={() => send({ type: "CANCEL_APPLY" })}
+              >
+                <Icon name="x" className="-ml-2 size-4" />
+                Cancel
+              </Button>
+            </>
+          ) : state.matches("edit") ? (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-tr-sm rounded-br-none px-4"
+                onClick={() =>
+                  send({ type: "SAVE_EDITS", payload: newBaseContent })
+                }
+              >
+                <Icon name="play" className="-ml-2 size-4" />
+                Save
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-tr-sm rounded-br-none px-4"
+                onClick={() => send({ type: "CANCEL_EDIT" })}
+              >
+                <Icon name="x" className="-ml-2 size-4" />
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-tr-sm rounded-br-none px-4"
+                onClick={() => send({ type: "APPLY_DIFF" })}
+              >
+                <Icon name="apply" className="-ml-2 size-4" />
+                Apply
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-tr-sm rounded-br-none px-4"
+                onClick={() => send({ type: "TOGGLE_EDIT" })}
+              >
+                <Icon name="edit" className="-ml-2 size-4" />
+                Edit
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {state.matches("rebase") ? (
+        <div className="mt-4">
+          <CodeEditor
+            value={state.context.rebaseOutput || "Starting rebase..."}
+            onChange={(value) => setNewBaseContent(value || "")}
+          />
+        </div>
+      ) : state.matches("applying") ? (
+        <div className="flex gap-x-4">
+          <div className="grow">
+            <CodeEditor
+              value={newBaseContent}
+              onChange={(value) => setNewBaseContent(value || "")}
+            />
+          </div>
+          <PreDiffViewWithTokens
+            diffArray={state.context.diffArray}
+            className="text-sm px-4 grow"
+          />
+        </div>
+      ) : state.matches("diff") ? (
+        <PreDiffViewWithTokens
+          diffArray={state.context.diffArray}
+          className="text-sm px-4"
+        />
+      ) : state.matches("edit") ? (
+        <CodeEditor
+          value={newBaseContent}
+          onChange={(value) => setNewBaseContent(value || "")}
+        />
+      ) : state.matches("view") ? (
+        <PreDiffViewWithTokens
+          diffArray={state.context.diffArray}
+          className="text-sm px-4"
+        />
+      ) : null}
+    </div>
   )
 }
 

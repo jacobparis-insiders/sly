@@ -84,7 +84,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
         {name}
       </button>
       {isDirectory && isExpanded && (
-        <div className="border-l ml-2 my-1">
+        <div className="border-l border-border ml-2 my-1">
           {childNodes.map((child) => (
             <TreeNode
               key={child.name}

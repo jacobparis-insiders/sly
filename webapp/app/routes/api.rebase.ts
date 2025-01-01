@@ -53,13 +53,13 @@ async function chatAction({ request }: ActionFunctionArgs) {
 
         const result = await streamText(messages, options)
 
-        return stream.switchSource(result.toDataStream())
+        return stream.switchSource(result.textStream)
       },
     }
 
     const result = await streamText(messages, options)
 
-    stream.switchSource(result.toDataStream())
+    stream.switchSource(result.textStream)
 
     return new Response(stream.readable, {
       status: 200,
