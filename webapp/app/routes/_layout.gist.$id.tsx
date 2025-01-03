@@ -84,7 +84,7 @@ export default function GistPage() {
   const [confirmState, setConfirmState] = useState(false)
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
 
-  const [fileViewerState, setFileViewerState] = useState<"idle" | "applying">(
+  const [fileViewerState, setFileViewerState] = useState<"idle" | "preApply">(
     "idle",
   )
   console.log(fileViewerState)
@@ -249,7 +249,7 @@ export default function GistPage() {
             selectedFile={selectedFile}
             baseContent={baseContent}
             onFileSelect={(path: string) => {
-              if (matchesState(fileViewerState, "diff.applying")) {
+              if (matchesState(fileViewerState, "diff.preApply")) {
                 setSelectedProjectPath(path)
               } else {
                 setSelectedFilePath(path)
@@ -268,7 +268,7 @@ export default function GistPage() {
             }}
             className="rounded-md "
             files={
-              matchesState(fileViewerState, "diff.applying")
+              matchesState(fileViewerState, "diff.preApply")
                 ? projectFiles
                 : files
             }
@@ -407,7 +407,7 @@ const fileStateMachine = setup({
           target: "view",
           actions: "saveEdits",
         },
-        CANCEL_EDIT: {
+        CANCEL: {
           target: "view",
           actions: "cancelEdit",
         },
@@ -566,7 +566,7 @@ function FileEditor({
                 size="sm"
                 variant="outline"
                 className="rounded-tr-sm rounded-br-none px-4"
-                onClick={() => send({ type: "CANCEL_EDIT" })}
+                onClick={() => send({ type: "CANCEL" })}
               >
                 <Icon name="x" className="-ml-2 size-4" />
                 Cancel
@@ -627,10 +627,10 @@ function FileEditor({
   )
 }
 
-const rebaseActor = fromObservable(({ input }) =>
+const applyActor = fromObservable(({ input }) =>
   // helper function that streams each chunk into an observable
   createFetchObservable({
-    url: "/api/rebase",
+    url: "/api/apply-diff",
     options: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -647,9 +647,8 @@ const diffStateMachine = setup({
     },
     context: {} as {
       diffContent: string
-      sourceContent: string
       diffArray: Array<DiffOperation>
-      rebaseResult: string
+      applyResult: string
       draftContent: string
       baseContent: string
     },
@@ -668,22 +667,22 @@ const diffStateMachine = setup({
     saveAsFile: () => {
       throw new Error("need to provide saveAsFile action")
     },
-    initEdit: assign(({ context }) => ({
-      draftContent: context.diffContent,
-      baseContent: context.sourceContent,
-    })),
   },
   actors: {
-    rebase: rebaseActor,
+    apply: applyActor,
   },
 }).createMachine({
   context: ({ input }) => ({
+    // content of the diff
     diffContent: input.content,
-    sourceContent: input.baseContent,
-    diffArray: diffStringToArray(input.content),
-    rebaseResult: "",
+    // temp content while editing, then saved to diffContent
     draftContent: input.content,
+    // an array of tokens generated from the diff
+    diffArray: diffStringToArray(input.content),
+    // the base that the diff is applied to
     baseContent: input.baseContent,
+    // result of diff applied to baseContent via LLM
+    applyResult: "",
   }),
   initial: "view",
   states: {
@@ -691,9 +690,11 @@ const diffStateMachine = setup({
       on: {
         TOGGLE_EDIT: {
           target: "edit",
-          actions: "initEdit",
+          actions: assign(({ context }) => ({
+            draftContent: context.diffContent,
+          })),
         },
-        APPLY_DIFF: "applying",
+        APPLY_DIFF: "preApply",
       },
     },
     edit: {
@@ -701,7 +702,6 @@ const diffStateMachine = setup({
         UPDATE_EDIT: {
           actions: assign(({ context, event }) => ({
             draftContent: event.payload,
-            baseContent: event.payload,
           })),
         },
         SAVE_EDITS: {
@@ -714,52 +714,55 @@ const diffStateMachine = setup({
             "saveEdits",
           ],
         },
-        CANCEL_EDIT: {
+        CANCEL: {
           target: "view",
+          // doing this both here and when they click EDIT, seems redundant
+          actions: assign(({ context }) => ({
+            draftContent: context.diffContent,
+          })),
         },
       },
     },
-    applying: {
+    // user chooses the base file to apply the diff to
+    preApply: {
       on: {
-        UPDATE_BASE: {
+        UPDATE_BASE_CONTENT: {
           actions: assign(({ event }) => ({
             baseContent: event.payload,
           })),
         },
-        SAVE: {
-          target: "rebase",
-          actions: assign(({ event }) => ({
-            diffContent: event.payload,
-            sourceContent: event.payload,
-          })),
+        APPLY: {
+          target: "apply",
         },
         CANCEL: {
           target: "view",
         },
       },
     },
-    rebase: {
+
+    apply: {
       entry: assign(({ context }) => ({
-        rebaseResult: "",
+        // reset so we can start concatting tokens
+        applyResult: "",
       })),
       invoke: {
-        src: "rebase",
+        src: "apply",
         input: ({ context }) => ({
           prompt: JSON.stringify({
             diff: diffArrayToString(context.diffArray),
-            base: context.sourceContent,
+            base: context.baseContent,
           }),
         }),
         onSnapshot: {
           actions: assign(({ context, event }) => ({
-            rebaseResult: context.rebaseResult + (event.snapshot.context || ""),
+            applyResult: context.applyResult + (event.snapshot.context || ""),
           })),
         },
       },
       on: {
-        UPDATE_REBASE: {
+        UPDATE_APPLY_RESULT: {
           actions: assign(({ context, event }) => ({
-            rebaseResult: event.payload,
+            applyResult: event.payload,
           })),
         },
         CONFIRM: {
@@ -811,7 +814,7 @@ function DiffEditor({
             oldPath: file.path,
             newFile: {
               path: file.path.replace(/\.diff$/, ""),
-              content: context.rebaseResult,
+              content: context.applyResult,
               type: "file",
             },
           })
@@ -847,7 +850,7 @@ function DiffEditor({
   const [prevBaseContent, setPrevBaseContent] = useState(baseContent)
   if (prevBaseContent !== baseContent) {
     setPrevBaseContent(baseContent)
-    send({ type: "UPDATE_BASE", payload: baseContent })
+    send({ type: "UPDATE_BASE_CONTENT", payload: baseContent })
   }
 
   return (
@@ -858,7 +861,7 @@ function DiffEditor({
         </div>
 
         <div className="flex items-center gap-x-2">
-          {state.matches("rebase") ? (
+          {state.matches("apply") ? (
             <>
               <Button
                 type="button"
@@ -881,19 +884,14 @@ function DiffEditor({
                 Cancel
               </Button>
             </>
-          ) : state.matches("applying") ? (
+          ) : state.matches("preApply") ? (
             <>
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
                 className="rounded-tr-sm rounded-br-none px-4"
-                onClick={() =>
-                  send({
-                    type: "SAVE",
-                    payload: state.context.baseContent,
-                  })
-                }
+                onClick={() => send({ type: "APPLY" })}
               >
                 <Icon name="play" className="-ml-2 size-4" />
                 Apply
@@ -931,7 +929,7 @@ function DiffEditor({
                 size="sm"
                 variant="outline"
                 className="rounded-tr-sm rounded-br-none px-4"
-                onClick={() => send({ type: "CANCEL_EDIT" })}
+                onClick={() => send({ type: "CANCEL" })}
               >
                 <Icon name="x" className="-ml-2 size-4" />
                 Cancel
@@ -964,26 +962,26 @@ function DiffEditor({
         </div>
       </div>
 
-      {state.matches("rebase") ? (
+      {state.matches("apply") ? (
         <div className="mt-4">
           <CodeEditor
-            value={state.context.rebaseResult}
+            value={state.context.applyResult}
             onChange={(value) =>
               send({
-                type: "UPDATE_REBASE",
+                type: "UPDATE_APPLY_RESULT",
                 payload: value || "",
               })
             }
           />
         </div>
-      ) : state.matches("applying") ? (
+      ) : state.matches("preApply") ? (
         <div className="flex gap-x-4">
           <div className="grow">
             <CodeEditor
               value={state.context.baseContent}
               onChange={(value) =>
                 send({
-                  type: "UPDATE_BASE",
+                  type: "UPDATE_BASE_CONTENT",
                   payload: value || "",
                 })
               }
