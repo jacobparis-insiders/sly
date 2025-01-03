@@ -30,9 +30,10 @@ import {
   diffTokens,
   diffArrayToString,
   diffStringToArray,
+  DiffOperation,
 } from "@pkgless/diff"
 import { PreDiffViewWithTokens } from "#app/components/pre-diff-view.js"
-import { createMachine, assign, matchesState, fromObservable } from "xstate"
+import { setup, assign, matchesState, fromObservable } from "xstate"
 import { useMachine } from "@xstate/react"
 import { createFetchObservable } from "#app/utils/observable-fetch.js"
 
@@ -98,8 +99,11 @@ export default function GistPage() {
   )
   const { state, file: projectFile } = useFile(selectedProjectPath)
 
-  const baseContent =
-    state === "success" ? projectFile?.content || "" : "Loading…"
+  const baseContent = selectedProjectPath
+    ? state === "success"
+      ? projectFile?.content || ""
+      : "Loading…"
+    : ""
 
   if (!gist) return <div className="p-6">No gist found</div>
 
@@ -358,6 +362,80 @@ function FileViewer({
   )
 }
 
+const fileStateMachine = setup({
+  types: {
+    input: {} as {
+      content: string
+    },
+    context: {} as {
+      initialContent: string
+      content: string
+      diffArray: Array<DiffOperation>
+    },
+  },
+  actions: {
+    cancelEdit: assign(({ context }) => ({
+      content: context.initialContent,
+    })),
+    saveEdits: () => {
+      throw new Error("need to provide saveEdits action")
+    },
+    computeDiff: (
+      args,
+      params: { baseContent: string; currentContent: string },
+    ) => {
+      throw new Error("need to provide computeDiff action")
+    },
+  },
+}).createMachine({
+  context: ({ input }: { input: { content: string } }) => ({
+    initialContent: input.content,
+    content: input.content,
+    diffArray: [] as DiffOperation[],
+  }),
+  initial: "view",
+  states: {
+    view: {
+      on: {
+        TOGGLE_EDIT: "edit",
+        VIEW_DIFF: "diff",
+      },
+    },
+    edit: {
+      on: {
+        SAVE_EDITS: {
+          target: "view",
+          actions: "saveEdits",
+        },
+        CANCEL_EDIT: {
+          target: "view",
+          actions: "cancelEdit",
+        },
+      },
+    },
+    diff: {
+      on: {
+        CONTINUE: {
+          target: "view",
+          actions: [
+            {
+              type: "computeDiff",
+              params: ({ event }) => ({
+                baseContent: event.payload.baseContent,
+                currentContent: event.payload.currentContent,
+              }),
+            },
+          ],
+        },
+        CANCEL: {
+          target: "view",
+          actions: "cancelEdit",
+        },
+      },
+    },
+  },
+})
+
 function FileEditor({
   file,
   onChange,
@@ -373,97 +451,59 @@ function FileEditor({
 }) {
   const fileContent = file?.content || ""
 
-  // Updated initial context with file content
-  const fileStateMachine = createMachine(
-    {
-      id: "fileStateMachine",
-      initial: "view",
-      context: {
-        content: fileContent,
-        baseContent: fileContent,
-        currentContent: fileContent,
-        diffArray: [],
-      },
-      states: {
-        view: {
-          on: {
-            TOGGLE_EDIT: "edit",
-            VIEW_DIFF: "diffEdit",
-          },
-        },
-        edit: {
-          on: {
-            SAVE_EDITS: {
-              target: "view",
-              actions: "saveEdits",
-            },
-            CANCEL_EDIT: {
-              target: "view",
-              actions: "cancelEdit",
-            },
-          },
-        },
-        diffEdit: {
-          on: {
-            CONTINUE: {
-              target: "view",
-              actions: ["computeDiff", "saveAsDiff"],
-            },
-            CANCEL: {
-              target: "view",
-              actions: "cancelEdit",
-            },
-          },
-        },
-      },
-    },
-    {
+  const [baseContent, setBaseContent] = useState(fileContent)
+  const [currentContent, setCurrentContent] = useState(fileContent)
+  const [editContent, setEditContent] = useState(fileContent)
+
+  const [state, send] = useMachine(
+    fileStateMachine.provide({
       actions: {
-        saveEdits: assign(({ context, event }) => ({
-          content: event.payload,
-        })),
-        cancelEdit: assign(({ context }) => ({
-          content: context.content,
-          baseContent: context.baseContent,
-          currentContent: context.currentContent,
-        })),
-        computeDiff: assign(({ context, event }) => {
+        saveEdits: ({ event }) => {
+          onChange({
+            oldPath: file.path,
+            newFile: {
+              path: file.path,
+              content: event.payload,
+              type: "file",
+            },
+          })
+
+          setBaseContent(event.payload)
+          setCurrentContent(event.payload)
+          setEditContent(event.payload)
+        },
+        computeDiff: (
+          args,
+          params: { baseContent: string; currentContent: string },
+        ) => {
           const diffArray = diffTokens({
             a: tokenize({
-              content: event.payload.baseContent,
+              content: params.baseContent,
               language: "typescript",
             }),
             b: tokenize({
-              content: event.payload.currentContent,
+              content: params.currentContent,
               language: "typescript",
             }),
           })
-          return {
-            diffArray,
-            content: diffArrayToString(diffArray),
-          }
-        }),
-        saveAsDiff: ({ context, event }) => {
+
           onChange({
             oldPath: file.path,
             newFile: {
               path: `${file.path}.diff`,
-              content: context.content,
+              content: diffArrayToString(diffArray),
               type: "diff",
             },
           })
         },
       },
+    }),
+    {
+      input: {
+        content: fileContent,
+      },
     },
   )
-
-  const [state, send] = useMachine(fileStateMachine)
-  const [content, setContent] = useState(fileContent) // Initialize with file content
-
-  // Update content when file changes
-  useEffect(() => {
-    setContent(fileContent)
-  }, [fileContent])
 
   return (
     <div>
@@ -473,7 +513,7 @@ function FileEditor({
         </div>
 
         <div className="flex items-center gap-x-2 px-[2px]">
-          {state.matches("diffEdit") ? (
+          {state.matches("diff") ? (
             <>
               <Button
                 type="button"
@@ -484,8 +524,8 @@ function FileEditor({
                   send({
                     type: "CONTINUE",
                     payload: {
-                      baseContent: state.context.baseContent,
-                      currentContent: content,
+                      baseContent,
+                      currentContent,
                     },
                   })
                 }}
@@ -511,7 +551,12 @@ function FileEditor({
                 size="sm"
                 variant="outline"
                 className="rounded-tr-sm rounded-br-none px-4"
-                onClick={() => send({ type: "SAVE_EDITS", payload: content })}
+                onClick={() =>
+                  send({
+                    type: "SAVE_EDITS",
+                    payload: editContent,
+                  })
+                }
               >
                 <Icon name="play" className="-ml-2 size-4" />
                 Save
@@ -554,28 +599,180 @@ function FileEditor({
         </div>
       </div>
 
-      {state.matches("diffEdit") ? (
+      {state.matches("diff") ? (
         <div className="flex gap-x-4">
           <CodeEditor
-            value={state.context.baseContent}
-            onChange={(value) => setContent(value || "")}
+            value={baseContent}
+            onChange={(value) => setBaseContent(value || "")}
             className="w-1/2"
           />
           <CodeEditor
-            value={content}
-            onChange={(value) => setContent(value || "")}
+            value={currentContent}
+            onChange={(value) => setCurrentContent(value || "")}
             className="w-1/2"
           />
         </div>
       ) : (
-        <CodeEditor
-          value={content}
-          onChange={(value) => setContent(value || "")}
-        />
+        <>
+          <CodeEditor
+            readOnly={!state.matches("edit")}
+            value={editContent}
+            onChange={(value) => {
+              setEditContent(value || "")
+            }}
+          />
+        </>
       )}
     </div>
   )
 }
+
+const rebaseActor = fromObservable(({ input }) =>
+  // helper function that streams each chunk into an observable
+  createFetchObservable({
+    url: "/api/rebase",
+    options: {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+  }),
+)
+
+const diffStateMachine = setup({
+  types: {
+    input: {} as {
+      content: string
+      baseContent: string
+    },
+    context: {} as {
+      diffContent: string
+      sourceContent: string
+      diffArray: Array<DiffOperation>
+      rebaseResult: string
+      draftContent: string
+      baseContent: string
+    },
+  },
+  actions: {
+    saveEdits: ({ context }) => {
+      const newDiffArray = diffStringToArray(context.draftContent)
+      return {
+        diffContent: context.draftContent,
+        diffArray: newDiffArray,
+      }
+    },
+    applyDiff: () => {
+      throw new Error("need to provide applyDiff action")
+    },
+    saveAsFile: () => {
+      throw new Error("need to provide saveAsFile action")
+    },
+    initEdit: assign(({ context }) => ({
+      draftContent: context.diffContent,
+      baseContent: context.sourceContent,
+    })),
+  },
+  actors: {
+    rebase: rebaseActor,
+  },
+}).createMachine({
+  context: ({ input }) => ({
+    diffContent: input.content,
+    sourceContent: input.baseContent,
+    diffArray: diffStringToArray(input.content),
+    rebaseResult: "",
+    draftContent: input.content,
+    baseContent: input.baseContent,
+  }),
+  initial: "view",
+  states: {
+    view: {
+      on: {
+        TOGGLE_EDIT: {
+          target: "edit",
+          actions: "initEdit",
+        },
+        APPLY_DIFF: "applying",
+      },
+    },
+    edit: {
+      on: {
+        UPDATE_EDIT: {
+          actions: assign(({ context, event }) => ({
+            draftContent: event.payload,
+            baseContent: event.payload,
+          })),
+        },
+        SAVE_EDITS: {
+          target: "view",
+          actions: [
+            assign(({ context }) => ({
+              diffContent: context.draftContent,
+              diffArray: diffStringToArray(context.draftContent),
+            })),
+            "saveEdits",
+          ],
+        },
+        CANCEL_EDIT: {
+          target: "view",
+        },
+      },
+    },
+    applying: {
+      on: {
+        UPDATE_BASE: {
+          actions: assign(({ event }) => ({
+            baseContent: event.payload,
+          })),
+        },
+        SAVE: {
+          target: "rebase",
+          actions: assign(({ event }) => ({
+            diffContent: event.payload,
+            sourceContent: event.payload,
+          })),
+        },
+        CANCEL: {
+          target: "view",
+        },
+      },
+    },
+    rebase: {
+      entry: assign(({ context }) => ({
+        rebaseResult: "",
+      })),
+      invoke: {
+        src: "rebase",
+        input: ({ context }) => ({
+          prompt: JSON.stringify({
+            diff: diffArrayToString(context.diffArray),
+            base: context.sourceContent,
+          }),
+        }),
+        onSnapshot: {
+          actions: assign(({ context, event }) => ({
+            rebaseResult: context.rebaseResult + (event.snapshot.context || ""),
+          })),
+        },
+      },
+      on: {
+        UPDATE_REBASE: {
+          actions: assign(({ context, event }) => ({
+            rebaseResult: event.payload,
+          })),
+        },
+        CONFIRM: {
+          target: "view",
+          actions: "saveAsFile",
+        },
+        CANCEL: {
+          target: "view",
+        },
+      },
+    },
+  },
+})
 
 function DiffEditor({
   file,
@@ -596,112 +793,48 @@ function DiffEditor({
 }) {
   const fileContent = file?.content || ""
 
-  const rebaseActor = fromObservable(({ input }) =>
-    createFetchObservable({
-      url: "/api/rebase",
-      options: {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
+  const [state, send] = useMachine(
+    diffStateMachine.provide({
+      actions: {
+        saveEdits: ({ event }) => {
+          onChange({
+            oldPath: file.path,
+            newFile: {
+              path: file.path,
+              content: event.payload,
+              type: "diff",
+            },
+          })
+        },
+        saveAsFile: ({ context }) => {
+          onChange({
+            oldPath: file.path,
+            newFile: {
+              path: file.path.replace(/\.diff$/, ""),
+              content: context.rebaseResult,
+              type: "file",
+            },
+          })
+        },
+        applyDiff: ({ context }) => {
+          onChange({
+            oldPath: file.path,
+            newFile: {
+              path: file.path,
+              content: context.diffContent,
+              type: "file",
+            },
+          })
+        },
       },
     }),
+    {
+      input: {
+        content: fileContent,
+        baseContent,
+      },
+    },
   )
-
-  const diffStateMachine = createMachine({
-    id: "diffStateMachine",
-    initial: "view",
-    context: {
-      currentContent: fileContent,
-      diffArray: diffStringToArray(fileContent),
-      newContent: "",
-      error: null,
-      rebaseOutput: "",
-    },
-    states: {
-      view: {
-        on: {
-          TOGGLE_EDIT: "edit",
-          APPLY_DIFF: "applying",
-        },
-      },
-      edit: {
-        on: {
-          SAVE_EDITS: {
-            target: "view",
-            actions: "saveEdits",
-          },
-          CANCEL_EDIT: {
-            target: "view",
-            actions: "cancelEdit",
-          },
-        },
-      },
-      applying: {
-        on: {
-          SAVE_APPLY: {
-            target: "rebase",
-            actions: "saveNewContent",
-          },
-          CANCEL_APPLY: {
-            target: "view",
-            actions: "cancelApply",
-          },
-        },
-      },
-      rebase: {
-        invoke: {
-          src: rebaseActor,
-          input: ({ context }) => ({
-            prompt: JSON.stringify({
-              diff: diffArrayToString(context.diffArray),
-              base: baseContent,
-            }),
-          }),
-          onSnapshot: {
-            actions: assign(({ context, event }) => {
-              return {
-                rebaseOutput:
-                  context.rebaseOutput + (event.snapshot.context || ""),
-              }
-            }),
-          },
-        },
-        on: {
-          error: {
-            target: "error",
-            actions: assign(({ event }) => ({
-              error: event.data.message,
-            })),
-          },
-          complete: {
-            target: "view",
-            actions: ["applyDiff", "notifyParent"],
-          },
-          CANCEL: {
-            target: "view",
-            actions: "cancelApply",
-          },
-        },
-      },
-      error: {
-        on: {
-          RETRY: "rebase",
-          CANCEL: {
-            target: "view",
-            actions: "cancelApply",
-          },
-        },
-      },
-    },
-  })
-
-  const [state, send] = useMachine(diffStateMachine)
-  const [newBaseContent, setNewBaseContent] = useState("")
-  const [prevBaseContent, setPrevBaseContent] = useState(baseContent)
-  if (prevBaseContent !== baseContent) {
-    setPrevBaseContent(baseContent)
-    setNewBaseContent(baseContent)
-  }
 
   const previousState = useRef(state.value)
   useEffect(() => {
@@ -710,6 +843,12 @@ function DiffEditor({
       previousState.current = state.value
     }
   }, [state.value])
+
+  const [prevBaseContent, setPrevBaseContent] = useState(baseContent)
+  if (prevBaseContent !== baseContent) {
+    setPrevBaseContent(baseContent)
+    send({ type: "UPDATE_BASE", payload: baseContent })
+  }
 
   return (
     <div>
@@ -726,12 +865,7 @@ function DiffEditor({
                 size="sm"
                 variant="outline"
                 className="rounded-tr-sm rounded-br-none px-4"
-                onClick={() =>
-                  send({
-                    type: "CONFIRM",
-                    payload: { newContent: state.context.newContent },
-                  })
-                }
+                onClick={() => send({ type: "CONFIRM" })}
               >
                 <Icon name="check" className="-ml-2 size-4" />
                 Confirm
@@ -756,8 +890,8 @@ function DiffEditor({
                 className="rounded-tr-sm rounded-br-none px-4"
                 onClick={() =>
                   send({
-                    type: "SAVE_APPLY",
-                    payload: { newContent: newBaseContent },
+                    type: "SAVE",
+                    payload: state.context.baseContent,
                   })
                 }
               >
@@ -769,7 +903,7 @@ function DiffEditor({
                 size="sm"
                 variant="outline"
                 className="rounded-tr-sm rounded-br-none px-4"
-                onClick={() => send({ type: "CANCEL_APPLY" })}
+                onClick={() => send({ type: "CANCEL" })}
               >
                 <Icon name="x" className="-ml-2 size-4" />
                 Cancel
@@ -783,7 +917,10 @@ function DiffEditor({
                 variant="outline"
                 className="rounded-tr-sm rounded-br-none px-4"
                 onClick={() =>
-                  send({ type: "SAVE_EDITS", payload: newBaseContent })
+                  send({
+                    type: "SAVE_EDITS",
+                    payload: state.context.baseContent,
+                  })
                 }
               >
                 <Icon name="play" className="-ml-2 size-4" />
@@ -830,16 +967,26 @@ function DiffEditor({
       {state.matches("rebase") ? (
         <div className="mt-4">
           <CodeEditor
-            value={state.context.rebaseOutput || "Starting rebase..."}
-            onChange={(value) => setNewBaseContent(value || "")}
+            value={state.context.rebaseResult}
+            onChange={(value) =>
+              send({
+                type: "UPDATE_REBASE",
+                payload: value || "",
+              })
+            }
           />
         </div>
       ) : state.matches("applying") ? (
         <div className="flex gap-x-4">
           <div className="grow">
             <CodeEditor
-              value={newBaseContent}
-              onChange={(value) => setNewBaseContent(value || "")}
+              value={state.context.baseContent}
+              onChange={(value) =>
+                send({
+                  type: "UPDATE_BASE",
+                  payload: value || "",
+                })
+              }
             />
           </div>
           <PreDiffViewWithTokens
@@ -847,15 +994,15 @@ function DiffEditor({
             className="text-sm px-4 grow"
           />
         </div>
-      ) : state.matches("diff") ? (
-        <PreDiffViewWithTokens
-          diffArray={state.context.diffArray}
-          className="text-sm px-4"
-        />
       ) : state.matches("edit") ? (
         <CodeEditor
-          value={newBaseContent}
-          onChange={(value) => setNewBaseContent(value || "")}
+          value={state.context.draftContent}
+          onChange={(value) =>
+            send({
+              type: "UPDATE_EDIT",
+              payload: value || "",
+            })
+          }
         />
       ) : state.matches("view") ? (
         <PreDiffViewWithTokens
@@ -863,32 +1010,6 @@ function DiffEditor({
           className="text-sm px-4"
         />
       ) : null}
-    </div>
-  )
-}
-
-export function Line({
-  line,
-  className,
-}: {
-  line: string
-  className?: string
-}) {
-  return (
-    <div
-      className={cn(
-        "px-4 transition-all duration-100 ",
-        {
-          "text-green-600 dark:text-green-600 bg-green-500/5":
-            line.startsWith("+"),
-          "text-red-600 dark:text-red-600 bg-red-500/5": line.startsWith("-"),
-          "opacity-30": !line.startsWith("+") && !line.startsWith("-"),
-        },
-        className,
-      )}
-      style={{ whiteSpace: "pre-wrap" }}
-    >
-      {line}
     </div>
   )
 }

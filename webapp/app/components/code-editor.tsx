@@ -4,9 +4,13 @@ import MonacoEditor from "@monaco-editor/react"
 export function CodeEditor({
   name,
   value,
+  readOnly,
   options = {},
   ...props
-}: ComponentProps<typeof MonacoEditor> & { name?: string }) {
+}: ComponentProps<typeof MonacoEditor> & {
+  name?: string
+  readOnly?: boolean
+}) {
   const editorRef = useRef(null)
   console.log("value", value)
   const lineCount = value?.split("\n").length ?? 8
@@ -31,6 +35,8 @@ export function CodeEditor({
             horizontal: "hidden",
           },
           lineNumbersMinChars: 3,
+          readOnly: readOnly,
+          domReadOnly: readOnly,
           ...options,
         }}
         onMount={(editor) => {
