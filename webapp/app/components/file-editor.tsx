@@ -10,8 +10,10 @@ import {
 } from "@pkgless/diff"
 import { setup, assign } from "xstate"
 import { useMachine } from "@xstate/react"
+import { Input } from "./ui/input"
+import { Form } from "@remix-run/react"
 
-const fileStateMachine = setup({
+const readWriteFileMachine = setup({
   types: {
     input: {} as {
       content: string
@@ -42,9 +44,9 @@ const fileStateMachine = setup({
     content: input.content,
     diffArray: [] as DiffOperation[],
   }),
-  initial: "view",
+  initial: "idle",
   states: {
-    view: {
+    idle: {
       on: {
         TOGGLE_EDIT: "edit",
         VIEW_DIFF: "diff",
@@ -53,11 +55,11 @@ const fileStateMachine = setup({
     edit: {
       on: {
         SAVE_EDITS: {
-          target: "view",
+          target: "idle",
           actions: "saveEdits",
         },
         CANCEL: {
-          target: "view",
+          target: "idle",
           actions: "cancelEdit",
         },
       },
@@ -65,7 +67,7 @@ const fileStateMachine = setup({
     diff: {
       on: {
         CONTINUE: {
-          target: "view",
+          target: "idle",
           actions: [
             {
               type: "computeDiff",
@@ -77,9 +79,68 @@ const fileStateMachine = setup({
           ],
         },
         CANCEL: {
-          target: "view",
+          target: "idle",
           actions: "cancelEdit",
         },
+      },
+    },
+  },
+})
+
+const writeFileMachine = setup({
+  types: {
+    input: {} as {
+      content: string
+    },
+    context: {} as {
+      initialContent: string
+      content: string
+      diffArray: Array<DiffOperation>
+    },
+  },
+  actions: {
+    cancelEdit: assign(({ context }) => ({
+      content: context.initialContent,
+    })),
+    saveEdits: () => {
+      throw new Error("need to provide saveEdits action")
+    },
+    computeDiff: (
+      args,
+      params: { baseContent: string; currentContent: string },
+    ) => {
+      throw new Error("need to provide computeDiff action")
+    },
+  },
+}).createMachine({
+  context: ({ input }: { input: { content: string } }) => ({
+    initialContent: input.content,
+    content: input.content,
+    diffArray: [] as DiffOperation[],
+  }),
+  // in the write machine, the idle state is editable
+  initial: "idle",
+  states: {
+    idle: {
+      on: {
+        VIEW_DIFF: "diff",
+      },
+    },
+    diff: {
+      on: {
+        CONTINUE: {
+          target: "idle",
+          actions: [
+            {
+              type: "computeDiff",
+              params: ({ event }) => ({
+                baseContent: event.payload.baseContent,
+                currentContent: event.payload.currentContent,
+              }),
+            },
+          ],
+        },
+        CANCEL: "idle",
       },
     },
   },
@@ -88,7 +149,9 @@ const fileStateMachine = setup({
 export function FileEditor({
   file,
   onChange,
+  mode = "read-write",
 }: {
+  mode: "write" | "read-write"
   file: { path: string; content: string; type: string }
   onChange: ({
     oldPath,
@@ -104,8 +167,10 @@ export function FileEditor({
   const [currentContent, setCurrentContent] = useState(fileContent)
   const [editContent, setEditContent] = useState(fileContent)
 
+  const machine = mode === "write" ? writeFileMachine : readWriteFileMachine
+
   const [state, send] = useMachine(
-    fileStateMachine.provide({
+    machine.provide({
       actions: {
         saveEdits: ({ event }) => {
           onChange({
@@ -154,19 +219,49 @@ export function FileEditor({
     },
   )
 
+  const [path, setPath] = useState(file.path)
+
   return (
     <div>
       <div className="px-1 py-1 border-b border-sidebar-border flex gap-x-2 justify-between mb-2">
-        <div className="flex items-center gap-x-2">
-          <h2 className="text-sm text-muted-foreground">{file.path}</h2>
-        </div>
+        <Form
+          className="flex items-center gap-x-2"
+          onSubmit={(e) => {
+            console.log("submit")
+            e.preventDefault()
+            onChange({
+              oldPath: file.path,
+              newFile: {
+                path: path,
+              },
+            })
+          }}
+        >
+          <Input
+            type="text"
+            value={path}
+            onChange={(e) => {
+              setPath(e.target.value)
+            }}
+            className="rounded-r-sm rounded-l-none"
+          />
+          {path !== file.path ? (
+            <Button
+              type="submit"
+              size="sm"
+              variant="outline"
+              className="rounded-tr-sm rounded-br-none px-4"
+            >
+              Rename
+            </Button>
+          ) : null}
+        </Form>
 
-        <div className="flex items-center gap-x-2 px-[2px]">
+        <div className="flex items-center gap-x-2 ">
           {state.matches("diff") ? (
             <>
               <Button
                 type="button"
-                size="sm"
                 variant="outline"
                 className="rounded-tr-sm rounded-br-none px-4"
                 onClick={() => {
@@ -184,7 +279,6 @@ export function FileEditor({
               </Button>
               <Button
                 type="button"
-                size="sm"
                 variant="outline"
                 className="rounded-tr-sm rounded-br-none px-4"
                 onClick={() => send({ type: "CANCEL" })}
@@ -197,7 +291,6 @@ export function FileEditor({
             <>
               <Button
                 type="button"
-                size="sm"
                 variant="outline"
                 className="rounded-tr-sm rounded-br-none px-4"
                 onClick={() =>
@@ -212,7 +305,6 @@ export function FileEditor({
               </Button>
               <Button
                 type="button"
-                size="sm"
                 variant="outline"
                 className="rounded-tr-sm rounded-br-none px-4"
                 onClick={() => send({ type: "CANCEL" })}
@@ -225,7 +317,6 @@ export function FileEditor({
             <>
               <Button
                 type="button"
-                size="sm"
                 variant="outline"
                 className="rounded-tr-sm rounded-br-none px-4"
                 onClick={() => send({ type: "VIEW_DIFF" })}
@@ -233,16 +324,17 @@ export function FileEditor({
                 <Icon name="scissors" className="-ml-2 size-4" />
                 Diff
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="rounded-tr-sm rounded-br-none px-4"
-                onClick={() => send({ type: "TOGGLE_EDIT" })}
-              >
-                <Icon name="edit" className="-ml-2 size-4" />
-                Edit
-              </Button>
+              {state.can({ type: "TOGGLE_EDIT" }) ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-tr-sm rounded-br-none px-4"
+                  onClick={() => send({ type: "TOGGLE_EDIT" })}
+                >
+                  <Icon name="edit" className="-ml-2 size-4" />
+                  Edit
+                </Button>
+              ) : null}
             </>
           )}
         </div>
@@ -264,7 +356,7 @@ export function FileEditor({
       ) : (
         <>
           <CodeEditor
-            readOnly={!state.matches("edit")}
+            readOnly={state.can({ type: "TOGGLE_EDIT" })}
             value={editContent}
             onChange={(value) => {
               setEditContent(value || "")

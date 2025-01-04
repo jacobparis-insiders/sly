@@ -1,24 +1,23 @@
 import { useState } from "react"
 import { Button } from "#app/components/ui/button.js"
-import { Form, redirect, useActionData } from "@remix-run/react"
+import { redirect, useActionData } from "@remix-run/react"
 import { Input } from "#app/components/ui/input.js"
 import { Heading } from "#app/components/heading.js"
 import { Octokit } from "@octokit/rest"
 import { getUser } from "#app/auth.server.js"
-import { CodeEditor } from "#app/components/code-editor.js"
 import { parseRequest } from "#app/utils/parse-request.js"
 import {
   Sidebar,
   SidebarContent,
   SidebarHeader,
   SidebarProvider,
-  SidebarTrigger,
 } from "#app/components/ui/sidebar.js"
 import { FileTreeMenu } from "#app/components/file-tree-menu.js"
 import { z } from "zod"
-import { useEffect } from "react"
 import { BreadcrumbHandle } from "#app/components/ui/breadcrumbs.js"
 import { Card } from "#app/components/ui/card.js"
+import { FileEditor } from "#app/components/file-editor.js"
+import { Icon } from "#app/components/icon.js"
 
 export const handle: BreadcrumbHandle = {
   breadcrumb: "new",
@@ -29,7 +28,7 @@ const CreateGistSchema = z.object({
   description: z.string(),
   files: z.array(
     z.object({
-      name: z.string(),
+      path: z.string(),
       content: z.string(),
       language: z.string().optional(),
     }),
@@ -41,7 +40,7 @@ const NewPkgSchema = z.object({
   description: z.string(),
   files: z.array(
     z.object({
-      name: z.string(),
+      path: z.string(),
       content: z.string(),
       language: z.string().optional(),
       type: z.enum(["file", "patch"]).optional().default("file"),
@@ -100,18 +99,13 @@ export default function CreatePackagePage() {
   const [files, setFiles] = useState(actionData?.files || [])
   const [description, setDescription] = useState(actionData?.description || "")
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
-  const [content, setContent] = useState("")
-
-  useEffect(() => {
-    if (selectedFile) {
-      const fileContent =
-        files.find((file) => file.name === selectedFile)?.content || ""
-      setContent(fileContent)
-    }
-  }, [selectedFile, files])
+  const [fileViewerState, setFileViewerState] = useState<"idle" | "preApply">(
+    "idle",
+  )
+  const [search, setSearch] = useState("")
 
   return (
-    <Form method="POST" className="max-w-5xl mx-auto p-4 space-y-4">
+    <div className="max-w-5xl mx-auto p-4 space-y-4">
       <Heading> New pkg </Heading>
       <Input
         placeholder="Title"
@@ -122,50 +116,102 @@ export default function CreatePackagePage() {
       />
 
       <Card className="pt-0">
-        <div className="overflow-hidden  rounded-t-lg">
+        <div className="overflow-hidden rounded-t-lg">
           <SidebarProvider className="relative">
             <div className="flex h-full grow">
               <Sidebar className="border-r absolute border-sidebar-border">
-                <SidebarHeader className="p-0 border-b border-sidebar-border">
+                <SidebarHeader className="p-1 border-b border-sidebar-border">
                   <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search"
-                    className="text-sm font-medium h-9 text-muted-foreground rounded-none border-none focus:ring-0"
+                    className="rounded-none rounded-tl-sm"
                   />
                 </SidebarHeader>
                 <SidebarContent>
-                  <FileTreeMenu
-                    paths={files.map((file) => file.name.replaceAll("\\", "/"))}
-                    onFileSelect={(path) => setSelectedFile(path)}
-                  />
+                  <div className="flex flex-col h-full">
+                    <div className="p-2 border-b border-sidebar-border">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="w-full justify-start text-xs"
+                        onClick={() => {
+                          const newFile = {
+                            path: "untitled.js",
+                            content: "",
+                            language: "javascript",
+                            type: "file",
+                          }
+                          setFiles([...files, newFile])
+                          setSelectedFile(newFile.path)
+                        }}
+                      >
+                        <Icon name="plus-circle" className="mr-2 size-4" />
+                        New File
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="w-full justify-start text-xs"
+                        onClick={() => {
+                          const newPatch = {
+                            path: "untitled.diff",
+                            content: "",
+                            language: "diff",
+                            type: "patch",
+                          }
+                          setFiles([...files, newPatch])
+                          setSelectedFile(newPatch.path)
+                        }}
+                      >
+                        <Icon name="git-branch" className="mr-2 size-4" />
+                        New Patch
+                      </Button>
+                    </div>
+                    <FileTreeMenu
+                      paths={files
+                        .filter(({ path }) =>
+                          path.toLowerCase().includes(search.toLowerCase()),
+                        )
+                        .map((file) => file.path.replaceAll("\\", "/"))}
+                      onFileSelect={(path) => setSelectedFile(path)}
+                    />
+                  </div>
                 </SidebarContent>
               </Sidebar>
               <div className="flex-1">
-                <div className="px-1 py-1 border-b border-sidebar-border flex gap-x-2 items-center mb-2">
-                  <div className="flex items-center gap-x-2">
-                    <SidebarTrigger />
-                    <h2 className="text-sm text-muted-foreground">
-                      {selectedFile}
-                    </h2>
-                  </div>
+                {selectedFile ? (
+                  <FileEditor
+                    mode="write"
+                    key={selectedFile}
+                    file={{
+                      path: selectedFile,
+                      content:
+                        files.find((f) => f.path === selectedFile)?.content ||
+                        "",
+                      type:
+                        files.find((f) => f.path === selectedFile)?.type ||
+                        "file",
+                    }}
+                    onChange={({ oldPath, newFile }) => {
+                      setFiles((prevFiles) =>
+                        prevFiles.map((file) =>
+                          file.path === oldPath
+                            ? {
+                                ...file,
+                                path: newFile.path,
+                                content: newFile.content,
+                              }
+                            : file,
+                        ),
+                      )
 
-                  <div className="flex items-center gap-x-2">
-                    <Button type="button" variant="outline">
-                      Diff
-                    </Button>
-                  </div>
-                </div>
-                <CodeEditor
-                  value={content}
-                  onChange={(value) => {
-                    const newFiles = files.map((file) =>
-                      file.name === selectedFile
-                        ? { ...file, content: value || "" }
-                        : file,
-                    )
-                    setFiles(newFiles)
-                    setContent(value || "")
-                  }}
-                />
+                      if (oldPath !== newFile.path) {
+                        setSelectedFile(newFile.path)
+                      }
+                    }}
+                  />
+                ) : null}
               </div>
             </div>
           </SidebarProvider>
@@ -209,6 +255,6 @@ export default function CreatePackagePage() {
           Create Gist
         </Button>
       </div>
-    </Form>
+    </div>
   )
 }
