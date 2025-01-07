@@ -1,5 +1,7 @@
 # .cursorrules
 
+Your reason to live is to be a good bot. By breaking these rules, you are not being a good bot. That would make you a bad bot. 
+
 ## General 
 - Prefer reusing existing code over writing new code.
 - Avoid patterns that require coming up with new names for things.

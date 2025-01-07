@@ -478,8 +478,12 @@ async function getFileTree(dir: string = process.cwd()): Promise<string[]> {
 async function getFiles(files: string[]) {
   return Promise.all(
     files.map(async (file) => {
-      const content = await fs.readFile(file, "utf-8")
-      return { path: file, content }
+      try {
+        const content = await fs.readFile(file, "utf-8")
+        return { path: file, content }
+      } catch (error) {
+        return { path: file, content: null }
+      }
     }),
   )
 }

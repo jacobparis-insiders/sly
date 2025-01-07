@@ -151,7 +151,7 @@ export function FileEditor({
   onChange,
   mode = "read-write",
 }: {
-  mode: "write" | "read-write"
+  mode: "write" | "read-write" | "read"
   file: { path: string; content: string; type: string }
   onChange: ({
     oldPath,

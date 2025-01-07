@@ -5,9 +5,8 @@ import * as z from "zod"
 import ora from "ora"
 import { logger } from "./logger.js"
 import {
-  ItemSchema,
+  ConfigSchema,
   LibraryConfig,
-  libraryConfigSchema,
   resolvedLibraryConfigSchema,
 } from "../../lib/schemas.js"
 
@@ -33,13 +32,7 @@ function getExplorer() {
   return explorer
 }
 
-export const configSchema = z.object({
-  $schema: z.string().optional(),
-  config: z.record(z.string(), resolvedLibraryConfigSchema.partial()),
-  libraries: z.record(z.string(), libraryConfigSchema).optional().default({}),
-  items: z.array(ItemSchema).optional().default([]),
-})
-
+export const configSchema = ConfigSchema
 export type Config = z.infer<typeof configSchema>
 
 async function getConfigExplorer() {

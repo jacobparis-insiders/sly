@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "#app/components/ui/button.js"
-import { redirect, useActionData } from "@remix-run/react"
+import { redirect, useActionData, useSubmit } from "@remix-run/react"
 import { Input } from "#app/components/ui/input.js"
 import { Heading } from "#app/components/heading.js"
 import { Octokit } from "@octokit/rest"
@@ -18,6 +18,8 @@ import { BreadcrumbHandle } from "#app/components/ui/breadcrumbs.js"
 import { Card } from "#app/components/ui/card.js"
 import { FileEditor } from "#app/components/file-editor.js"
 import { Icon } from "#app/components/icon.js"
+import { matchesState } from "xstate"
+import { useFileTree, useFile } from "#app/use-connection.js"
 
 export const handle: BreadcrumbHandle = {
   breadcrumb: "new",
@@ -58,6 +60,7 @@ export async function action({ request }: { request: Request }) {
   })
 
   if (submission.status !== "success") {
+    console.log(submission.error)
     throw new Error("Invalid request")
   }
 
@@ -79,7 +82,7 @@ export async function action({ request }: { request: Request }) {
 
     const gistFiles = Object.fromEntries(
       files.map((file) => [
-        sanitizeGistName(file.name),
+        sanitizeGistName(file.path),
         { content: file.content },
       ]),
     )
@@ -103,6 +106,32 @@ export default function CreatePackagePage() {
     "idle",
   )
   const [search, setSearch] = useState("")
+  const { files: _projectFiles } = useFileTree()
+  const projectFiles = _projectFiles.map((file) => ({
+    path: file.replace(/^\//, ""),
+    content: "",
+    type: "file",
+  }))
+  const [selectedProjectPath, setSelectedProjectPath] = useState<string | null>(
+    null,
+  )
+  const { state, file: projectFile } = useFile(selectedProjectPath)
+
+  useEffect(() => {
+    if (selectedProjectPath && state === "success" && projectFile) {
+      const newFile = {
+        path: selectedProjectPath,
+        content: projectFile.content,
+        type: "file",
+      }
+      setFiles((files) => [...files, newFile])
+      setSelectedFile(selectedProjectPath)
+      setFileViewerState("idle")
+      setSelectedProjectPath(null)
+    }
+  }, [selectedProjectPath, state, projectFile])
+
+  const submit = useSubmit()
 
   return (
     <div className="max-w-5xl mx-auto p-4 space-y-4">
@@ -131,50 +160,91 @@ export default function CreatePackagePage() {
                 <SidebarContent>
                   <div className="flex flex-col h-full">
                     <div className="p-2 border-b border-sidebar-border">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="w-full justify-start text-xs"
-                        onClick={() => {
-                          const newFile = {
-                            path: "untitled.js",
-                            content: "",
-                            language: "javascript",
-                            type: "file",
-                          }
-                          setFiles([...files, newFile])
-                          setSelectedFile(newFile.path)
-                        }}
-                      >
-                        <Icon name="plus-circle" className="mr-2 size-4" />
-                        New File
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="w-full justify-start text-xs"
-                        onClick={() => {
-                          const newPatch = {
-                            path: "untitled.diff",
-                            content: "",
-                            language: "diff",
-                            type: "patch",
-                          }
-                          setFiles([...files, newPatch])
-                          setSelectedFile(newPatch.path)
-                        }}
-                      >
-                        <Icon name="git-branch" className="mr-2 size-4" />
-                        New Patch
-                      </Button>
+                      {matchesState(fileViewerState, "preApply") ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="w-full justify-start text-xs"
+                          onClick={() => setFileViewerState("idle")}
+                        >
+                          <Icon name="arrow-left" className="mr-2 size-4" />
+                          Back to Files
+                        </Button>
+                      ) : (
+                        <>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="w-full justify-start text-xs"
+                            onClick={() => {
+                              const newFile = {
+                                path: "untitled.js",
+                                content: "",
+                                language: "javascript",
+                                type: "file",
+                              }
+                              setFiles([...files, newFile])
+                              setSelectedFile(newFile.path)
+                            }}
+                          >
+                            <Icon name="plus-circle" className="mr-2 size-4" />
+                            New File
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="w-full justify-start text-xs"
+                            onClick={() => {
+                              const newPatch = {
+                                path: "untitled.diff",
+                                content: "",
+                                language: "diff",
+                                type: "patch",
+                              }
+                              setFiles([...files, newPatch])
+                              setSelectedFile(newPatch.path)
+                            }}
+                          >
+                            <Icon name="git-branch" className="mr-2 size-4" />
+                            New Patch
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="w-full justify-start text-xs"
+                            onClick={() => setFileViewerState("preApply")}
+                          >
+                            <Icon name="folder" className="mr-2 size-4" />
+                            Add from Project
+                          </Button>
+                        </>
+                      )}
                     </div>
                     <FileTreeMenu
-                      paths={files
-                        .filter(({ path }) =>
-                          path.toLowerCase().includes(search.toLowerCase()),
-                        )
-                        .map((file) => file.path.replaceAll("\\", "/"))}
-                      onFileSelect={(path) => setSelectedFile(path)}
+                      paths={
+                        matchesState(fileViewerState, "preApply")
+                          ? projectFiles
+                              .map((f) => f.path)
+                              .filter((path) =>
+                                path
+                                  .toLowerCase()
+                                  .includes(search.toLowerCase()),
+                              )
+                          : files
+                              .filter(({ path }) =>
+                                path
+                                  .toLowerCase()
+                                  .includes(search.toLowerCase()),
+                              )
+                              .map((file) => file.path.replaceAll("\\", "/"))
+                      }
+                      onFileSelect={(path) => {
+                        if (matchesState(fileViewerState, "preApply")) {
+                          setSelectedProjectPath(path)
+                        } else {
+                          setSelectedFile(path)
+                        }
+                      }}
                     />
                   </div>
                 </SidebarContent>
@@ -225,7 +295,7 @@ export default function CreatePackagePage() {
           onClick={() =>
             setFiles([
               ...files,
-              { name: "", content: "", language: "plaintext", type: "file" },
+              { path: "", content: "", language: "plaintext", type: "file" },
             ])
           }
         >
@@ -237,7 +307,7 @@ export default function CreatePackagePage() {
           onClick={() =>
             setFiles([
               ...files,
-              { name: "patch", content: "", language: "diff", type: "patch" },
+              { path: "patch", content: "", language: "diff", type: "patch" },
             ])
           }
         >
@@ -247,10 +317,26 @@ export default function CreatePackagePage() {
 
       <div className="mt-8">
         <Button
-          type="submit"
+          type="button"
           variant="primary"
-          name="intent"
-          value="create-gist"
+          onClick={() => {
+            submit(
+              {
+                intent: "create-gist",
+                description,
+                files: files.map((file) => ({
+                  path: file.path,
+                  content: file.content,
+                  language: file.language,
+                  type: file.type,
+                })),
+              },
+              {
+                method: "POST",
+                encType: "application/json",
+              },
+            )
+          }}
         >
           Create Gist
         </Button>

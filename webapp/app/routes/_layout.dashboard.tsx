@@ -21,6 +21,7 @@ import { db } from "#app/db.js"
 import { getIconifyIndex } from "../../../lib/iconify"
 import { cachified } from "#app/cache.server.js"
 import { LoaderFunctionArgs } from "@vercel/remix"
+import { ItemCard } from "#app/components/cards/item-card.js"
 
 // Add type for library items
 type LibraryItem = {
@@ -80,30 +81,17 @@ export async function loader({ request }: LoaderFunctionArgs) {
     },
   })
 
-  // Create a set to track unique library keys
-  const uniqueLibraryKeys = new Set<string>()
-
-  // Combine and de-duplicate libraries
-  const libraries = [
-    ...(config?.libraries ? Object.entries(config.libraries) : []),
-    ...db.libraries.map((lib) => [lib.id, lib]),
-  ]
-    .filter(([libraryKey]) => {
-      if (uniqueLibraryKeys.has(libraryKey)) {
-        return false
-      }
-      uniqueLibraryKeys.add(libraryKey)
-      return true
-    })
-    .map(([libraryKey, lib]) => {
-      // Check if the library matches any iconify collection by name
-      const matchingCollection = iconifyCollections[libraryKey]
-      if (matchingCollection) {
-        console.log("matchingCollection", matchingCollection)
-        lib.samples = matchingCollection.samples
-      }
-      return [libraryKey, lib]
-    })
+  // Only use libraries from config
+  const libraries = config?.libraries
+    ? Object.entries(config.libraries).map(([libraryKey, lib]) => {
+        // Check if the library matches any iconify collection by name
+        const matchingCollection = iconifyCollections[libraryKey]
+        if (matchingCollection) {
+          lib.samples = matchingCollection.samples
+        }
+        return [libraryKey, lib]
+      })
+    : []
 
   return { config, libraries }
 }
@@ -140,6 +128,14 @@ export default function Index() {
             })}
           </div>
         </>
+      )}
+
+      {config?.items?.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+          {config.items.map((item, index) => (
+            <ItemCard key={item.path} index={index} item={item} />
+          ))}
+        </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 mt-4">

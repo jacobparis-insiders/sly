@@ -4,6 +4,7 @@ export default defineConfig({
   clean: true,
   dts: true,
   entry: ["src/index.ts"],
+  watch: ["../lib/**/*.ts"],
   format: ["esm"],
   sourcemap: true,
   target: "esnext",

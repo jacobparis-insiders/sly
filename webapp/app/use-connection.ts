@@ -330,6 +330,19 @@ export async function getConnection(request: Request) {
         return null
       }
     },
+    async getFiles(files: string[]) {
+      try {
+        const result = await partyFetch({
+          party,
+          payload: { type: "request-files", files },
+          expectedResponseType: "files-response",
+        })
+        return result?.files || []
+      } catch (e) {
+        console.error("error getting files", e)
+        return []
+      }
+    },
   }
 }
 

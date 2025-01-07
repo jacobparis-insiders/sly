@@ -24,14 +24,6 @@ export const RegistryLibraryIndexSchema = z.object({
   resources: z.array(RegistryLibrarySchema),
 })
 
-export const ItemSchema = z.object({
-  id: z.string(),
-  type: z.enum(["component", "icon", "github", "gist"]),
-  name: z.string(),
-  url: z.string(),
-  overwrite: z.boolean().optional(),
-})
-
 export const libraryItemSchema = z.object({
   id: z.string(),
   name: z.string().optional(),
@@ -63,27 +55,24 @@ export const resolvedLibraryConfigSchema = z.object({
   transformers: z.array(z.string()).optional().default([]),
 })
 
-export const libraryConfigSchema = z.object({
+export const ItemSchema = z.object({
   name: z.string().optional(),
-  items: z
-    .record(
-      z.string(),
+  files: z
+    .array(
       z.object({
-        id: z.string(),
+        type: z.enum(["file"]).optional().default("file"),
         name: z.string().optional(),
-        files: z
-          .array(
-            z.object({
-              type: z.enum(["file"]).optional(),
-              name: z.string().optional(),
-              path: z.string(),
-              version: z.string().optional(),
-            }),
-          )
-          .optional(),
+        path: z.string(),
+        source: z.string().optional(),
+        version: z.string().optional(),
       }),
     )
     .optional(),
+})
+
+export const libraryConfigSchema = z.object({
+  name: z.string().optional(),
+  items: z.record(z.string(), ItemSchema).optional(),
   type: z.enum(["component", "icon", "github", "gist"]).optional(),
   registryUrl: z.string().optional(),
   itemUrl: z.string().optional(),
