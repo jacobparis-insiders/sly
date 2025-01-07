@@ -12,6 +12,7 @@ import { meta as simpleIconsMeta } from "./simple-icons[.json].js"
 import { meta as heroiconsMeta } from "./tailwindlabs.heroicons[.json].js"
 import { meta as blueprintIconsMeta } from "./@blueprintjs.icons[.json].js"
 import { meta as phosphorIconsMeta } from "./phosphor-icons[.json].js"
+import { meta as featherIconsMeta } from "./feather-icons[.json].js"
 import { meta as tablerIconsMeta } from "./tabler-icons[.json].js"
 import { meta as materialDesignIconsMeta } from "./material-design-icons[.json].js"
 import { meta as draftUiMeta } from "./draft-ui[.json].js"
@@ -43,6 +44,7 @@ export async function loader() {
     libraries: [
       blueprintIconsMeta,
       draftUiMeta,
+      featherIconsMeta,
       heroiconsMeta,
       iconoirMeta,
       jacobparisUiMeta,

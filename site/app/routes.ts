@@ -19,6 +19,8 @@ export const routes: RouteConfig = [
   route("/registry/@sly-cli/transformers.json", "./routes/registry+/@sly-cli.transformers[.json].ts"),
   route("/registry/draft-ui/:name.json", "./routes/registry+/draft-ui.$name[.json].ts"),
   route("/registry/draft-ui.json", "./routes/registry+/draft-ui[.json].ts"),
+  route("/registry/feather-icons/:name.json", "./routes/registry+/feather-icons.$name[.json].ts"),
+  route("/registry/feather-icons.json", "./routes/registry+/feather-icons[.json].ts"),
   route("/registry/jacobparis/*", "./routes/registry+/jacobparis.$.ts"),
   route("/registry/iconoir/:type/:name.json", "./routes/registry+/iconoir.$type.$name[.json].ts"),
   route("/registry/iconoir.json", "./routes/registry+/iconoir[.json].ts"),
