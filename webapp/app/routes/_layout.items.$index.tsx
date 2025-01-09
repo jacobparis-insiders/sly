@@ -1,7 +1,7 @@
 import { redirect, type LoaderFunctionArgs } from "@remix-run/node"
 import { useLoaderData } from "@remix-run/react"
 import { invariant } from "@epic-web/invariant"
-import { useState } from "react"
+import { Fragment, useState } from "react"
 import {
   getConnection,
   useUpdateConfig,
@@ -14,7 +14,7 @@ import { format } from "date-fns"
 import { cn } from "#app/utils/misc.js"
 import { PreDiffViewWithTokens } from "#app/components/pre-diff-view.js"
 import { tokenize, diffTokens } from "@pkgless/diff"
-import { Card, CardHeader } from "#app/components/ui/card.js"
+import { Card, CardContent, CardHeader } from "#app/components/ui/card.js"
 import { Octokit } from "@octokit/rest"
 import { cachified } from "#app/cache.server.js"
 import { getUser } from "#app/auth.server.js"
@@ -28,7 +28,129 @@ import { Input } from "#app/components/ui/input.js"
 import { FileTreeMenu } from "#app/components/file-tree-menu.js"
 import { FileEditor } from "#app/components/file-editor.js"
 import { DiffEditor } from "#app/components/diff-editor.js"
-import { matchesState } from "xstate"
+import { Heading } from "#app/components/heading.js"
+
+type GitHubFileInfo = {
+  owner: string
+  repo: string
+  branch: string
+  path: string
+}
+
+async function parseGitHubUrl(url: string): Promise<GitHubFileInfo> {
+  if (!url.startsWith("https://github.com/")) {
+    throw new Error("Only GitHub URLs are supported at this time")
+  }
+
+  const parts = url.split("/")
+  const owner = parts[3]
+  const repo = parts[4]
+  const blobIndex = parts.indexOf("blob")
+  const branch = parts[blobIndex + 1]
+  const path = parts.slice(blobIndex + 2).join("/")
+
+  invariant(owner && repo && path, "Invalid GitHub URL format")
+  return { owner, repo, branch, path }
+}
+
+async function getFileContent({
+  owner,
+  repo,
+  path,
+  ref,
+  octokit,
+}: GitHubFileInfo & { ref: string; octokit: Octokit }) {
+  const { data: fileData } = await cachified({
+    key: `github-file-${owner}-${repo}-${path}-${ref}`,
+    getFreshValue: () =>
+      octokit.repos.getContent({
+        owner,
+        repo,
+        path,
+        ref,
+      }),
+    ttl: 1000 * 60 * 60 * 24,
+  })
+
+  return {
+    content: Buffer.from(fileData.content, "base64").toString(),
+    sha: fileData.sha,
+  }
+}
+
+async function getFileHistory({
+  owner,
+  repo,
+  path,
+  branch,
+  octokit,
+}: GitHubFileInfo & { octokit: Octokit }) {
+  const commits = await getAllCommitsWithRenames({
+    owner,
+    repo,
+    path,
+    branch,
+    octokit,
+  })
+
+  const history: any[] = []
+  let currentPath = path
+
+  for (const commit of commits) {
+    const { data: commitData } = await cachified({
+      key: `github-commit-${owner}-${repo}-${commit.sha}`,
+      getFreshValue: () =>
+        octokit.repos.getCommit({
+          owner,
+          repo,
+          ref: commit.sha,
+        }),
+      ttl: 1000 * 60 * 60 * 24,
+    })
+
+    const fileData = commitData.files?.find(
+      (file) => file.filename === currentPath,
+    )
+
+    if (!fileData) continue
+
+    const historicalContent = await cachified({
+      key: `github-file-${owner}-${repo}-${path}-${fileData.sha}`,
+      getFreshValue: async () => {
+        const response = await fetch(fileData.raw_url)
+        if (!response.ok) {
+          throw new Error(`Failed to fetch raw content: ${response.statusText}`)
+        }
+        const content = await response.text()
+        return {
+          content: Buffer.from(content).toString("base64"),
+          sha: fileData.sha,
+        }
+      },
+      ttl: 1000 * 60 * 60 * 24,
+    })
+
+    const newContent = Buffer.from(
+      historicalContent.content,
+      "base64",
+    ).toString()
+
+    if (history.at(-1)?.content !== newContent) {
+      history.push({
+        path: currentPath,
+        version: fileData.sha,
+        content: newContent,
+        timestamp: new Date(commitData.commit.author?.date || ""),
+      })
+    }
+
+    if (fileData.previous_filename) {
+      currentPath = fileData.previous_filename
+    }
+  }
+
+  return history.filter((h) => h !== null).reverse()
+}
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const index = params.index
@@ -51,152 +173,35 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       auth: user?.tokens.access_token,
     })
 
-    // Process each file that has a GitHub source
     const registryData = {
       files: await Promise.all(
         item.files.map(async (fileConfig) => {
           invariant(fileConfig.source, "File source is required")
-          if (!fileConfig.source?.startsWith("https://github.com/")) {
-            throw new Error("Only GitHub URLs are supported at this time")
-          }
 
-          const githubUrlParts = fileConfig.source.split("/")
-          const owner = githubUrlParts[3]
-          const repo = githubUrlParts[4]
-          const blobIndex = githubUrlParts.indexOf("blob")
-          const branch = githubUrlParts[blobIndex + 1]
-          const filePath = githubUrlParts.slice(blobIndex + 2).join("/")
+          const fileInfo = await parseGitHubUrl(fileConfig.source)
+          const currentContent = await getFileContent({
+            ...fileInfo,
+            ref: fileInfo.branch,
+            octokit,
+          })
+          const history = await getFileHistory({ ...fileInfo, octokit })
 
-          invariant(owner && repo && filePath, "Invalid GitHub URL format")
-
-          try {
-            // Get current file content - using the branch as ref
-            const { data: fileData } = await cachified({
-              key: `github-file-${owner}-${repo}-${filePath}-${branch}`,
-              getFreshValue: () =>
-                octokit.repos.getContent({
-                  owner,
-                  repo,
-                  path: filePath,
-                  ref: branch,
-                }),
-              ttl: 1000 * 60 * 60 * 24,
-            })
-
-            // Get commit history for the file - using the branch as ref
-            const { data: commits } = await cachified({
-              key: `github-commits-${owner}-${repo}-${filePath}-${branch}`,
-              getFreshValue: () =>
-                octokit.repos.listCommits({
-                  owner,
-                  repo,
-                  path: filePath,
-                  sha: branch,
-                  per_page: 100,
-                }),
-              ttl: 1000 * 60 * 60 * 24,
-            })
-
-            // Get historical versions of the file
-            const history = await Promise.all(
-              commits
-                // we fetched in newest-to-oldest
-                // .reverse()
-                .map(async (commit) => {
-                  const { data: commitData } = await cachified({
-                    key: `github-commit-${owner}-${repo}-${commit.sha}-${filePath}`,
-                    getFreshValue: () =>
-                      octokit.repos.getCommit({
-                        owner,
-                        repo,
-                        ref: commit.sha,
-                      }),
-                    ttl: 1000 * 60 * 60 * 24,
-                  })
-
-                  const fileData = commitData.files?.find(
-                    (file) => file.filename === filePath,
-                  )
-                  console.log("File data from commit:", {
-                    filePath,
-                    sha: commit.sha,
-                    fileData: {
-                      sha: fileData?.sha,
-                    },
-                  })
-
-                  if (!fileData) {
-                    console.log(
-                      `No file data found for ${filePath} in commit ${commit.sha}`,
-                    )
-                    throw new Error(`No file data found for ${filePath}`)
-                  }
-
-                  // Fetch file content using fileData.sha instead of commit.sha
-                  const historicalContent = await cachified({
-                    key: `github-file-${owner}-${repo}-${filePath}-${fileData.sha}`,
-                    forceFresh: true,
-                    getFreshValue: async () => {
-                      const response = await fetch(fileData.raw_url)
-                      console.log("Raw URL fetch response:", {
-                        sha: fileData?.sha,
-                        status: response.status,
-                        ok: response.ok,
-                        raw_url: fileData.raw_url,
-                      })
-
-                      if (!response.ok) {
-                        throw new Error(
-                          `Failed to fetch raw content: ${response.statusText}`,
-                        )
-                      }
-                      const content = await response.text()
-                      return {
-                        content: Buffer.from(content).toString("base64"),
-                        sha: fileData.sha,
-                      }
-                    },
-                    ttl: 1000 * 60 * 60 * 24,
-                  })
-
-                  if (!historicalContent) {
-                    throw new Error(
-                      `No historical content found for ${filePath} at commit ${fileData?.sha}`,
-                    )
-                  }
-
-                  return {
-                    version: fileData.sha,
-                    content: Buffer.from(
-                      historicalContent.content,
-                      "base64",
-                    ).toString(),
-                    timestamp: new Date(
-                      commit.commit.author?.date || "",
-                    ).getTime(),
-                  }
-                }),
-            ).then((versions) => versions.filter(Boolean).reverse()) // Remove null entries
-
-            return {
-              path: fileConfig.path,
-              content: Buffer.from(fileData.content, "base64").toString(),
-              version: fileData.sha,
-              history,
-            }
-          } catch (error) {
-            if (error.status === 404) {
-              throw new Error(
-                `File not found at ${fileConfig.source}. Please verify the URL is correct and the file exists in the repository.`,
-              )
-            }
-            throw error
+          return {
+            source: fileConfig.source,
+            path: fileConfig.path,
+            content: currentContent.content,
+            version: currentContent.sha,
+            history,
           }
         }),
       ),
     }
 
-    console.log({ registryFiles: registryData.files })
+    console.log(
+      "registryData",
+      registryData.files.map((f) => f.history.map((h) => h.path)),
+    )
+
     // registryFiles only have path and content right now
 
     // Compute diffs for each file and each version
@@ -222,8 +227,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       })
 
       // Find the file configuration with a matching filename
-      const fileConfig = item.files?.find((f) => f.path === file.name)
-
+      const fileConfig = item.files.find((f) => f.path === file.path)
       // Generate diff for base vs registry
       const baseContent = getHistoricalVersionContentFromHistory(
         versions,
@@ -242,9 +246,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
       return {
         ...file,
+        source: registryFile?.source,
+        version: registryFile?.version,
         versionDiffs,
         baseVsRegistryDiff,
-        type: "file", // determines whether files start as file or diff
+        type: "file",
       }
     })
 
@@ -260,6 +266,78 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   }
 }
 
+async function getAllCommitsWithRenames({
+  owner,
+  repo,
+  path,
+  branch,
+  octokit,
+}: {
+  owner: string
+  repo: string
+  path: string
+  branch: string
+  octokit: Octokit
+}) {
+  let allCommits = []
+  let currentPath = path
+
+  let whileCount = 0
+  while (whileCount < 100) {
+    // Get commits for current path
+    const { data: commits } = await cachified({
+      key: `github-commits-${owner}-${repo}-${currentPath}-${branch}`,
+      getFreshValue: () =>
+        octokit.repos.listCommits({
+          owner,
+          repo,
+          path: currentPath,
+          sha: branch,
+          per_page: 100,
+        }),
+      ttl: 1000 * 60 * 60 * 24,
+    })
+
+    allCommits.push(...commits)
+
+    // Get the oldest commit's details to check for renames
+    if (commits.length > 0) {
+      const oldestCommit = commits[commits.length - 1]
+      const { data: commitData } = await cachified({
+        key: `github-commit-${owner}-${repo}-${oldestCommit.sha}`,
+        getFreshValue: () =>
+          octokit.repos.getCommit({
+            owner,
+            repo,
+            ref: oldestCommit.sha,
+          }),
+        ttl: 1000 * 60 * 60 * 24,
+      })
+
+      // Look for rename in this commit
+      const fileData = commitData.files?.find(
+        (file) => file.filename === currentPath,
+      )
+
+      if (fileData?.previous_filename) {
+        currentPath = fileData.previous_filename
+        console.log(`Found previous filename: ${currentPath}`)
+      } else {
+        // No more renames found
+        break
+      }
+    } else {
+      break
+    }
+  }
+
+  if (whileCount >= 100) {
+    console.log("Hit max depth")
+  }
+
+  return allCommits
+}
+
 export default function ItemPage() {
   const {
     index,
@@ -269,18 +347,45 @@ export default function ItemPage() {
     item,
   } = useLoaderData<typeof loader>()
   const [files, setFiles] = useState(initialFiles)
-
+  console.log("files", files)
   if (!files.length) return <div className="p-6">No item files found</div>
-  console.log(files)
+
+  // Calculate status summary
+  const fileStatuses = files.map((file) => {
+    const registryFile = registryFiles.find((f) => f.path === file.path)
+    const fileConfig = item.files?.find((f) => f.path === file.path)
+    const isUpToDate = fileConfig?.version === registryFile?.version
+    return isUpToDate ? "up-to-date" : "outdated"
+  })
+
+  const statusSummary = {
+    total: files.length,
+    upToDate: fileStatuses.filter((s) => s === "up-to-date").length,
+    outdated: fileStatuses.filter((s) => s === "outdated").length,
+  }
+
   return (
     <div className="p-6">
-      <div className="mb-8">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold mb-2">
-            {item?.name || "Unnamed Item"}
-          </h1>
-        </div>
-      </div>
+      <Card className="mb-8">
+        <CardHeader>
+          <Heading>{item?.name || "Unnamed Item"}</Heading>
+          {item?.description && (
+            <p className="text-sm text-muted-foreground">{item.description}</p>
+          )}
+        </CardHeader>
+        <CardContent>
+          <div className="text-muted-foreground font-mono">
+            <span className="font-bold text-foreground">
+              {statusSummary.total}
+            </span>
+            <span className=""> files </span>
+            <span className="font-bold text-foreground">
+              {statusSummary.outdated}
+            </span>
+            <span className=""> updates </span>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="space-y-6">
         {files.map((file) => (
@@ -304,6 +409,82 @@ export default function ItemPage() {
           />
         ))}
       </div>
+    </div>
+  )
+}
+
+function FileCard({
+  index,
+  file,
+  registryFile,
+  config,
+  onFileChange,
+}: {
+  index: string
+  file: any
+  registryFile: any
+  config: any
+  onFileChange: (newFile: { path: string; content: string }) => void
+}) {
+  const { updateConfig } = useUpdateConfig()
+
+  const fileConfig = config.value.items[index].files.find(
+    (f) => f.path === file.path,
+  )
+
+  const [isSliderView, setIsSliderView] = useState<boolean>(
+    fileConfig.commit ? false : true,
+  )
+
+  const versions = registryFile?.history || []
+
+  const baseContent = getHistoricalVersionContentFromHistory(
+    versions,
+    fileConfig.version,
+  )
+
+  const isLatestVersion = fileConfig.version === registryFile.version
+
+  return (
+    <div key={file.name} className="w-full max-w-4xl">
+      {isSliderView ? (
+        <SliderView
+          file={file}
+          versions={versions}
+          version={fileConfig.version}
+          onSetVersion={(version) => {
+            fileConfig.version = version
+            updateConfig({
+              value: config.value,
+            })
+            setIsSliderView(false)
+          }}
+        />
+      ) : (
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            className="shadow-smooth"
+            onClick={() => setIsSliderView(true)}
+          >
+            Change version
+          </Button>
+          <Card className="mt-4 pt-0 shadow-smooth">
+            <FileViewer
+              selectedFile={file}
+              baseContent={baseContent}
+              onFileSelect={() => {}}
+              onChange={({ newFile }) => {
+                onFileChange(newFile)
+              }}
+              onSelectVersion={() => {
+                setIsSliderView(true)
+              }}
+            />
+          </Card>
+        </>
+      )}
     </div>
   )
 }
@@ -363,10 +544,10 @@ function SliderView({
         Set version
       </Button>
 
-      <Card className={cn("font-mono py-0")}>
+      <Card className={cn("font-mono py-0 mt-4")}>
         <CardHeader
           className={cn(
-            "flex flex-col justify-between px-2 py-2 shadow-smooth border-b",
+            "flex flex-col justify-between px-2 py-2 shadow-smooth border-b border-border",
           )}
         >
           <div className="flex items-center gap-x-2 px-2">
@@ -416,106 +597,19 @@ function SliderView({
           </div>
         </CardHeader>
 
-        <div className="font-mono text-sm">
+        <div className="font-mono px-4 py-2">
           {selectedDiff ? (
-            <PreDiffViewWithTokens diffArray={selectedDiff.diffArray} />
+            <PreDiffViewWithTokens
+              diffArray={selectedDiff.diffArray}
+              className="text-sm"
+            />
           ) : (
-            <div className="px-4 py-2">
-              File contents match registry exactly
-            </div>
+            <div>File contents match registry exactly</div>
           )}
         </div>
       </Card>
     </>
   )
-}
-
-function FileCard({
-  index,
-  file,
-  registryFile,
-  config,
-  onFileChange,
-}: {
-  index: string
-  file: any
-  registryFile: any
-  config: any
-  onFileChange: (newFile: { path: string; content: string }) => void
-}) {
-  const { updateConfig } = useUpdateConfig()
-
-  const fileConfig = config.value.items[index].files.find(
-    (f) => f.path === file.path,
-  )
-
-  const [isSliderView, setIsSliderView] = useState<boolean>(
-    fileConfig.commit ? false : true,
-  )
-
-  const versions = registryFile?.history || []
-
-  const baseContent = getHistoricalVersionContentFromHistory(
-    versions,
-    fileConfig.version,
-  )
-
-  const isLatestVersion = fileConfig.version === registryFile.version
-
-  return (
-    <div key={file.name} className="w-full max-w-4xl">
-      {isSliderView ? (
-        <SliderView
-          file={file}
-          versions={versions}
-          version={fileConfig.version}
-          onSetVersion={(version) => {
-            fileConfig.version = version
-            updateConfig({
-              value: config.value,
-            })
-            setIsSliderView(false)
-          }}
-        />
-      ) : (
-        <>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setIsSliderView(true)}
-          >
-            Change version
-          </Button>
-          <Card className="mt-4 pt-0 shadow-smooth">
-            <FileViewer
-              selectedFile={file}
-              baseContent={baseContent}
-              onFileSelect={() => {}}
-              onChange={({ newFile }) => {
-                onFileChange(newFile)
-              }}
-              files={[
-                {
-                  path: file.path,
-                  content: file.content,
-                  type: "file",
-                },
-              ]}
-              onStateChange={() => {}}
-            />
-          </Card>
-        </>
-      )}
-    </div>
-  )
-}
-
-function getHistoricalVersionContentFromHistory(
-  history: Array<{ version: string; content: string }>,
-  version: string,
-): string {
-  const versionEntry = history.find((entry) => entry.version === version)
-  return versionEntry ? versionEntry.content : ""
 }
 
 function FileViewer({
@@ -524,11 +618,15 @@ function FileViewer({
   onFileSelect,
   onChange,
   className,
-  files,
-  onStateChange,
+  onSelectVersion,
 }: {
   baseContent: string
-  selectedFile: { path: string; content: string; type: string } | null
+  selectedFile: {
+    path: string
+    content: string
+    type: string
+    source?: string
+  } | null
   onFileSelect: (path: string) => void
   onChange: ({
     oldPath,
@@ -538,9 +636,9 @@ function FileViewer({
     newFile: { path: string; content: string; type: string }
   }) => void
   className?: string
-  files: Array<{ path: string; content: string; type: string }>
-  onStateChange: (state: string) => void
+  onSelectVersion: () => void
 }) {
+  console.log("selected", selectedFile)
   const [search, setSearch] = useState("")
   const [fileViewerState, setFileViewerState] = useState<"idle" | "preApply">(
     "idle",
@@ -558,7 +656,7 @@ function FileViewer({
   }))
 
   const showSidebar = fileViewerState === "preApply"
-
+  const MaybeSidebarProvider = showSidebar ? SidebarProvider : Fragment
   const currentBaseContent = selectedProjectPath
     ? state === "success"
       ? projectFile?.content || ""
@@ -567,7 +665,7 @@ function FileViewer({
 
   return (
     <div className={cn("overflow-hidden", className)}>
-      <SidebarProvider className="relative">
+      <MaybeSidebarProvider className="relative">
         <div className="flex h-full grow">
           {showSidebar && (
             <Sidebar className="border-r absolute border-sidebar-border">
@@ -575,7 +673,7 @@ function FileViewer({
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="text-sm font-medium h-9 text-muted-foreground rounded-none border-none focus:ring-0"
+                  className="font-medium h-9 text-muted-foreground rounded-none border-none focus:ring-0"
                   placeholder="Search"
                 />
               </SidebarHeader>
@@ -600,6 +698,7 @@ function FileViewer({
                 <FileEditor
                   key={selectedFile.path}
                   file={selectedFile}
+                  onSelectVersion={onSelectVersion}
                   onChange={({ newFile }) => {
                     onChange({
                       oldPath: selectedFile.path,
@@ -625,7 +724,6 @@ function FileViewer({
                   }}
                   onStateChange={(state) => {
                     setFileViewerState(state as "idle" | "preApply")
-                    onStateChange(`diff.${state}`)
                   }}
                   baseContent={currentBaseContent}
                 />
@@ -633,7 +731,15 @@ function FileViewer({
             ) : null}
           </div>
         </div>
-      </SidebarProvider>
+      </MaybeSidebarProvider>
     </div>
   )
+}
+
+function getHistoricalVersionContentFromHistory(
+  history: Array<{ version: string; content: string }>,
+  version: string,
+): string {
+  const versionEntry = history.find((entry) => entry.version === version)
+  return versionEntry ? versionEntry.content : ""
 }

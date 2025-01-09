@@ -242,7 +242,7 @@ export function DiffEditor({
     <div>
       <div className="px-1 py-1 border-b border-sidebar-border flex gap-x-2 justify-between mb-2">
         <div className="flex items-center gap-x-2">
-          <h2 className="text-sm text-muted-foreground">{file.path}</h2>
+          <div className="font-mono px-3">{file.path}</div>
         </div>
 
         <div className="flex items-center gap-x-2">
@@ -250,9 +250,8 @@ export function DiffEditor({
             <>
               <Button
                 type="button"
-                size="sm"
-                variant="outline"
-                className="rounded-tr-sm rounded-br-none px-4"
+                variant="primary"
+                className="px-4"
                 onClick={() => send({ type: "CONFIRM" })}
               >
                 <Icon name="check" className="-ml-2 size-4" />
@@ -260,7 +259,6 @@ export function DiffEditor({
               </Button>
               <Button
                 type="button"
-                size="sm"
                 variant="outline"
                 className="rounded-tr-sm rounded-br-none px-4"
                 onClick={() => send({ type: "CANCEL" })}
@@ -273,17 +271,15 @@ export function DiffEditor({
             <>
               <Button
                 type="button"
-                size="sm"
                 variant="outline"
-                className="rounded-tr-sm rounded-br-none px-4"
+                className="px-4"
                 onClick={() => send({ type: "APPLY" })}
               >
                 <Icon name="play" className="-ml-2 size-4" />
-                Apply
+                Continue
               </Button>
               <Button
                 type="button"
-                size="sm"
                 variant="outline"
                 className="rounded-tr-sm rounded-br-none px-4"
                 onClick={() => send({ type: "CANCEL" })}
@@ -296,9 +292,8 @@ export function DiffEditor({
             <>
               <Button
                 type="button"
-                size="sm"
-                variant="outline"
-                className="rounded-tr-sm rounded-br-none px-4"
+                variant="primary"
+                className="px-4"
                 onClick={() =>
                   send({
                     type: "SAVE_EDITS",
@@ -311,7 +306,6 @@ export function DiffEditor({
               </Button>
               <Button
                 type="button"
-                size="sm"
                 variant="outline"
                 className="rounded-tr-sm rounded-br-none px-4"
                 onClick={() => send({ type: "CANCEL" })}
@@ -324,17 +318,15 @@ export function DiffEditor({
             <>
               <Button
                 type="button"
-                size="sm"
                 variant="outline"
-                className="rounded-tr-sm rounded-br-none px-4"
+                className="px-4"
                 onClick={() => send({ type: "APPLY_DIFF" })}
               >
-                <Icon name="apply" className="-ml-2 size-4" />
+                <Icon name="play" className="-ml-2 size-4" />
                 Apply
               </Button>
               <Button
                 type="button"
-                size="sm"
                 variant="outline"
                 className="rounded-tr-sm rounded-br-none px-4"
                 onClick={() => send({ type: "TOGGLE_EDIT" })}

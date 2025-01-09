@@ -1,9 +1,4 @@
-import {
-  ClientLoaderFunctionArgs,
-  Link,
-  useLoaderData,
-  useNavigate,
-} from "@remix-run/react"
+import { Link, useLoaderData, useNavigate } from "@remix-run/react"
 import {
   Card,
   CardHeader,
@@ -13,11 +8,10 @@ import {
 } from "#app/components/ui/card.tsx"
 import { Icon as IconifyIcon } from "@iconify/react"
 import { ComponentLibraryCard } from "#app/components/component-library-card.js"
-import { fetchConfig, useCliInfo, useOptionalCli } from "#app/use-connection.js"
+import { fetchConfig, useOptionalCli } from "#app/use-connection.js"
 import { FadeIn } from "#app/components/fade-in.js"
 import { Icon } from "#app/components/icon.js"
-import { ConnectedTerminal, Terminal } from "#app/components/terminal.js"
-import { db } from "#app/db.js"
+import { ConnectedTerminal } from "#app/components/terminal.js"
 import { getIconifyIndex } from "../../../lib/iconify"
 import { cachified } from "#app/cache.server.js"
 import { LoaderFunctionArgs } from "@vercel/remix"

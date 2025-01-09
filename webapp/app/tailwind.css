@@ -11,12 +11,15 @@
     --muted-foreground: 0 0% 45.1%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 3.9%;
-    --border: 0 0% 89.8%;
+    --border: 0 0% 86%;
     --input: 0 0% 89.8%;
     --card: 0 0% 100%;
     --card-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
+    --primary: 0 0% 90%;
+    --primary-hover: 0 0% 87%;
+    --primary-foreground: 0 0% 0%;
+    --primary-border: 0 0% 73%;
+    --primary-border-hover: 0 0% 70%;
     --secondary: 0 0% 96.1%;
     --secondary-foreground: 0 0% 9%;
     --accent: 0 0% 96.1%;
@@ -71,7 +74,6 @@
   }
 }
 
-
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -80,7 +82,10 @@
   --color-popover: hsl(var(--popover));
   --color-popover-foreground: hsl(var(--popover-foreground));
   --color-primary: hsl(var(--primary));
+  --color-primary-hover: hsl(var(--primary-hover));
   --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary-border: hsl(var(--primary-border));
+  --color-primary-border-hover: hsl(var(--primary-border-hover));
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
   --color-muted: hsl(var(--muted));
@@ -113,7 +118,7 @@
   --radius-sm: calc(var(--radius) - 4px);
   --radius-xs: calc(var(--radius) - 8px);
 
-  --shadow-smooth: 0px 4px 44px rgba(0,0,0, 0.05);
+  --shadow-smooth: 0px 4px 44px rgba(0, 0, 0, 0.05);
 }
 
 @layer base {
@@ -135,7 +140,9 @@
       rgba(255, 255, 255, 1)
     ),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='50' viewBox='0 0 432 432' fill='none'%3E%3Crect x='2.57982' y='215.667' width='302' height='302' transform='rotate(-45 2.57982 215.667)' stroke='rgb(200,200,200)' stroke-width='3'/%3E%3C/svg%3E");
-  background-position: top, center top;
+  background-position:
+    top,
+    center top;
 }
 
 .drop-shadow-smooth {

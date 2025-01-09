@@ -12,7 +12,6 @@ export function CodeEditor({
   readOnly?: boolean
 }) {
   const editorRef = useRef(null)
-  console.log("value", value)
   const lineCount = value?.split("\n").length ?? 8
   const lineHeight = 21
   const padding = 20
@@ -39,9 +38,15 @@ export function CodeEditor({
           domReadOnly: readOnly,
           ...options,
         }}
-        onMount={(editor) => {
+        onMount={(editor, monaco) => {
           editorRef.current = editor
           editor.layout() // Ensure the layout updates when the height changes
+          const elem = document.querySelector(".monaco-editor") as HTMLElement
+          elem.style.setProperty("--vscode-editor-background", "transparent")
+          elem.style.setProperty(
+            "--vscode-editorGutter-background",
+            "transparent",
+          )
         }}
       />
       {name ? (

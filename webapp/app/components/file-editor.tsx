@@ -12,6 +12,7 @@ import { setup, assign } from "xstate"
 import { useMachine } from "@xstate/react"
 import { Input } from "./ui/input"
 import { Form } from "@remix-run/react"
+import { truncateGitHubUrl } from "#app/utils/truncate-github-url.js"
 
 const readWriteFileMachine = setup({
   types: {
@@ -150,9 +151,16 @@ export function FileEditor({
   file,
   onChange,
   mode = "read-write",
+  onSelectVersion,
 }: {
-  mode: "write" | "read-write" | "read"
-  file: { path: string; content: string; type: string }
+  mode?: "write" | "read-write"
+  file: {
+    path: string
+    content: string
+    type: string
+    source?: string
+    version?: string
+  }
   onChange: ({
     oldPath,
     newFile,
@@ -160,6 +168,7 @@ export function FileEditor({
     oldPath: string
     newFile: { path: string; content: string; type: string }
   }) => void
+  onSelectVersion: () => void
 }) {
   const fileContent = file?.content || ""
 
@@ -223,120 +232,146 @@ export function FileEditor({
 
   return (
     <div>
-      <div className="px-1 py-1 border-b border-sidebar-border flex gap-x-2 justify-between mb-2">
-        <Form
-          className="flex items-center gap-x-2"
-          onSubmit={(e) => {
-            console.log("submit")
-            e.preventDefault()
-            onChange({
-              oldPath: file.path,
-              newFile: {
-                path: path,
-              },
-            })
-          }}
-        >
-          <Input
-            type="text"
-            value={path}
-            onChange={(e) => {
-              setPath(e.target.value)
+      <div className="px-1 py-1 border-b border-sidebar-border mb-2 shadow-smooth">
+        <div className="flex items-center gap-x-2 justify-between">
+          <Form
+            className="flex items-center gap-x-2"
+            onSubmit={(e) => {
+              console.log("submit")
+              e.preventDefault()
+              onChange({
+                oldPath: file.path,
+                newFile: {
+                  path: path,
+                },
+              })
             }}
-            className="rounded-r-sm rounded-l-none"
-          />
-          {path !== file.path ? (
-            <Button
-              type="submit"
-              size="sm"
-              variant="outline"
-              className="rounded-tr-sm rounded-br-none px-4"
-            >
-              Rename
-            </Button>
-          ) : null}
-        </Form>
-
-        <div className="flex items-center gap-x-2 ">
-          {state.matches("diff") ? (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-tr-sm rounded-br-none px-4"
-                onClick={() => {
-                  send({
-                    type: "CONTINUE",
-                    payload: {
-                      baseContent,
-                      currentContent,
-                    },
-                  })
+          >
+            {mode === "read-write" && !state.matches("edit") ? (
+              <div className="font-mono px-3">{path}</div>
+            ) : (
+              <Input
+                type="text"
+                value={path}
+                onChange={(e) => {
+                  setPath(e.target.value)
                 }}
-              >
-                <Icon name="play" className="-ml-2 size-4" />
-                Continue
-              </Button>
+                className="rounded-l-sm font-mono shadow-smooth"
+              />
+            )}
+            {path !== file.path ? (
               <Button
-                type="button"
+                type="submit"
+                size="sm"
                 variant="outline"
                 className="rounded-tr-sm rounded-br-none px-4"
-                onClick={() => send({ type: "CANCEL" })}
               >
-                <Icon name="x" className="-ml-2 size-4" />
-                Cancel
+                Rename
               </Button>
-            </>
-          ) : state.matches("edit") ? (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-tr-sm rounded-br-none px-4"
-                onClick={() =>
-                  send({
-                    type: "SAVE_EDITS",
-                    payload: editContent,
-                  })
-                }
-              >
-                <Icon name="play" className="-ml-2 size-4" />
-                Save
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-tr-sm rounded-br-none px-4"
-                onClick={() => send({ type: "CANCEL" })}
-              >
-                <Icon name="x" className="-ml-2 size-4" />
-                Cancel
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-tr-sm rounded-br-none px-4"
-                onClick={() => send({ type: "VIEW_DIFF" })}
-              >
-                <Icon name="scissors" className="-ml-2 size-4" />
-                Diff
-              </Button>
-              {state.can({ type: "TOGGLE_EDIT" }) ? (
+            ) : null}
+          </Form>
+
+          <div className="flex items-center gap-x-2 ">
+            {state.matches("diff") ? (
+              <>
                 <Button
+                  key="continue"
+                  type="button"
+                  variant="primary"
+                  className="px-4"
+                  onClick={() => {
+                    send({
+                      type: "CONTINUE",
+                      payload: {
+                        baseContent,
+                        currentContent,
+                      },
+                    })
+                  }}
+                >
+                  <Icon name="play" className="-ml-2 size-4" />
+                  Continue
+                </Button>
+                <Button
+                  key="cancel"
                   type="button"
                   variant="outline"
                   className="rounded-tr-sm rounded-br-none px-4"
-                  onClick={() => send({ type: "TOGGLE_EDIT" })}
+                  onClick={() => send({ type: "CANCEL" })}
                 >
-                  <Icon name="edit" className="-ml-2 size-4" />
-                  Edit
+                  <Icon name="x" className="-ml-2 size-4" />
+                  Cancel
                 </Button>
-              ) : null}
-            </>
-          )}
+              </>
+            ) : state.matches("edit") ? (
+              <>
+                <Button
+                  key="save"
+                  type="button"
+                  variant="primary"
+                  className="px-4"
+                  onClick={() =>
+                    send({
+                      type: "SAVE_EDITS",
+                      payload: editContent,
+                    })
+                  }
+                >
+                  <Icon name="play" className="-ml-2 size-4" />
+                  Save
+                </Button>
+                <Button
+                  key="cancel"
+                  type="button"
+                  variant="outline"
+                  className="rounded-tr-sm rounded-br-none px-4"
+                  onClick={() => send({ type: "CANCEL" })}
+                >
+                  <Icon name="x" className="-ml-2 size-4" />
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  key="diff"
+                  type="button"
+                  variant="outline"
+                  className="px-4"
+                  onClick={() => send({ type: "VIEW_DIFF" })}
+                >
+                  <Icon name="scissors" className="-ml-2 size-4" />
+                  Diff
+                </Button>
+                {state.can({ type: "TOGGLE_EDIT" }) ? (
+                  <Button
+                    key="edit"
+                    type="button"
+                    variant="outline"
+                    className="px-4"
+                    onClick={() => send({ type: "TOGGLE_EDIT" })}
+                  >
+                    <Icon name="edit" className="-ml-2 size-4" />
+                    Edit
+                  </Button>
+                ) : null}
+              </>
+            )}
+          </div>
+        </div>
+        <div className="font-mono text-sm px-3">
+          <a href={file.source} target="_blank" className=" text-sky-600">
+            {truncateGitHubUrl(file.source || "")}
+          </a>{" "}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="px-2"
+            onClick={onSelectVersion}
+          >
+            {file.version?.slice(0, 7)} <Icon name="chevron-down" />
+          </Button>
         </div>
       </div>
 
