@@ -13,7 +13,7 @@ import { Slider } from "#app/components/ui/slider.tsx"
 import { format } from "date-fns"
 import { cn } from "#app/utils/misc.js"
 import { PreDiffViewWithTokens } from "#app/components/pre-diff-view.js"
-import { tokenize, diffTokens } from "@pkgless/diff"
+import { tokenize, diffTokens, diffArrayToString } from "@pkgless/diff"
 import { Card, CardContent, CardHeader } from "#app/components/ui/card.js"
 import { Octokit } from "@octokit/rest"
 import { cachified } from "#app/cache.server.js"
@@ -85,6 +85,7 @@ async function getFileHistory({
   branch,
   octokit,
 }: GitHubFileInfo & { octokit: Octokit }) {
+  console.log("Getting file history")
   const commits = await getAllCommitsWithRenames({
     owner,
     repo,
@@ -93,63 +94,8 @@ async function getFileHistory({
     octokit,
   })
 
-  const history: any[] = []
-  let currentPath = path
-
-  for (const commit of commits) {
-    const { data: commitData } = await cachified({
-      key: `github-commit-${owner}-${repo}-${commit.sha}`,
-      getFreshValue: () =>
-        octokit.repos.getCommit({
-          owner,
-          repo,
-          ref: commit.sha,
-        }),
-      ttl: 1000 * 60 * 60 * 24,
-    })
-
-    const fileData = commitData.files?.find(
-      (file) => file.filename === currentPath,
-    )
-
-    if (!fileData) continue
-
-    const historicalContent = await cachified({
-      key: `github-file-${owner}-${repo}-${path}-${fileData.sha}`,
-      getFreshValue: async () => {
-        const response = await fetch(fileData.raw_url)
-        if (!response.ok) {
-          throw new Error(`Failed to fetch raw content: ${response.statusText}`)
-        }
-        const content = await response.text()
-        return {
-          content: Buffer.from(content).toString("base64"),
-          sha: fileData.sha,
-        }
-      },
-      ttl: 1000 * 60 * 60 * 24,
-    })
-
-    const newContent = Buffer.from(
-      historicalContent.content,
-      "base64",
-    ).toString()
-
-    if (history.at(-1)?.content !== newContent) {
-      history.push({
-        path: currentPath,
-        version: fileData.sha,
-        content: newContent,
-        timestamp: new Date(commitData.commit.author?.date || ""),
-      })
-    }
-
-    if (fileData.previous_filename) {
-      currentPath = fileData.previous_filename
-    }
-  }
-
-  return history.filter((h) => h !== null).reverse()
+  console.log("Got file history", commits)
+  return commits
 }
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
@@ -197,11 +143,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       ),
     }
 
-    console.log(
-      "registryData",
-      registryData.files.map((f) => f.history.map((h) => h.path)),
-    )
-
     // registryFiles only have path and content right now
 
     // Compute diffs for each file and each version
@@ -247,7 +188,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       return {
         ...file,
         source: registryFile?.source,
-        version: registryFile?.version,
+        version: fileConfig?.version,
         versionDiffs,
         baseVsRegistryDiff,
         type: "file",
@@ -279,12 +220,19 @@ async function getAllCommitsWithRenames({
   branch: string
   octokit: Octokit
 }) {
-  let allCommits = []
+  let attemptedFilenames = new Set()
+  let fileHistory = []
   let currentPath = path
 
   let whileCount = 0
-  while (whileCount < 100) {
-    // Get commits for current path
+  while (whileCount++ < 100) {
+    if (attemptedFilenames.has(currentPath)) {
+      console.log("Already attempted this path", currentPath)
+      console.log("Attempted filenames", attemptedFilenames)
+      break
+    }
+
+    attemptedFilenames.add(currentPath)
     const { data: commits } = await cachified({
       key: `github-commits-${owner}-${repo}-${currentPath}-${branch}`,
       getFreshValue: () =>
@@ -298,44 +246,93 @@ async function getAllCommitsWithRenames({
       ttl: 1000 * 60 * 60 * 24,
     })
 
-    allCommits.push(...commits)
+    console.log(`Found ${commits.length} commits for ${currentPath}`)
 
-    // Get the oldest commit's details to check for renames
-    if (commits.length > 0) {
-      const oldestCommit = commits[commits.length - 1]
+    // Process each commit to get file content
+    for (const commit of commits) {
       const { data: commitData } = await cachified({
-        key: `github-commit-${owner}-${repo}-${oldestCommit.sha}`,
+        key: `github-commit-${owner}-${repo}-${commit.sha}`,
         getFreshValue: () =>
           octokit.repos.getCommit({
             owner,
             repo,
-            ref: oldestCommit.sha,
+            ref: commit.sha,
           }),
         ttl: 1000 * 60 * 60 * 24,
       })
 
-      // Look for rename in this commit
-      const fileData = commitData.files?.find(
+      let fileData = commitData.files?.find(
         (file) => file.filename === currentPath,
       )
 
-      if (fileData?.previous_filename) {
-        currentPath = fileData.previous_filename
-        console.log(`Found previous filename: ${currentPath}`)
-      } else {
-        // No more renames found
-        break
+      // Handle large commits with pagination
+      if (!fileData && commitData.files?.length === 300) {
+        console.log("Large commit, fetching additional pages")
+        let page = 2
+
+        while (!fileData && page <= 10) {
+          const { data: fullCommitData } = await cachified({
+            key: `github-commit-${owner}-${repo}-${commit.sha}-page-${page}`,
+            getFreshValue: () =>
+              octokit.request("GET /repos/{owner}/{repo}/commits/{ref}", {
+                owner,
+                repo,
+                ref: commit.sha,
+                per_page: 300,
+                page,
+              }),
+            ttl: 1000 * 60 * 60 * 24,
+          })
+
+          if (!fullCommitData.files?.length) break
+
+          fileData = fullCommitData.files.find(
+            (file) => file.filename === currentPath,
+          )
+          page++
+        }
       }
-    } else {
-      break
+
+      if (fileData) {
+        // Get the file content at this commit
+        const { data: fileContent } = await cachified({
+          key: `github-file-content-${owner}-${repo}-${path}-${commit.sha}`,
+          getFreshValue: () =>
+            octokit.repos.getContent({
+              owner,
+              repo,
+              path: currentPath,
+              ref: commit.sha,
+            }),
+          ttl: 1000 * 60 * 60 * 24,
+        })
+
+        // Decode base64 content
+        const content = Buffer.from(fileContent.content, "base64").toString()
+
+        if (fileHistory.at(-1)?.content !== content) {
+          fileHistory.push({
+            path: currentPath,
+            version: commit.sha,
+            content,
+            timestamp: new Date(commitData.commit.author?.date || ""),
+          })
+        }
+
+        if (fileData.previous_filename) {
+          currentPath = fileData.previous_filename
+        }
+      }
     }
+
+    if (!commits.length) break
   }
 
   if (whileCount >= 100) {
     console.log("Hit max depth")
   }
 
-  return allCommits
+  return fileHistory.filter(Boolean).reverse()
 }
 
 export default function ItemPage() {
@@ -394,7 +391,6 @@ export default function ItemPage() {
             index={index}
             file={file}
             registryFile={registryFiles.find((f) => f.path === file.path)}
-            currentVersion={null}
             config={config}
             onFileChange={(newFile) => {
               console.log("onFileChange", newFile)
@@ -427,23 +423,24 @@ function FileCard({
   onFileChange: (newFile: { path: string; content: string }) => void
 }) {
   const { updateConfig } = useUpdateConfig()
+  const [showUpdatePreview, setShowUpdatePreview] = useState(false)
+  const [updateDiffArray, setUpdateDiffArray] = useState<any>(null)
 
   const fileConfig = config.value.items[index].files.find(
     (f) => f.path === file.path,
   )
 
   const [isSliderView, setIsSliderView] = useState<boolean>(
-    fileConfig.commit ? false : true,
+    fileConfig.version ? false : true,
   )
 
   const versions = registryFile?.history || []
+  const hasUpdates = fileConfig.version !== registryFile.version
 
   const baseContent = getHistoricalVersionContentFromHistory(
     versions,
     fileConfig.version,
   )
-
-  const isLatestVersion = fileConfig.version === registryFile.version
 
   return (
     <div key={file.name} className="w-full max-w-4xl">
@@ -452,24 +449,54 @@ function FileCard({
           file={file}
           versions={versions}
           version={fileConfig.version}
-          onSetVersion={(version) => {
+          onSetVersion={({ version, diffArray }) => {
             fileConfig.version = version
             updateConfig({
               value: config.value,
             })
             setIsSliderView(false)
+            setUpdateDiffArray(diffArray)
           }}
         />
       ) : (
         <>
-          <Button
-            type="button"
-            variant="outline"
-            className="shadow-smooth"
-            onClick={() => setIsSliderView(true)}
-          >
-            Change version
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="shadow-smooth"
+              onClick={() => setIsSliderView(true)}
+            >
+              Change version
+            </Button>
+            {hasUpdates && (
+              <Button
+                type="button"
+                variant="outline"
+                className="text-orange-500 hover:text-orange-600"
+                onClick={() => setShowUpdatePreview(true)}
+              >
+                Updates available
+              </Button>
+            )}
+          </div>
+
+          {showUpdatePreview && (
+            <Card className="mt-4 pt-0 shadow-smooth">
+              <UpdateViewer
+                selectedFile={{
+                  ...file,
+                  content: registryFile.content,
+                }}
+                baseContent={file.content}
+                onChange={({ newFile }) => {
+                  onFileChange(newFile)
+                }}
+                updateDiffArray={file.baseVsRegistryDiff}
+              />
+            </Card>
+          )}
+
           <Card className="mt-4 pt-0 shadow-smooth">
             <FileViewer
               selectedFile={file}
@@ -498,7 +525,7 @@ function SliderView({
   file: any
   versions: any
   version?: string
-  onSetVersion: (version: string) => void
+  onSetVersion: (version: { version: string; diffArray: any }) => void
 }) {
   // Guard against empty versions array
   if (!versions?.length) {
@@ -537,7 +564,27 @@ function SliderView({
       <Button
         type="button"
         onClick={() => {
-          onSetVersion(selectedVersion.version)
+          // when we set the version, we should compute the diff between this version and the latest version.
+          // When setting version, compute diff between selected and latest
+          const selectedContent = versions[boundedIndex].content
+          const latestContent = versions.at(-1).content
+
+          // TODO: long running process
+          const diffArray = diffTokens({
+            a: tokenize({
+              content: selectedContent,
+              language: "typescript",
+            }),
+            b: tokenize({
+              content: latestContent,
+              language: "typescript",
+            }),
+          })
+
+          onSetVersion({
+            version: selectedVersion.version,
+            diffArray,
+          })
         }}
         variant="outline"
       >
@@ -732,6 +779,59 @@ function FileViewer({
           </div>
         </div>
       </MaybeSidebarProvider>
+    </div>
+  )
+}
+
+function UpdateViewer({
+  selectedFile,
+  baseContent,
+  onChange,
+  updateDiffArray,
+}: {
+  baseContent: string
+  selectedFile: {
+    path: string
+    content: string
+    type: string
+    source?: string
+  }
+  onChange: ({
+    oldPath,
+    newFile,
+  }: {
+    oldPath: string
+    newFile: { path: string; content: string; type: string }
+  }) => void
+  updateDiffArray: any
+}) {
+  const [content, setContent] = useState(() =>
+    diffArrayToString(updateDiffArray),
+  )
+  return (
+    <div className="">
+      <div className="flex h-full grow overflow-hidden">
+        <DiffEditor
+          file={{
+            path: selectedFile.path,
+            content: content,
+            type: selectedFile.type,
+          }}
+          // onChange={({ newFile }) => {
+          //   onChange({
+          //     oldPath: selectedFile.path,
+          //     newFile: {
+          //       ...newFile,
+          //       path: selectedFile.path,
+          //     },
+          //   })
+          // }}
+          baseContent={baseContent}
+          onStateChange={(state) => {
+            console.log("state", state)
+          }}
+        />
+      </div>
     </div>
   )
 }

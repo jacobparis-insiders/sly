@@ -239,7 +239,7 @@ export function DiffEditor({
   }
 
   return (
-    <div>
+    <div className="max-w-full">
       <div className="px-1 py-1 border-b border-sidebar-border flex gap-x-2 justify-between mb-2">
         <div className="flex items-center gap-x-2">
           <div className="font-mono px-3">{file.path}</div>

@@ -33,7 +33,6 @@ export function useRootLoaderData() {
 }
 
 export function useConnectionId() {
-  console.log(useMatches())
   return useRootLoaderData().connectionId
 }
 
