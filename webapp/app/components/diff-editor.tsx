@@ -388,3 +388,155 @@ export function DiffEditor({
     </div>
   )
 }
+
+const autoDiffStateMachine = setup({
+  types: {
+    input: {} as {
+      content: string
+      baseContent: string
+    },
+    context: {} as {
+      diffArray: Array<DiffOperation>
+      applyResult: string
+      baseContent: string
+    },
+  },
+  actors: {
+    apply: applyActor,
+  },
+}).createMachine({
+  context: ({ input }) => ({
+    diffArray: diffStringToArray(input.content),
+    baseContent: input.baseContent,
+    applyResult: "",
+  }),
+  initial: "view",
+  states: {
+    view: {
+      on: {
+        APPLY: "apply",
+      },
+    },
+    apply: {
+      entry: assign(() => ({
+        applyResult: "",
+      })),
+      invoke: {
+        src: "apply",
+        input: ({ context }) => ({
+          prompt: JSON.stringify({
+            diff: diffArrayToString(context.diffArray),
+            base: context.baseContent,
+          }),
+        }),
+        onSnapshot: {
+          actions: assign(({ context, event }) => ({
+            applyResult: context.applyResult + (event.snapshot.context || ""),
+          })),
+        },
+      },
+      on: {
+        CONFIRM: {
+          target: "view",
+          actions: "saveAsFile",
+        },
+        CANCEL: {
+          target: "view",
+        },
+      },
+    },
+  },
+})
+
+export function AutoDiffEditor({
+  file,
+  onChange,
+  baseContent,
+}: {
+  file: { path: string; content: string; type: string }
+  onChange: ({
+    oldPath,
+    newFile,
+  }: {
+    oldPath: string
+    newFile: { path: string; content: string; type: string }
+  }) => void
+  baseContent: string
+}) {
+  const [state, send] = useMachine(
+    autoDiffStateMachine.provide({
+      actions: {
+        saveAsFile: ({ context }) => {
+          onChange({
+            oldPath: file.path,
+            newFile: {
+              path: file.path.replace(/\.diff$/, ""),
+              content: context.applyResult,
+              type: "file",
+            },
+          })
+        },
+      },
+    }),
+    {
+      input: {
+        content: file.content,
+        baseContent,
+      },
+    },
+  )
+
+  return (
+    <div className="max-w-full grow">
+      <div className="px-1 py-1 border-b border-sidebar-border flex gap-x-2 justify-between mb-2">
+        <div className="flex items-center gap-x-2">
+          <div className="font-mono px-3">{file.path}</div>
+        </div>
+
+        <div className="flex items-center gap-x-2">
+          {state.matches("apply") ? (
+            <>
+              <Button
+                type="button"
+                variant="primary"
+                className="px-4"
+                onClick={() => send({ type: "CONFIRM" })}
+              >
+                <Icon name="check" className="-ml-2 size-4" />
+                Confirm
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="px-4"
+                onClick={() => send({ type: "CANCEL" })}
+              >
+                <Icon name="x" className="-ml-2 size-4" />
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              className="px-4"
+              onClick={() => send({ type: "APPLY" })}
+            >
+              <Icon name="play" className="-ml-2 size-4" />
+              Apply
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {state.matches("apply") ? (
+        <CodeEditor value={state.context.applyResult} readOnly />
+      ) : (
+        <PreDiffViewWithTokens
+          diffArray={state.context.diffArray}
+          className="text-sm px-4"
+        />
+      )}
+    </div>
+  )
+}

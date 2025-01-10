@@ -1,0 +1,91 @@
+{
+  "config": {},
+  "libraries": {
+    "lucide": {
+      "type": "icon",
+      "config": {
+        "directory": "./app/components/ui/icons",
+        "transformers": []
+      }
+    },
+    "shadcn": {
+      "items": {
+        "button": {
+          "name": "button",
+          "files": [
+            {
+              "type": "file",
+              "path": "ui/button.tsx",
+              "version": "f3d14c48cbad1b6a3b3c9c81db9f198a4188f712"
+            }
+          ]
+        },
+        "sidebar": {
+          "name": "sidebar",
+          "files": [
+            {
+              "type": "file",
+              "path": "ui/sidebar.tsx",
+              "version": "debd51a854d4b336428d58e4f7702ebc073c3f49"
+            }
+          ]
+        },
+        "card": {
+          "name": "card",
+          "files": [
+            {
+              "type": "file",
+              "path": "ui/card.tsx"
+            }
+          ]
+        },
+        "avatar": {
+          "name": "avatar",
+          "files": [
+            {
+              "type": "file",
+              "path": "ui/avatar.tsx",
+              "version": "f3d14c48cbad1b6a3b3c9c81db9f198a4188f712"
+            }
+          ]
+        }
+      },
+      "type": "component",
+      "config": {
+        "directory": "./app/components",
+        "postinstall": "npm install",
+        "transformers": []
+      }
+    }
+  },
+  "items": [
+    {
+      "name": "Entry Files",
+      "files": [
+        {
+          "type": "file",
+          "path": "app/entry.client.tsx",
+          "source": "https://github.com/remix-run/remix/blob/main/packages/remix-dev/config/defaults/entry.client.tsx",
+          "version": "999c0a128c104f5ef9ccf3c33220d7bdac27bd24"
+        },
+        {
+          "type": "file",
+          "path": "app/entry.server.tsx",
+          "source": "https://github.com/remix-run/remix/blob/main/packages/remix-dev/config/defaults/entry.server.node.tsx",
+          "version": "5005bc691786c64f482d93c62acb2071d1ae3229"
+        }
+      ]
+    },
+    {
+      "name": "Button",
+      "files": [
+        {
+          "type": "file",
+          "path": "app/components/ui/button.tsx",
+          "source": "https://github.com/shadcn-ui/ui/blob/main/apps/www/registry/default/ui/button.tsx",
+          "version": "5dfc2020aa70e337a123bf4aef880cf9428f0682"
+        }
+      ]
+    }
+  ]
+}

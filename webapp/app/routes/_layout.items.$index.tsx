@@ -27,7 +27,7 @@ import {
 import { Input } from "#app/components/ui/input.js"
 import { FileTreeMenu } from "#app/components/file-tree-menu.js"
 import { FileEditor } from "#app/components/file-editor.js"
-import { DiffEditor } from "#app/components/diff-editor.js"
+import { AutoDiffEditor, DiffEditor } from "#app/components/diff-editor.js"
 import { Heading } from "#app/components/heading.js"
 
 type GitHubFileInfo = {
@@ -455,6 +455,7 @@ function FileCard({
               value: config.value,
             })
             setIsSliderView(false)
+            console.log("setUpdateDiffArray", diffArray)
             setUpdateDiffArray(diffArray)
           }}
         />
@@ -486,13 +487,14 @@ function FileCard({
               <UpdateViewer
                 selectedFile={{
                   ...file,
-                  content: registryFile.content,
+                  content: updateDiffArray
+                    ? diffArrayToString(updateDiffArray)
+                    : "",
                 }}
                 baseContent={file.content}
                 onChange={({ newFile }) => {
                   onFileChange(newFile)
                 }}
-                updateDiffArray={file.baseVsRegistryDiff}
               />
             </Card>
           )}
@@ -805,18 +807,11 @@ function UpdateViewer({
   }) => void
   updateDiffArray: any
 }) {
-  const [content, setContent] = useState(() =>
-    diffArrayToString(updateDiffArray),
-  )
   return (
     <div className="">
       <div className="flex h-full grow overflow-hidden">
-        <DiffEditor
-          file={{
-            path: selectedFile.path,
-            content: content,
-            type: selectedFile.type,
-          }}
+        <AutoDiffEditor
+          file={selectedFile}
           // onChange={({ newFile }) => {
           //   onChange({
           //     oldPath: selectedFile.path,
