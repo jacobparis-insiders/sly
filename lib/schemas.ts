@@ -81,6 +81,14 @@ export const libraryConfigSchema = z.object({
 
 export const ConfigSchema = z.object({
   $schema: z.string().optional(),
+  // TODO: is this right?
+  template: z
+    .object({
+      name: z.string(),
+      source: z.string(),
+      version: z.string().optional(),
+    })
+    .optional(),
   config: z.record(z.string(), resolvedLibraryConfigSchema.partial()),
   libraries: z.record(z.string(), libraryConfigSchema),
   items: z.array(ItemSchema),

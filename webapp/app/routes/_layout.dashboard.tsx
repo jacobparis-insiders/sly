@@ -16,6 +16,8 @@ import { getIconifyIndex } from "../../../lib/iconify"
 import { cachified } from "#app/cache.server.js"
 import { LoaderFunctionArgs } from "@vercel/remix"
 import { ItemCard } from "#app/components/cards/item-card.js"
+import { truncateGitHubUrl } from "#app/utils/truncate-github-url.js"
+import { parseGitHubUrl } from "#app/utils/parse-github-url.js"
 
 // Add type for library items
 type LibraryItem = {
@@ -68,6 +70,7 @@ const packageTypes = [
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { value: config } = await fetchConfig(request)
+  console.log({ config })
   const iconifyCollections = await cachified({
     key: "iconify-index",
     async getFreshValue() {
@@ -90,9 +93,28 @@ export async function loader({ request }: LoaderFunctionArgs) {
   return { config, libraries }
 }
 
+function TemplateCard({
+  template,
+}: {
+  template: { name: string; source: string }
+}) {
+  const navigate = useNavigate()
+  const { owner, repo } = parseGitHubUrl(template.source)
+  const href = `/github/${owner}/${repo}`
+  return (
+    <Card onClick={() => navigate(href)} className="hover:bg-neutral-50">
+      <CardHeader className="flex flex-col items-start">
+        <CardTitle className="flex items-center gap-2">
+          <Link to={href}>{template.name}</Link>
+        </CardTitle>
+        <CardDescription>{truncateGitHubUrl(template.source)}</CardDescription>
+      </CardHeader>
+    </Card>
+  )
+}
+
 export default function Index() {
   const { config, libraries } = useLoaderData<typeof loader>()
-  console.log(libraries)
   const { ready } = useOptionalCli()
 
   const navigate = useNavigate()
@@ -100,6 +122,12 @@ export default function Index() {
   return (
     <FadeIn show={ready}>
       <ConnectedTerminal>npx pkgless</ConnectedTerminal>
+
+      {config?.template && (
+        <div className="mt-8 mb-4">
+          <TemplateCard template={config.template} />
+        </div>
+      )}
 
       {libraries.length > 0 && (
         <>
@@ -172,7 +200,9 @@ function IconLibraryCard({
   return (
     <Card onClick={() => navigate(libraryUrl)} className="hover:bg-neutral-50">
       <CardHeader>
-        <CardTitle>{lib.name || library}</CardTitle>
+        <CardTitle>
+          <Link to={libraryUrl}>{lib.name || library}</Link>
+        </CardTitle>
       </CardHeader>
       {lib.samples.length > 0 ? (
         <CardContent>

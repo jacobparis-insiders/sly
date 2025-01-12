@@ -1,5 +1,5 @@
 import { type LoaderFunctionArgs } from "@remix-run/node"
-import { useLoaderData, useParams } from "@remix-run/react"
+import { useLoaderData, useParams, useNavigate } from "@remix-run/react"
 import { Octokit } from "@octokit/rest"
 import { invariant } from "@epic-web/invariant"
 import { Button } from "#app/components/ui/button.js"
@@ -15,6 +15,14 @@ import {
 } from "#app/components/ui/card.js"
 import { cachified } from "#app/cache.server.js"
 import { getUser } from "#app/auth.server.js"
+import { FileStructureGrid } from "#app/utils/skyline/file-structure-grid.js"
+import { Slider } from "#app/components/ui/slider.js"
+import { format } from "date-fns"
+import { useState } from "react"
+import { PreDiffViewWithTokens } from "#app/components/pre-diff-view.js"
+import { tokenize, diffTokens } from "@pkgless/diff"
+import { useUpdateConfig } from "#app/use-connection.js"
+import { getConnection } from "#app/use-connection.js"
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { owner, repo } = params
@@ -22,129 +30,147 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   invariant(repo, "No repo found in params")
 
   const user = await getUser(request)
-  const octokit = new Octokit({
-    auth: user?.tokens.access_token,
-  })
+  const connection = await getConnection(request)
+  try {
+    const config = await connection?.getConfig()
 
-  const repoData = await cachified({
-    key: `repo-${owner}-${repo}`,
-    getFreshValue: () => octokit.repos.get({ owner, repo }),
-    ttl: 1000 * 60 * 60 * 24, // 1 day
-  })
+    const octokit = new Octokit({
+      auth: user?.tokens.access_token,
+    })
 
-  const contributors = await octokit.repos.listContributors({
-    owner,
-    repo,
-  })
+    const [repoData, contributors, allCommits, recentActivity, contents] =
+      await Promise.all([
+        cachified({
+          key: `repo-${owner}-${repo}`,
+          getFreshValue: () => octokit.repos.get({ owner, repo }),
+          ttl: 1000 * 60 * 60 * 24, // 1 day
+        }),
 
-  const commits = await octokit.repos.listCommits({
-    owner,
-    repo,
-    per_page: 5,
-  })
+        cachified({
+          key: `contributors-${owner}-${repo}`,
+          getFreshValue: () => octokit.repos.listContributors({ owner, repo }),
+          ttl: 1000 * 60 * 60, // 1 hour
+        }),
 
-  const recentActivity = await octokit.activity.listRepoEvents({
-    owner,
-    repo,
-    per_page: 5,
-  })
+        cachified({
+          key: `commits-${owner}-${repo}`,
+          getFreshValue: () =>
+            octokit.repos.listCommits({ owner, repo, per_page: 100 }),
+          ttl: 1000 * 60 * 15, // 15 minutes
+        }),
 
-  const readme = await octokit.repos.getReadme({
-    owner,
-    repo,
-    mediaType: {
-      format: "html",
-    },
-  })
+        cachified({
+          key: `activity-${owner}-${repo}`,
+          getFreshValue: () =>
+            octokit.activity.listRepoEvents({ owner, repo, per_page: 5 }),
+          ttl: 1000 * 60 * 5, // 5 minutes
+        }),
 
-  invariant(repoData.data, "No repository data found")
+        cachified({
+          key: `contents-${owner}-${repo}`,
+          getFreshValue: async () => {
+            const allPaths: string[] = []
+            async function getContents(path = "") {
+              const response = await octokit.repos.getContent({
+                owner,
+                repo,
+                path,
+              })
 
-  return {
-    repo: {
-      ...repoData.data,
-      contributors_count: contributors.data.length,
-      commits_count: commits.data.length,
-      commits: commits.data.map((commit) => ({
-        sha: commit.sha,
-        message: commit.commit.message,
-        time_ago: new Date(commit.commit.author.date).toLocaleString(),
-      })),
-      recent_activity: recentActivity.data.map((event) => {
-        let message = "No message"
+              if (Array.isArray(response.data)) {
+                for (const item of response.data) {
+                  if (item.type === "file") {
+                    allPaths.push(item.path)
+                  } else if (item.type === "dir") {
+                    await getContents(item.path)
+                  }
+                }
+              }
+            }
+            await getContents()
+            return allPaths
+          },
+          ttl: 1000 * 60 * 60, // 1 hour
+        }),
+      ])
 
-        if (event.payload.issue) {
-          message = event.payload.issue.title || "No message"
-        } else if (event.payload.comment) {
-          message = event.payload.comment.body || "No message"
-        } else if (event.payload.pages) {
-          message = event.payload.pages[0]?.title || "No message"
-        }
+    invariant(repoData.data, "No repository data found")
 
-        return {
-          message,
-          time_ago: new Date(event.created_at).toLocaleString(),
-        }
-      }),
-    },
-    readme: readme.data,
+    return {
+      repo: {
+        ...repoData.data,
+        contributors_count: contributors.data.length,
+        all_commits: allCommits.data.map((commit) => ({
+          sha: commit.sha,
+          message: commit.commit.message,
+          date: commit.commit.author.date,
+          time_ago: new Date(commit.commit.author.date).toLocaleString(),
+        })),
+        recent_activity: recentActivity.data.map((event) => {
+          let message = "No message"
+
+          if (event.payload.issue) {
+            message = event.payload.issue.title || "No message"
+          } else if (event.payload.comment) {
+            message = event.payload.comment.body || "No message"
+          } else if (event.payload.pages) {
+            message = event.payload.pages[0]?.title || "No message"
+          }
+
+          return {
+            message,
+            time_ago: new Date(event.created_at).toLocaleString(),
+          }
+        }),
+      },
+      paths: contents,
+      config: config.value,
+    }
+  } finally {
+    connection?.close()
   }
 }
 
 export default function RepoPage() {
-  const { repo, readme } = useLoaderData<typeof loader>()
+  const { repo, paths, config } = useLoaderData<typeof loader>()
+  console.log(config)
   const params = useParams()
+  const navigate = useNavigate()
+  const [selectedCommitIndex, setSelectedCommitIndex] = useState(0)
+  const { updateConfig } = useUpdateConfig()
+
   if (!repo) return <div className="p-6">No repository found</div>
+
+  const handleSliderChange = (value: number[]) => {
+    setSelectedCommitIndex(value[0])
+  }
+
+  const selectedCommit = repo.all_commits[selectedCommitIndex]
+  const latestCommit = repo.all_commits[0]
 
   return (
     <div className="p-6">
       <FadeIn show className="max-w-3xl">
-        <div className="flex justify-between items-center">
-          <Heading>{repo.full_name}</Heading>
-          <div className="flex space-x-2">
-            <span>⭐ {repo.stargazers_count}</span>
-            <span>{repo.license?.spdx_id || "No License"}</span>
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <p>{repo.description}</p>
-          <div className="flex space-x-4 mt-2">
-            <span>{repo.contributors_count} contributors</span>
-            <span>{repo.commits_count} commits</span>
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <Heading>Recent Commits</Heading>
-          <ul className="mt-2">
-            {repo.commits.map((commit, index) => (
-              <li key={index} className="mt-2">
-                <a
-                  href={`/github/${params.owner}/${params.repo}/commit/${commit.sha}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Card>
-                    <CardHeader className="flex flex-col">
-                      <CardTitle>{commit.message}</CardTitle>
-                      <CardDescription>{commit.time_ago}</CardDescription>
-                    </CardHeader>
-                  </Card>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <Card className="mt-6">
-          <CardHeader>
-            <Heading>README</Heading>
+        <Card className="">
+          <CardHeader className="flex">
+            <Heading>{repo.full_name}</Heading>
+            <div className="flex gap-x-2 items-start">
+              <span>⭐ {repo.stargazers_count}</span>
+              <span>{repo.license?.spdx_id || "No License"}</span>
+            </div>
           </CardHeader>
           <CardContent>
-            <div
-              className="prose mt-2"
-              dangerouslySetInnerHTML={{ __html: readme }}
-            />
+            <div className="text-muted-foreground font-mono">
+              <p className="mb-4">{repo.description}</p>
+              <span className="font-bold text-foreground">
+                {repo.contributors_count}
+              </span>
+              <span className=""> contributors </span>
+              <span className="font-bold text-foreground">
+                {repo.all_commits.length}
+              </span>
+              <span className=""> commits</span>
+            </div>
           </CardContent>
         </Card>
 
@@ -158,6 +184,66 @@ export default function RepoPage() {
             View on GitHub
           </a>
         </Button>
+
+        <Card className="mt-6">
+          <CardHeader className="flex-col">
+            <Heading>Repository Timeline</Heading>
+            <div className=" w-full overflow-hidden">
+              <FileStructureGrid paths={paths} />
+              <div className="relative z-10">
+                <Slider
+                  min={0}
+                  max={repo.all_commits.length - 1}
+                  step={1}
+                  value={[selectedCommitIndex]}
+                  onValueChange={handleSliderChange}
+                  className="w-full"
+                />
+                <div className="absolute w-full flex justify-between top-3 px-[9px] -z-10">
+                  {repo.all_commits.map((_, index) => (
+                    <div
+                      key={index}
+                      className="border-l-2 h-2 border-neutral-300"
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-between text-sm text-muted-foreground mt-4">
+                <span>
+                  {format(
+                    new Date(repo.all_commits.at(-1).date),
+                    "MMM d, yyyy",
+                  )}
+                </span>
+                <span>
+                  {format(new Date(repo.all_commits[0].date), "MMM d, yyyy")}
+                </span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="font-mono">
+              <p className="text-sm text-muted-foreground mb-2">
+                {selectedCommit.message}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {selectedCommit.time_ago}
+              </p>
+            </div>
+          </CardContent>
+          <Button
+            type="button"
+            onClick={() => {
+              config.template.version = selectedCommit.sha
+              updateConfig({
+                value: config,
+              })
+            }}
+            className="mt-4"
+          >
+            Use this version
+          </Button>
+        </Card>
       </FadeIn>
     </div>
   )

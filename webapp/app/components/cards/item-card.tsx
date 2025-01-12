@@ -1,4 +1,4 @@
-import { useNavigate } from "@remix-run/react"
+import { Link, useNavigate } from "@remix-run/react"
 import {
   Card,
   CardHeader,
@@ -35,7 +35,7 @@ export function ItemCard({
       <CardHeader className="pb-0">
         <CardTitle className="flex items-center text-lg truncate">
           <Icon name="airplay" className="h-5 w-5 mr-2" />
-          {item.name}
+          <Link to={href}>{item.name}</Link>
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-4">
