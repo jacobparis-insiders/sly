@@ -35,6 +35,7 @@ import {
 import { FileTreeMenu } from "#app/components/file-tree-menu.js"
 import { Input } from "#app/components/ui/input.js"
 import { useCompletion } from "ai/react"
+import { Link } from "@remix-run/react"
 
 export const handle: BreadcrumbHandle = {
   breadcrumb: " ",
@@ -90,6 +91,15 @@ export default function CommitPage() {
               className="mt-4"
             />
           ))}
+        </div>
+
+        <div className="flex justify-between mt-8">
+          <Button variant="outline" asChild className="shadow-smooth">
+            <Link to="prev">← Previous Commit</Link>
+          </Button>
+          <Button variant="outline" asChild className="shadow-smooth">
+            <Link to="next">Next Commit →</Link>
+          </Button>
         </div>
       </FadeIn>
     </div>

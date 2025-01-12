@@ -240,7 +240,7 @@ export function DiffEditor({
 
   return (
     <div className="max-w-full">
-      <div className="px-1 py-1 border-b border-sidebar-border flex gap-x-2 justify-between mb-2">
+      <div className="px-1 py-1 flex gap-x-2 justify-between mb-2">
         <div className="flex items-center gap-x-2">
           <div className="font-mono px-3">{file.path}</div>
         </div>
@@ -251,7 +251,7 @@ export function DiffEditor({
               <Button
                 type="button"
                 variant="primary"
-                className="px-4"
+                className="shadow-smooth"
                 onClick={() => send({ type: "CONFIRM" })}
               >
                 <Icon name="check" className="-ml-2 size-4" />
@@ -272,7 +272,7 @@ export function DiffEditor({
               <Button
                 type="button"
                 variant="outline"
-                className="px-4"
+                className="shadow-smooth"
                 onClick={() => send({ type: "APPLY" })}
               >
                 <Icon name="play" className="-ml-2 size-4" />
@@ -293,7 +293,7 @@ export function DiffEditor({
               <Button
                 type="button"
                 variant="primary"
-                className="px-4"
+                className="shadow-smooth"
                 onClick={() =>
                   send({
                     type: "SAVE_EDITS",
@@ -319,7 +319,7 @@ export function DiffEditor({
               <Button
                 type="button"
                 variant="outline"
-                className="px-4"
+                className="shadow-smooth"
                 onClick={() => send({ type: "APPLY_DIFF" })}
               >
                 <Icon name="play" className="-ml-2 size-4" />
@@ -488,9 +488,9 @@ export function AutoDiffEditor({
 
   return (
     <div className="max-w-full grow">
-      <div className="px-1 py-1 border-b border-sidebar-border flex gap-x-2 justify-between mb-2">
+      <div className="p-2 flex gap-x-2 justify-between mb-2">
         <div className="flex items-center gap-x-2">
-          <div className="font-mono px-3">{file.path}</div>
+          <div className="font-mono px-2">{file.path}</div>
         </div>
 
         <div className="flex items-center gap-x-2">
@@ -499,7 +499,7 @@ export function AutoDiffEditor({
               <Button
                 type="button"
                 variant="primary"
-                className="px-4"
+                className="shadow-smooth"
                 onClick={() => send({ type: "CONFIRM" })}
               >
                 <Icon name="check" className="-ml-2 size-4" />
@@ -508,7 +508,7 @@ export function AutoDiffEditor({
               <Button
                 type="button"
                 variant="outline"
-                className="px-4"
+                className="shadow-smooth"
                 onClick={() => send({ type: "CANCEL" })}
               >
                 <Icon name="x" className="-ml-2 size-4" />
@@ -519,7 +519,7 @@ export function AutoDiffEditor({
             <Button
               type="button"
               variant="outline"
-              className="px-4"
+              className="shadow-smooth"
               onClick={() => send({ type: "APPLY" })}
             >
               <Icon name="play" className="-ml-2 size-4" />

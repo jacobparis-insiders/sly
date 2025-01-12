@@ -489,9 +489,9 @@ function FileCard({
                   ...file,
                   content: updateDiffArray
                     ? diffArrayToString(updateDiffArray)
-                    : "",
+                    : registryFile.content,
                 }}
-                baseContent={file.content}
+                baseContent={baseContent}
                 onChange={({ newFile }) => {
                   onFileChange(newFile)
                 }}
@@ -594,11 +594,7 @@ function SliderView({
       </Button>
 
       <Card className={cn("font-mono py-0 mt-4")}>
-        <CardHeader
-          className={cn(
-            "flex flex-col justify-between px-2 py-2 shadow-smooth border-b border-border",
-          )}
-        >
+        <CardHeader className={cn("flex flex-col justify-between px-2 py-2")}>
           <div className="flex items-center gap-x-2 px-2">
             <span className="font-medium">{file.path}</span>
           </div>
@@ -646,7 +642,7 @@ function SliderView({
           </div>
         </CardHeader>
 
-        <div className="font-mono px-4 py-2">
+        <div className="font-mono py-2">
           {selectedDiff ? (
             <PreDiffViewWithTokens
               diffArray={selectedDiff.diffArray}

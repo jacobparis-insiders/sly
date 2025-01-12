@@ -1,5 +1,5 @@
 import { type LoaderFunctionArgs } from "@remix-run/node"
-import { useLoaderData, useParams, useNavigate } from "@remix-run/react"
+import { useLoaderData, useParams, useNavigate, Link } from "@remix-run/react"
 import { Octokit } from "@octokit/rest"
 import { invariant } from "@epic-web/invariant"
 import { Button } from "#app/components/ui/button.js"
@@ -141,12 +141,24 @@ export default function RepoPage() {
 
   if (!repo) return <div className="p-6">No repository found</div>
 
+  const currentVersionIndex = repo.all_commits.findIndex(
+    (commit) => commit.sha === config.template.version,
+  )
+
+  const updatesAvailable =
+    currentVersionIndex === -1 ? repo.all_commits.length : currentVersionIndex
+
   const handleSliderChange = (value: number[]) => {
     setSelectedCommitIndex(value[0])
   }
 
   const selectedCommit = repo.all_commits[selectedCommitIndex]
   const latestCommit = repo.all_commits[0]
+
+  // Find the next commit after the current version
+  const nextVersionIndex =
+    currentVersionIndex === -1 ? 0 : currentVersionIndex - 1
+  const nextCommit = repo.all_commits[nextVersionIndex]
 
   return (
     <div className="p-6">
@@ -186,8 +198,51 @@ export default function RepoPage() {
         </Button>
 
         <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Available Updates</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {updatesAvailable > 0 && (
+              <div className="space-y-4 mt-4">
+                {repo.all_commits
+                  .slice(currentVersionIndex, currentVersionIndex + 3)
+                  .map((commit) => (
+                    <div key={commit.sha} className="font-mono">
+                      <p>{commit.message}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {commit.time_ago}
+                      </p>
+                    </div>
+                  ))}
+                {updatesAvailable > 3 && (
+                  <div>
+                    <p className="font-mono text-sm text-muted-foreground">
+                      {" "}
+                      and {updatesAvailable - 3} more…
+                    </p>
+                  </div>
+                )}
+                <Button
+                  variant="outline"
+                  asChild
+                  className="text-sm text-muted-foreground"
+                >
+                  <Link
+                    to={`/github/${repo.owner.login}/${repo.name}/commit/${nextCommit.sha}`}
+                  >
+                    View updates
+                  </Link>
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="mt-6">
           <CardHeader className="flex-col">
-            <Heading>Repository Timeline</Heading>
+            <div className="flex justify-between items-center w-full">
+              <Heading>Repository Timeline</Heading>
+            </div>
             <div className=" w-full overflow-hidden">
               <FileStructureGrid paths={paths} />
               <div className="relative z-10">

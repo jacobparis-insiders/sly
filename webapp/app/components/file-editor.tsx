@@ -232,7 +232,7 @@ export function FileEditor({
 
   return (
     <div>
-      <div className="px-1 py-1 border-b border-sidebar-border mb-2 shadow-smooth">
+      <div className="p-2 mb-2">
         <div className="flex items-center gap-x-2 justify-between">
           <Form
             className="flex items-center gap-x-2"
@@ -248,7 +248,7 @@ export function FileEditor({
             }}
           >
             {mode === "read-write" && !state.matches("edit") ? (
-              <div className="font-mono px-3">{path}</div>
+              <div className="font-mono px-2">{path}</div>
             ) : (
               <Input
                 type="text"
@@ -359,7 +359,7 @@ export function FileEditor({
             )}
           </div>
         </div>
-        <div className="font-mono text-sm px-3">
+        <div className="font-mono text-sm px-2">
           <a href={file.source} target="_blank" className=" text-sky-600">
             {truncateGitHubUrl(file.source || "")}
           </a>{" "}
