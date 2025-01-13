@@ -28,10 +28,9 @@ function _PreDiffViewWithTokens({
     let chunkLineCount = 0
     let currentLine = [] as Array<{ type: string; text: string }>
     let unchangedLineCount = 0
-    let lastChangedLineIndex = -1
     let lineNumber = 1
     let hiddenLineCount = 0
-    let isHidingLines = false
+    let isHiding = false
 
     const pushCurrentLine = () => {
       if (currentLine.length > 0) {
@@ -39,38 +38,56 @@ function _PreDiffViewWithTokens({
           (segment) => segment.type === "equal",
         )
 
-        if (!isAllEqual) {
-          lastChangedLineIndex = chunkLineCount
-          unchangedLineCount = 0
-        } else {
+        if (isAllEqual) {
           unchangedLineCount++
-        }
 
-        const shouldShowLine =
-          !isAllEqual ||
-          chunkLineCount <= lastChangedLineIndex + contextPadding ||
-          unchangedLineCount <= contextPadding
-
-        if (!shouldShowLine && unchangedLineCount > contextPadding * 2) {
-          hiddenLineCount++
-          isHidingLines = true
-          lineNumber++
-        } else {
-          if (isHidingLines) {
+          if (unchangedLineCount > contextPadding && !isHiding) {
+            // Start hiding lines
+            isHiding = true
+            hiddenLineCount = 1 // Reset to 1 since we're just starting to hide
+            // Remove the last contextPadding lines from currentChunk
+            currentChunk.splice(-contextPadding, contextPadding)
+            // Insert truncation message
             currentChunk.push(
               <div
                 key={`truncation-${chunkLineCount}`}
                 className="flex px-4 text-neutral-400 border-t border-b border-neutral-100 bg-neutral-50"
               >
-                <span className="inline-block w-[3ch] mr-4 select-none">⋮</span>
+                <span className="inline-block w-[3ch] select-none">⋮</span>
                 <span>⋮ {hiddenLineCount} lines hidden ⋮</span>
               </div>,
             )
-            isHidingLines = false
-            hiddenLineCount = 0
+          } else if (isHiding) {
+            // Increment hidden count while we're in hiding mode
+            hiddenLineCount++
+            // Update the truncation message
+            const lastElement = currentChunk[currentChunk.length - 1]
+            if (React.isValidElement(lastElement)) {
+              currentChunk[currentChunk.length - 1] = React.cloneElement(
+                lastElement,
+                {
+                  ...lastElement.props,
+                  children: [
+                    lastElement.props.children[0],
+                    <span key="count">⋮ {hiddenLineCount} lines hidden ⋮</span>,
+                  ],
+                },
+              )
+            }
           }
+        } else {
+          if (isHiding) {
+            // End hiding
+            isHiding = false
+            unchangedLineCount = 0
+          } else {
+            unchangedLineCount = 0
+          }
+        }
 
-          if (shouldShowLine) {
+        if (!isHiding) {
+          if (isAllEqual) {
+            // Show the line as it's within contextPadding
             currentChunk.push(
               <div
                 key={`line-${chunkLineCount}`}
@@ -83,7 +100,7 @@ function _PreDiffViewWithTokens({
                   ),
                 })}
               >
-                <span className="inline-block w-[3ch] mr-4 select-none">
+                <span className="inline-block w-[3ch] select-none">
                   {lineNumber}
                 </span>
                 <span className={cn("flex-1")}>
@@ -104,12 +121,48 @@ function _PreDiffViewWithTokens({
                 </span>
               </div>,
             )
+            lineNumber++
+          } else {
+            // Changed line, always show
+            currentChunk.push(
+              <div
+                key={`line-${chunkLineCount}`}
+                className={cn("flex whitespace-pre px-4", {
+                  "bg-green-50 text-green-600": currentLine.every(
+                    (s) => s.type === "insert",
+                  ),
+                  "bg-red-50 text-red-600": currentLine.every(
+                    (s) => s.type === "delete",
+                  ),
+                })}
+              >
+                <span className="inline-block w-[3ch] select-none">
+                  {lineNumber}
+                </span>
+                <span className={cn("flex-1")}>
+                  {currentLine.map((segment, i) => (
+                    <span
+                      key={i}
+                      className={
+                        segment.type === "equal"
+                          ? "text-neutral-400"
+                          : segment.type === "insert"
+                            ? "bg-green-50 text-green-600"
+                            : "bg-red-50 text-red-600"
+                      }
+                    >
+                      {segment.text}
+                    </span>
+                  ))}
+                </span>
+              </div>,
+            )
+            lineNumber++
           }
-
-          lineNumber++
-          currentLine = []
-          chunkLineCount++
         }
+
+        currentLine = []
+        chunkLineCount++
       }
     }
 
@@ -149,7 +202,9 @@ function _PreDiffViewWithTokens({
   return (
     <pre {...props} className={cn("overflow-auto font-mono", className)}>
       {memoizedChunks.map((chunk, chunkIndex) => (
-        <div key={chunkIndex}>{chunk}</div>
+        <div key={chunkIndex} className="w-full min-w-fit">
+          {chunk}
+        </div>
       ))}
     </pre>
   )

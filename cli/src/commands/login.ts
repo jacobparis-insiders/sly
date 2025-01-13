@@ -19,7 +19,7 @@ import { addIconsFromLibrary } from "./add-icon.fsm.js"
 import { installFile } from "../install.js"
 import ignore from "ignore"
 import { createActor } from "xstate"
-
+import jsonata from "jsonata"
 const StatusSchema = z.object({
   type: z.literal("status"),
   apps: z.array(z.string()),
@@ -108,6 +108,12 @@ const SendActorEventSchema = z.object({
   input: z.record(z.string(), z.any()),
 })
 
+const UpdateConfigPartialSchema = z.object({
+  type: z.literal("update-config-partial"),
+  jsonata: z.string(),
+  messageId: z.string(),
+})
+
 const MessageSchema = z.discriminatedUnion("type", [
   StatusSchema,
   RequestCliSchema,
@@ -115,6 +121,7 @@ const MessageSchema = z.discriminatedUnion("type", [
   RequestFileTreeSchema,
   RequestFilesSchema,
   UpdateConfigSchema,
+  UpdateConfigPartialSchema,
   RequestItemFilesSchema,
   AddIconsSchema,
   AddComponentsSchema,
@@ -273,6 +280,23 @@ export const login = new Command()
         partySocket.send(
           JSON.stringify({
             type: "update-config-response",
+            messageId: payload.messageId,
+          }),
+        )
+      }
+
+      if (payload.type === "update-config-partial") {
+        console.info("Updating config with partial update", payload.jsonata)
+        const config = await getConfig()
+
+        const newConfig = await jsonata(payload.jsonata).evaluate(config)
+
+        console.log("newConfig", newConfig)
+        await setConfig((config) => newConfig)
+
+        partySocket.send(
+          JSON.stringify({
+            type: "update-config-partial-response",
             messageId: payload.messageId,
           }),
         )

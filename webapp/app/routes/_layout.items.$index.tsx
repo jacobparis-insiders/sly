@@ -424,7 +424,34 @@ function FileCard({
 }) {
   const { updateConfig } = useUpdateConfig()
   const [showUpdatePreview, setShowUpdatePreview] = useState(false)
-  const [updateDiffArray, setUpdateDiffArray] = useState<any>(null)
+  const [diffFromRegistry] = useState<any>(() => {
+    return diffTokens({
+      a: tokenize({
+        content: registryFile.content,
+        language: "typescript",
+      }),
+      b: tokenize({
+        content: file.content,
+        language: "typescript",
+      }),
+    })
+  })
+
+  const [updateDiffArray, setUpdateDiffArray] = useState<any>(() => {
+    const versions = registryFile?.history || []
+    const latestVersion = versions.at(-1)
+
+    return diffTokens({
+      a: tokenize({
+        content: registryFile.content,
+        language: "typescript",
+      }),
+      b: tokenize({
+        content: latestVersion?.content || registryFile.content,
+        language: "typescript",
+      }),
+    })
+  })
 
   const fileConfig = config.value.items[index].files.find(
     (f) => f.path === file.path,
@@ -484,24 +511,38 @@ function FileCard({
 
           {showUpdatePreview && (
             <Card className="mt-4 pt-0 shadow-smooth">
-              <UpdateViewer
-                selectedFile={{
-                  ...file,
-                  content: updateDiffArray
-                    ? diffArrayToString(updateDiffArray)
-                    : registryFile.content,
-                }}
-                baseContent={baseContent}
-                onChange={({ newFile }) => {
-                  onFileChange(newFile)
-                }}
-              />
+              <div className="">
+                <div className="flex h-full grow overflow-hidden">
+                  <AutoDiffEditor
+                    file={{
+                      ...file,
+                      content: updateDiffArray
+                        ? diffArrayToString(updateDiffArray)
+                        : "",
+                    }}
+                    version={registryFile.version}
+                    baseContent={baseContent}
+                    onSkip={(version) => {
+                      fileConfig.version = version
+                      updateConfig({
+                        value: config.value,
+                      })
+                    }}
+                  />
+                </div>
+              </div>
             </Card>
           )}
 
           <Card className="mt-4 pt-0 shadow-smooth">
             <FileViewer
-              selectedFile={file}
+              selectedFile={{
+                ...file,
+                content: diffFromRegistry
+                  ? diffArrayToString(diffFromRegistry)
+                  : "",
+                type: "diff",
+              }}
               baseContent={baseContent}
               onFileSelect={() => {}}
               onChange={({ newFile }) => {
@@ -737,7 +778,7 @@ function FileViewer({
               </SidebarContent>
             </Sidebar>
           )}
-          <div className="flex-1">
+          <div className="flex-1 w-full">
             {selectedFile ? (
               selectedFile.type === "file" ? (
                 <FileEditor
@@ -777,52 +818,6 @@ function FileViewer({
           </div>
         </div>
       </MaybeSidebarProvider>
-    </div>
-  )
-}
-
-function UpdateViewer({
-  selectedFile,
-  baseContent,
-  onChange,
-  updateDiffArray,
-}: {
-  baseContent: string
-  selectedFile: {
-    path: string
-    content: string
-    type: string
-    source?: string
-  }
-  onChange: ({
-    oldPath,
-    newFile,
-  }: {
-    oldPath: string
-    newFile: { path: string; content: string; type: string }
-  }) => void
-  updateDiffArray: any
-}) {
-  return (
-    <div className="">
-      <div className="flex h-full grow overflow-hidden">
-        <AutoDiffEditor
-          file={selectedFile}
-          // onChange={({ newFile }) => {
-          //   onChange({
-          //     oldPath: selectedFile.path,
-          //     newFile: {
-          //       ...newFile,
-          //       path: selectedFile.path,
-          //     },
-          //   })
-          // }}
-          baseContent={baseContent}
-          onStateChange={(state) => {
-            console.log("state", state)
-          }}
-        />
-      </div>
     </div>
   )
 }

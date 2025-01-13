@@ -6,11 +6,15 @@ import {
   diffArrayToString,
   diffStringToArray,
   DiffOperation,
+  diffTokens,
+  tokenize,
 } from "@pkgless/diff"
 import { PreDiffViewWithTokens } from "#app/components/pre-diff-view.js"
 import { setup, assign, fromObservable } from "xstate"
 import { useMachine } from "@xstate/react"
 import { createFetchObservable } from "#app/utils/observable-fetch.js"
+import { useFile } from "#app/use-connection.js"
+import { cn } from "#app/utils/misc.js"
 
 const applyActor = fromObservable(({ input }) =>
   // helper function that streams each chunk into an observable
@@ -240,9 +244,9 @@ export function DiffEditor({
 
   return (
     <div className="max-w-full">
-      <div className="px-1 py-1 flex gap-x-2 justify-between mb-2">
+      <div className="p-2 flex gap-x-2 justify-between mb-2">
         <div className="flex items-center gap-x-2">
-          <div className="font-mono px-3">{file.path}</div>
+          <div className="font-mono px-2">{file.path}</div>
         </div>
 
         <div className="flex items-center gap-x-2">
@@ -366,7 +370,7 @@ export function DiffEditor({
           </div>
           <PreDiffViewWithTokens
             diffArray={state.context.diffArray}
-            className="text-sm px-4 grow"
+            className="text-sm  grow"
           />
         </div>
       ) : state.matches("edit") ? (
@@ -382,7 +386,7 @@ export function DiffEditor({
       ) : state.matches("view") ? (
         <PreDiffViewWithTokens
           diffArray={state.context.diffArray}
-          className="text-sm px-4"
+          className="text-sm"
         />
       ) : null}
     </div>
@@ -399,6 +403,7 @@ const autoDiffStateMachine = setup({
       diffArray: Array<DiffOperation>
       applyResult: string
       baseContent: string
+      resultDiffArray: Array<DiffOperation>
     },
   },
   actors: {
@@ -409,15 +414,21 @@ const autoDiffStateMachine = setup({
     diffArray: diffStringToArray(input.content),
     baseContent: input.baseContent,
     applyResult: "",
+    resultDiffArray: [],
   }),
   initial: "view",
   states: {
     view: {
       on: {
-        APPLY: "apply",
+        APPLY: "applying",
+        UPDATE_BASE_CONTENT: {
+          actions: assign(({ event }) => ({
+            baseContent: event.payload,
+          })),
+        },
       },
     },
-    apply: {
+    applying: {
       entry: assign(() => ({
         applyResult: "",
       })),
@@ -434,7 +445,34 @@ const autoDiffStateMachine = setup({
             applyResult: context.applyResult + (event.snapshot.context || ""),
           })),
         },
+        onDone: {
+          target: "confirmable",
+          actions: assign(({ context }) => ({
+            resultDiffArray: diffTokens({
+              a: tokenize({
+                content: context.baseContent,
+                language: "typescript",
+              }),
+              b: tokenize({
+                content: context.applyResult,
+                language: "typescript",
+              }),
+            }),
+          })),
+        },
       },
+      on: {
+        CANCEL: {
+          target: "view",
+        },
+        UPDATE_BASE_CONTENT: {
+          actions: assign(({ event }) => ({
+            baseContent: event.payload,
+          })),
+        },
+      },
+    },
+    confirmable: {
       on: {
         CONFIRM: {
           target: "view",
@@ -450,24 +488,37 @@ const autoDiffStateMachine = setup({
 
 export function AutoDiffEditor({
   file,
-  onChange,
-  baseContent,
+  onSaveFile,
+  version,
+  onSkip,
 }: {
   file: { path: string; content: string; type: string }
-  onChange: ({
+  onSaveFile: ({
     oldPath,
     newFile,
   }: {
     oldPath: string
     newFile: { path: string; content: string; type: string }
   }) => void
-  baseContent: string
+  version: string
+  onSkip: (version: string) => void
 }) {
+  const { state: fileState, file: projectFile } = useFile(
+    file.path.replace(/\.diff$/, ""),
+  )
+  const baseContent = fileState === "success" ? projectFile?.content || "" : ""
+
+  const diffArray = diffStringToArray(file.content)
+  const hasChanges = diffArray.some(
+    (token) => token.type === "insert" || token.type === "delete",
+  )
+
   const [state, send] = useMachine(
     autoDiffStateMachine.provide({
       actions: {
         saveAsFile: ({ context }) => {
-          onChange({
+          console.log("saveAsFile", context.applyResult)
+          onSaveFile({
             oldPath: file.path,
             newFile: {
               path: file.path.replace(/\.diff$/, ""),
@@ -486,55 +537,111 @@ export function AutoDiffEditor({
     },
   )
 
+  // Track previous baseContent to update machine input
+  const [prevBaseContent, setPrevBaseContent] = useState(baseContent)
+  if (prevBaseContent !== baseContent) {
+    setPrevBaseContent(baseContent)
+    send({ type: "UPDATE_BASE_CONTENT", payload: baseContent })
+  }
+
   return (
     <div className="max-w-full grow">
       <div className="p-2 flex gap-x-2 justify-between mb-2">
-        <div className="flex items-center gap-x-2">
-          <div className="font-mono px-2">{file.path}</div>
+        <div className="flex items-center gap-x-2 px-1">
+          <span
+            className={cn("text-lg", fileState === "loading" && "animate-spin")}
+          >
+            ❖
+          </span>
+          <div className="font-mono">{file.path}</div>
         </div>
 
-        <div className="flex items-center gap-x-2">
-          {state.matches("apply") ? (
-            <>
-              <Button
-                type="button"
-                variant="primary"
-                className="shadow-smooth"
-                onClick={() => send({ type: "CONFIRM" })}
-              >
-                <Icon name="check" className="-ml-2 size-4" />
-                Confirm
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="shadow-smooth"
-                onClick={() => send({ type: "CANCEL" })}
-              >
-                <Icon name="x" className="-ml-2 size-4" />
-                Cancel
-              </Button>
-            </>
-          ) : (
-            <Button
-              type="button"
-              variant="outline"
-              className="shadow-smooth"
-              onClick={() => send({ type: "APPLY" })}
-            >
-              <Icon name="play" className="-ml-2 size-4" />
-              Apply
-            </Button>
-          )}
-        </div>
+        {fileState === "error" ? (
+          <div className="text-sm text-red-500">
+            Could not find matching file to apply diff. Please create the file
+            first.
+          </div>
+        ) : (
+          <div className="flex items-center gap-x-2">
+            {state.matches("applying") ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shadow-smooth"
+                  onClick={() => send({ type: "CANCEL" })}
+                >
+                  <Icon name="x" className="-ml-2 size-4" />
+                  Cancel
+                </Button>
+              </>
+            ) : state.matches("confirmable") ? (
+              <>
+                <Button
+                  type="button"
+                  variant="primary"
+                  className="shadow-smooth"
+                  onClick={() => send({ type: "CONFIRM" })}
+                >
+                  <Icon name="check" className="-ml-2 size-4" />
+                  Confirm
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shadow-smooth"
+                  onClick={() => send({ type: "CANCEL" })}
+                >
+                  <Icon name="x" className="-ml-2 size-4" />
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <>
+                {hasChanges && baseContent ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="shadow-smooth"
+                    onClick={() => send({ type: "APPLY" })}
+                  >
+                    <Icon name="play" className="-ml-2 size-4" />
+                    Apply
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shadow-smooth"
+                  onClick={() => onSkip(version)}
+                >
+                  Skip
+                </Button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
-      {state.matches("apply") ? (
+      {state.matches("applying") ? (
         <CodeEditor value={state.context.applyResult} readOnly />
+      ) : state.matches("confirmable") ? (
+        <div className="flex gap-x-4">
+          {/* <div className="grow">
+            <CodeEditor value={state.context.applyResult} readOnly />
+          </div> */}
+          <div className="grow">
+            <PreDiffViewWithTokens
+              contextPadding={4}
+              diffArray={state.context.resultDiffArray}
+              className="text-sm"
+            />
+          </div>
+        </div>
       ) : (
         <PreDiffViewWithTokens
           diffArray={state.context.diffArray}
-          className="text-sm px-4"
+          className="text-sm"
         />
       )}
     </div>

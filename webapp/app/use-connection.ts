@@ -201,6 +201,8 @@ export function useUpdateConfig() {
     state: fetcher.state,
     updateConfig: (payload: { value: unknown }) =>
       fetcher.send({ type: "update-config", ...payload }),
+    updateConfigPartial: (payload: { jsonata: string }) =>
+      fetcher.send({ type: "update-config-partial", ...payload }),
   }
 }
 
