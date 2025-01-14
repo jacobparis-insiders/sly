@@ -13,8 +13,16 @@ import { PreDiffViewWithTokens } from "#app/components/pre-diff-view.js"
 import { setup, assign, fromObservable } from "xstate"
 import { useMachine } from "@xstate/react"
 import { createFetchObservable } from "#app/utils/observable-fetch.js"
-import { useFile } from "#app/use-connection.js"
+import { useFile, useFileTree } from "#app/use-connection.js"
 import { cn } from "#app/utils/misc.js"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarProvider,
+} from "./ui/sidebar"
+import { Input } from "./ui/input"
+import { FileTreeMenu } from "./file-tree-menu"
 
 const applyActor = fromObservable(({ input }) =>
   // helper function that streams each chunk into an observable
@@ -398,12 +406,14 @@ const autoDiffStateMachine = setup({
     input: {} as {
       content: string
       baseContent: string
+      selectedProjectPath: string
     },
     context: {} as {
       diffArray: Array<DiffOperation>
       applyResult: string
       baseContent: string
       resultDiffArray: Array<DiffOperation>
+      selectedProjectPath: string
     },
   },
   actors: {
@@ -415,15 +425,48 @@ const autoDiffStateMachine = setup({
     baseContent: input.baseContent,
     applyResult: "",
     resultDiffArray: [],
+    selectedProjectPath: input.selectedProjectPath,
   }),
   initial: "view",
   states: {
     view: {
+      entry: assign(() => ({
+        selectedProjectPath: "",
+      })),
       on: {
-        APPLY: "applying",
+        APPLY: [
+          {
+            target: "preApply",
+            guard: ({ context }) => !context.baseContent,
+          },
+          {
+            target: "applying",
+          },
+        ],
         UPDATE_BASE_CONTENT: {
           actions: assign(({ event }) => ({
             baseContent: event.payload,
+          })),
+        },
+      },
+    },
+    preApply: {
+      on: {
+        UPDATE_BASE_CONTENT: {
+          actions: assign(({ event }) => ({
+            baseContent: event.payload,
+          })),
+        },
+        APPLY: {
+          target: "applying",
+          guard: ({ context }) => Boolean(context.baseContent),
+        },
+        CANCEL: {
+          target: "view",
+        },
+        UPDATE_SELECTED_PATH: {
+          actions: assign(({ event }) => ({
+            selectedProjectPath: event.payload,
           })),
         },
       },
@@ -503,10 +546,9 @@ export function AutoDiffEditor({
   version: string
   onSkip: (version: string) => void
 }) {
-  const { state: fileState, file: projectFile } = useFile(
-    file.path.replace(/\.diff$/, ""),
-  )
-  const baseContent = fileState === "success" ? projectFile?.content || "" : ""
+  const { files: projectFiles } = useFileTree()
+
+  const [search, setSearch] = useState("")
 
   const diffArray = diffStringToArray(file.content)
   const hasChanges = diffArray.some(
@@ -532,10 +574,16 @@ export function AutoDiffEditor({
     {
       input: {
         content: file.content,
-        baseContent,
+        baseContent: "",
+        selectedProjectPath: file.path.replace(/\.diff$/, ""),
       },
     },
   )
+
+  const { state: fileState, file: projectFile } = useFile(
+    state.context.selectedProjectPath,
+  )
+  const baseContent = fileState === "success" ? projectFile?.content || "" : ""
 
   // Track previous baseContent to update machine input
   const [prevBaseContent, setPrevBaseContent] = useState(baseContent)
@@ -544,9 +592,21 @@ export function AutoDiffEditor({
     send({ type: "UPDATE_BASE_CONTENT", payload: baseContent })
   }
 
+  // Watch for file state changes and update base content when ready
+  const [prevFileState, setPrevFileState] = useState(fileState)
+  if (prevFileState !== fileState) {
+    setPrevFileState(fileState)
+    if (fileState === "success") {
+      send({
+        type: "UPDATE_BASE_CONTENT",
+        payload: projectFile?.content || "",
+      })
+    }
+  }
+
   return (
     <div className="max-w-full grow">
-      <div className="p-2 flex gap-x-2 justify-between mb-2">
+      <div className="p-2 flex gap-x-2 justify-between">
         <div className="flex items-center gap-x-2 px-1">
           <span
             className={cn("text-lg", fileState === "loading" && "animate-spin")}
@@ -563,7 +623,28 @@ export function AutoDiffEditor({
           </div>
         ) : (
           <div className="flex items-center gap-x-2">
-            {state.matches("applying") ? (
+            {state.matches("preApply") ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shadow-smooth"
+                  onClick={() => send({ type: "APPLY" })}
+                >
+                  <Icon name="play" className="-ml-2 size-4" />
+                  Continue
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shadow-smooth"
+                  onClick={() => send({ type: "CANCEL" })}
+                >
+                  <Icon name="x" className="-ml-2 size-4" />
+                  Cancel
+                </Button>
+              </>
+            ) : state.matches("applying") ? (
               <>
                 <Button
                   type="button"
@@ -598,7 +679,7 @@ export function AutoDiffEditor({
               </>
             ) : (
               <>
-                {hasChanges && baseContent ? (
+                {hasChanges ? (
                   <Button
                     type="button"
                     variant="outline"
@@ -623,27 +704,85 @@ export function AutoDiffEditor({
         )}
       </div>
 
-      {state.matches("applying") ? (
-        <CodeEditor value={state.context.applyResult} readOnly />
-      ) : state.matches("confirmable") ? (
-        <div className="flex gap-x-4">
-          {/* <div className="grow">
+      <div className="px-4 font-mono text-sm text-muted-foreground">
+        {projectFile?.path ? (
+          <p>{projectFile.path}</p>
+        ) : (
+          <p> No matching file found. Please create the file first.</p>
+        )}
+      </div>
+
+      <div className="mt-2">
+        {state.matches("preApply") ? (
+          <SidebarProvider className="relative mt-2">
+            <div className="flex h-full grow">
+              <Sidebar className="border-r absolute border-sidebar-border">
+                <SidebarHeader className="p-0 border-b border-sidebar-border">
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="font-medium h-9 text-muted-foreground rounded-none border-none focus:ring-0"
+                    placeholder="Search"
+                  />
+                </SidebarHeader>
+                <SidebarContent>
+                  <FileTreeMenu
+                    paths={projectFiles
+                      .map((file) => file.replace(/^\//, ""))
+                      .filter((path) =>
+                        path.toLowerCase().includes(search.toLowerCase()),
+                      )}
+                    onFileSelect={(path) => {
+                      send({
+                        type: "UPDATE_SELECTED_PATH",
+                        payload: path,
+                      })
+                      send({
+                        type: "UPDATE_BASE_CONTENT",
+                        payload:
+                          state === "success" ? projectFile?.content || "" : "",
+                      })
+                    }}
+                  />
+                </SidebarContent>
+              </Sidebar>
+              <div className="flex-1 w-full">
+                <div className="grow ">
+                  <CodeEditor
+                    value={state.context.baseContent}
+                    onChange={(value) =>
+                      send({
+                        type: "UPDATE_BASE_CONTENT",
+                        payload: value || "",
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+          </SidebarProvider>
+        ) : state.matches("applying") ? (
+          <CodeEditor value={state.context.applyResult} readOnly />
+        ) : state.matches("confirmable") ? (
+          <div className="flex gap-x-4">
+            {/* <div className="grow">
             <CodeEditor value={state.context.applyResult} readOnly />
           </div> */}
-          <div className="grow">
-            <PreDiffViewWithTokens
-              contextPadding={4}
-              diffArray={state.context.resultDiffArray}
-              className="text-sm"
-            />
+            <div className="grow">
+              <PreDiffViewWithTokens
+                contextPadding={4}
+                diffArray={state.context.resultDiffArray}
+                className="text-sm"
+              />
+            </div>
           </div>
-        </div>
-      ) : (
-        <PreDiffViewWithTokens
-          diffArray={state.context.diffArray}
-          className="text-sm"
-        />
-      )}
+        ) : (
+          <PreDiffViewWithTokens
+            diffArray={state.context.diffArray}
+            className="text-sm"
+          />
+        )}
+      </div>
     </div>
   )
 }
