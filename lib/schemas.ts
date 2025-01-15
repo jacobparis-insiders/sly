@@ -81,6 +81,7 @@ export const libraryConfigSchema = z.object({
 
 export const ConfigSchema = z.object({
   $schema: z.string().optional(),
+  ignore: z.array(z.string()).optional(),
   // TODO: is this right?
   template: z
     .object({

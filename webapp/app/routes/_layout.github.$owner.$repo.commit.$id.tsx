@@ -9,12 +9,18 @@ import { BreadcrumbHandle } from "#app/components/ui/breadcrumbs.js"
 import { Heading } from "#app/components/heading.js"
 import { Card, CardHeader } from "#app/components/ui/card.js"
 import { CodeEditor } from "#app/components/code-editor.js"
-import { useInstallFiles, useUpdateConfig } from "#app/use-connection.js"
+import {
+  useInstallFiles,
+  useUpdateConfig,
+  useConfig,
+} from "#app/use-connection.js"
 import { useState } from "react"
 import { cachified } from "#app/cache.server.js"
 import { getUser } from "#app/auth.server.js"
 import { Link } from "@remix-run/react"
 import { AutoDiffEditor } from "#app/components/diff-editor.js"
+import { minimatch } from "minimatch"
+import ignore from "ignore"
 
 export const handle: BreadcrumbHandle = {
   breadcrumb: " ",
@@ -48,23 +54,77 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
 export default function CommitPage() {
   const { updateConfigPartial } = useUpdateConfig()
+  const { config } = useConfig()
   const { commit } = useLoaderData<typeof loader>()
   const navigate = useNavigate()
-  const [completedFiles, setCompletedFiles] = useState<Set<string>>(new Set())
+  // Create an ignore instance with the config patterns
+  const ig = ignore().add(config?.ignore || [])
+
   const files = commit.files.map((file) => ({
     type: "file",
     path: file.filename,
     content: file.patch || "",
   }))
 
+  const [completedFiles, setCompletedFiles] = useState<Set<string>>(
+    new Set(
+      commit.files
+        ?.filter((file) => {
+          return !ig.test(file.filename)
+        })
+        .map((file) => file.filename),
+    ),
+  )
+
+  console.log(config)
   const allFilesCompleted = files.every((file) => completedFiles.has(file.path))
   const { installFiles, state: installState } = useInstallFiles()
 
   return (
     <div className="p-6">
       <FadeIn show className="max-w-3xl">
-        <div className="flex justify-between items-center">
-          <Heading>{commit.commit.message || "Unnamed Commit"}</Heading>
+        <Heading>{commit.commit.message || "Unnamed Commit"}</Heading>
+
+        <div>
+          {files.map((file) => (
+            <AutoDiffEditor
+              collapsed={completedFiles.has(file.path)}
+              key={file.path}
+              className="mt-4 pt-0 shadow-smooth"
+              file={file}
+              version={commit.sha}
+              onIgnore={(version, ignorePattern) => {
+                setCompletedFiles((prev) => new Set([...prev, file.path]))
+                if (ignorePattern) {
+                  updateConfigPartial({
+                    jsonata: `$merge([$, {"ignore": $append($exists(ignore) ? ignore : [], "${ignorePattern}")}])`,
+                  })
+                }
+              }}
+              onSaveFile={({ newFile }) => {
+                console.log("onSaveFile", newFile)
+                setCompletedFiles((prev) => new Set([...prev, file.path]))
+                installFiles({
+                  files: files.map((f) =>
+                    f.path === file.path
+                      ? {
+                          ...f,
+                          content: newFile.content,
+                          type: newFile.type,
+                        }
+                      : f,
+                  ),
+                })
+              }}
+            />
+          ))}
+        </div>
+
+        <div className="flex justify-between mt-8">
+          <Button variant="outline" asChild className="shadow-smooth">
+            <Link to="prev">← Previous Commit</Link>
+          </Button>
+
           <Button
             type="button"
             variant="primary"
@@ -76,47 +136,7 @@ export default function CommitPage() {
               navigate("next")
             }}
           >
-            Skip Commit
-          </Button>
-        </div>
-
-        <div>
-          {files.map((file) => (
-            <Card key={file.path} className="mt-4 pt-0 shadow-smooth">
-              <div className="flex h-full grow overflow-hidden">
-                <AutoDiffEditor
-                  file={file}
-                  version={commit.sha}
-                  onSkip={() => {
-                    setCompletedFiles((prev) => new Set([...prev, file.path]))
-                  }}
-                  onSaveFile={({ newFile }) => {
-                    console.log("onSaveFile", newFile)
-                    setCompletedFiles((prev) => new Set([...prev, file.path]))
-                    installFiles({
-                      files: files.map((f) =>
-                        f.path === file.path
-                          ? {
-                              ...f,
-                              content: newFile.content,
-                              type: newFile.type,
-                            }
-                          : f,
-                      ),
-                    })
-                  }}
-                />
-              </div>
-            </Card>
-          ))}
-        </div>
-
-        <div className="flex justify-between mt-8">
-          <Button variant="outline" asChild className="shadow-smooth">
-            <Link to="prev">← Previous Commit</Link>
-          </Button>
-          <Button variant="outline" asChild className="shadow-smooth">
-            <Link to="next">Next Commit →</Link>
+            Done with this commit
           </Button>
         </div>
       </FadeIn>

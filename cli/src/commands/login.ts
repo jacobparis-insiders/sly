@@ -212,11 +212,8 @@ export const login = new Command()
       }
 
       if (payload.type === "request-config") {
-        console.log("request-config")
         const filepath = await getConfigFilepath()
-        console.log("filepath", filepath)
         const config = await getConfig()
-        console.log("config", config)
 
         const configResponse = ConfigResponseSchema.parse({
           type: "config-response",
@@ -225,7 +222,6 @@ export const login = new Command()
           value: config,
         })
 
-        console.log("configResponse", configResponse)
         partySocket.send(JSON.stringify(configResponse))
       }
 
@@ -251,7 +247,6 @@ export const login = new Command()
         // this is a list of all the files in the project
         // and their paths
         const files = await getFileTree()
-        console.log("files", files)
         partySocket.send(
           JSON.stringify({
             type: "file-tree-response",
@@ -263,7 +258,6 @@ export const login = new Command()
 
       if (payload.type === "request-files") {
         const files = await getFiles(payload.files)
-        console.log("files", files)
         partySocket.send(
           JSON.stringify({
             type: "files-response",
@@ -330,7 +324,6 @@ export const login = new Command()
           )
         })
         actor.on("config", (event) => {
-          console.log("config", event)
           partySocket.send(
             JSON.stringify({
               type: "config-response",
@@ -506,7 +499,7 @@ async function getFiles(files: string[]) {
         const content = await fs.readFile(file, "utf-8")
         return { path: file, content }
       } catch (error) {
-        return { path: file, content: null }
+        return null
       }
     }),
   )

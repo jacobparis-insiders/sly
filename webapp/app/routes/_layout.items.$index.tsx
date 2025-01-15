@@ -29,6 +29,7 @@ import { FileTreeMenu } from "#app/components/file-tree-menu.js"
 import { FileEditor } from "#app/components/file-editor.js"
 import { AutoDiffEditor, DiffEditor } from "#app/components/diff-editor.js"
 import { Heading } from "#app/components/heading.js"
+import type { Config } from "../../../lib/schemas"
 
 type GitHubFileInfo = {
   owner: string
@@ -420,7 +421,13 @@ function FileCard({
   file: any
   registryFile: any
   config: any
-  onFileChange: (newFile: { path: string; content: string }) => void
+  onFileChange: ({
+    oldPath,
+    newFile,
+  }: {
+    oldPath: string
+    newFile: { path: string; content: string; type: string }
+  }) => void
 }) {
   const { updateConfig } = useUpdateConfig()
   const [showUpdatePreview, setShowUpdatePreview] = useState(false)
@@ -521,12 +528,19 @@ function FileCard({
                         : "",
                     }}
                     version={registryFile.version}
-                    baseContent={baseContent}
-                    onSkip={(version) => {
+                    onSaveFile={onFileChange}
+                    onIgnore={(version, ignorePattern) => {
                       fileConfig.version = version
-                      updateConfig({
-                        value: config.value,
-                      })
+                      if (ignorePattern && config.value) {
+                        const configValue: Config = config.value
+                        configValue.ignore = [
+                          ...(configValue.ignore || []),
+                          ignorePattern.path,
+                        ]
+                        updateConfig({
+                          value: configValue,
+                        })
+                      }
                     }}
                   />
                 </div>
@@ -546,7 +560,13 @@ function FileCard({
               baseContent={baseContent}
               onFileSelect={() => {}}
               onChange={({ newFile }) => {
-                onFileChange(newFile)
+                onFileChange({
+                  oldPath: file.path,
+                  newFile: {
+                    ...newFile,
+                    path: file.path,
+                  },
+                })
               }}
               onSelectVersion={() => {
                 setIsSliderView(true)

@@ -23,6 +23,13 @@ import {
 } from "./ui/sidebar"
 import { Input } from "./ui/input"
 import { FileTreeMenu } from "./file-tree-menu"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu"
+import { Card } from "./ui/card"
 
 const applyActor = fromObservable(({ input }) =>
   // helper function that streams each chunk into an observable
@@ -529,11 +536,66 @@ const autoDiffStateMachine = setup({
   },
 })
 
+function IgnoreDropdown({
+  path,
+  version,
+  onIgnore,
+}: {
+  path: string
+  version: string
+  onIgnore: (version: string, ignorePattern: string | null) => void
+}) {
+  const getIgnoreOptions = (path: string) => {
+    const segments = path.split("/")
+    const fileName = segments[segments.length - 1]
+    const extension = fileName.includes(".") ? fileName.split(".").pop() : ""
+
+    const options = [null] as Array<string | null>
+
+    // Add directory paths
+    for (let depth = segments.length - 1; depth >= 0; depth--) {
+      options.push(segments.slice(0, depth + 1).join("/"))
+    }
+
+    // Add extension pattern
+    if (extension) {
+      options.push(`*.${extension}`)
+    }
+
+    return options
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="primary" className="shadow-smooth">
+          <Icon name="x" className="-ml-2 size-4" />
+          Ignore
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        {getIgnoreOptions(path).map((option) => (
+          <DropdownMenuItem
+            key={option || "this-change"}
+            className="font-mono"
+            onClick={() => onIgnore(version, option)}
+          >
+            <span className="text-muted-foreground">Ignore </span>
+            {option || "this change"}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 export function AutoDiffEditor({
   file,
   onSaveFile,
   version,
-  onSkip,
+  onIgnore,
+  className,
+  collapsed = false,
 }: {
   file: { path: string; content: string; type: string }
   onSaveFile: ({
@@ -544,8 +606,11 @@ export function AutoDiffEditor({
     newFile: { path: string; content: string; type: string }
   }) => void
   version: string
-  onSkip: (version: string) => void
+  onIgnore: (version: string, ignorePattern: string | null) => void
+  className?: string
+  collapsed?: boolean
 }) {
+  const [isExpanded, setIsExpanded] = useState(!collapsed)
   const { files: projectFiles } = useFileTree()
 
   const [search, setSearch] = useState("")
@@ -583,6 +648,8 @@ export function AutoDiffEditor({
   const { state: fileState, file: projectFile } = useFile(
     state.context.selectedProjectPath,
   )
+
+  console.log({ fileState, projectFile })
   const baseContent = fileState === "success" ? projectFile?.content || "" : ""
 
   // Track previous baseContent to update machine input
@@ -605,184 +672,203 @@ export function AutoDiffEditor({
   }
 
   return (
-    <div className="max-w-full grow">
-      <div className="p-2 flex gap-x-2 justify-between">
-        <div className="flex items-center gap-x-2 px-1">
-          <span
-            className={cn("text-lg", fileState === "loading" && "animate-spin")}
-          >
-            ❖
-          </span>
-          <div className="font-mono">{file.path}</div>
-        </div>
+    <Card className={className}>
+      <div className="flex h-full grow overflow-hidden">
+        <div className="max-w-full grow">
+          <div className="p-2 flex gap-x-2 justify-between">
+            <div className="flex items-center gap-x-2 px-1">
+              <span
+                className={cn(
+                  "text-lg",
+                  fileState === "loading" && "animate-spin",
+                )}
+              >
+                ❖
+              </span>
+              <div className="font-mono">{file.path}</div>
+            </div>
 
-        {fileState === "error" ? (
-          <div className="text-sm text-red-500">
-            Could not find matching file to apply diff. Please create the file
-            first.
-          </div>
-        ) : (
-          <div className="flex items-center gap-x-2">
-            {state.matches("preApply") ? (
-              <>
+            {!isExpanded ? (
+              <div className="flex items-center gap-x-2">
                 <Button
                   type="button"
                   variant="outline"
                   className="shadow-smooth"
-                  onClick={() => send({ type: "APPLY" })}
+                  onClick={() => setIsExpanded(true)}
                 >
                   <Icon name="play" className="-ml-2 size-4" />
-                  Continue
+                  Ignored
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="shadow-smooth"
-                  onClick={() => send({ type: "CANCEL" })}
-                >
-                  <Icon name="x" className="-ml-2 size-4" />
-                  Cancel
-                </Button>
-              </>
-            ) : state.matches("applying") ? (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="shadow-smooth"
-                  onClick={() => send({ type: "CANCEL" })}
-                >
-                  <Icon name="x" className="-ml-2 size-4" />
-                  Cancel
-                </Button>
-              </>
-            ) : state.matches("confirmable") ? (
-              <>
-                <Button
-                  type="button"
-                  variant="primary"
-                  className="shadow-smooth"
-                  onClick={() => send({ type: "CONFIRM" })}
-                >
-                  <Icon name="check" className="-ml-2 size-4" />
-                  Confirm
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="shadow-smooth"
-                  onClick={() => send({ type: "CANCEL" })}
-                >
-                  <Icon name="x" className="-ml-2 size-4" />
-                  Cancel
-                </Button>
-              </>
+              </div>
             ) : (
-              <>
-                {hasChanges ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="shadow-smooth"
-                    onClick={() => send({ type: "APPLY" })}
-                  >
-                    <Icon name="play" className="-ml-2 size-4" />
-                    Apply
-                  </Button>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="shadow-smooth"
-                  onClick={() => onSkip(version)}
-                >
-                  Skip
-                </Button>
-              </>
+              <div className="flex items-center gap-x-2">
+                {state.matches("preApply") ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="shadow-smooth"
+                      onClick={() => send({ type: "APPLY" })}
+                    >
+                      <Icon name="play" className="-ml-2 size-4" />
+                      Continue
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="shadow-smooth"
+                      onClick={() => send({ type: "CANCEL" })}
+                    >
+                      <Icon name="x" className="-ml-2 size-4" />
+                      Cancel
+                    </Button>
+                  </>
+                ) : state.matches("applying") ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="shadow-smooth"
+                      onClick={() => send({ type: "CANCEL" })}
+                    >
+                      <Icon name="x" className="-ml-2 size-4" />
+                      Cancel
+                    </Button>
+                  </>
+                ) : state.matches("confirmable") ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      className="shadow-smooth"
+                      onClick={() => send({ type: "CONFIRM" })}
+                    >
+                      <Icon name="check" className="-ml-2 size-4" />
+                      Confirm
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="shadow-smooth"
+                      onClick={() => send({ type: "CANCEL" })}
+                    >
+                      <Icon name="x" className="-ml-2 size-4" />
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    {hasChanges ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="shadow-smooth"
+                        onClick={() => send({ type: "APPLY" })}
+                      >
+                        <Icon name="play" className="-ml-2 size-4" />
+                        Apply
+                      </Button>
+                    ) : null}
+                    <IgnoreDropdown
+                      path={file.path}
+                      version={version}
+                      onIgnore={(version, ignorePattern) => {
+                        // TODO: don't think I need the version here
+                        setIsExpanded(false)
+                        onIgnore(version, ignorePattern)
+                      }}
+                    />
+                  </>
+                )}
+              </div>
             )}
           </div>
-        )}
-      </div>
 
-      <div className="px-4 font-mono text-sm text-muted-foreground">
-        {projectFile?.path ? (
-          <p>{projectFile.path}</p>
-        ) : (
-          <p> No matching file found. Please create the file first.</p>
-        )}
-      </div>
+          <div className="px-4 font-mono text-sm text-muted-foreground">
+            {projectFile?.path ? (
+              <p>{projectFile.path}</p>
+            ) : (
+              <p> {file.path} not found </p>
+            )}
+          </div>
 
-      <div className="mt-2">
-        {state.matches("preApply") ? (
-          <SidebarProvider className="relative mt-2">
-            <div className="flex h-full grow">
-              <Sidebar className="border-r absolute border-sidebar-border">
-                <SidebarHeader className="p-0 border-b border-sidebar-border">
-                  <Input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="font-medium h-9 text-muted-foreground rounded-none border-none focus:ring-0"
-                    placeholder="Search"
-                  />
-                </SidebarHeader>
-                <SidebarContent>
-                  <FileTreeMenu
-                    paths={projectFiles
-                      .map((file) => file.replace(/^\//, ""))
-                      .filter((path) =>
-                        path.toLowerCase().includes(search.toLowerCase()),
-                      )}
-                    onFileSelect={(path) => {
-                      send({
-                        type: "UPDATE_SELECTED_PATH",
-                        payload: path,
-                      })
-                      send({
-                        type: "UPDATE_BASE_CONTENT",
-                        payload:
-                          state === "success" ? projectFile?.content || "" : "",
-                      })
-                    }}
-                  />
-                </SidebarContent>
-              </Sidebar>
-              <div className="flex-1 w-full">
-                <div className="grow ">
-                  <CodeEditor
-                    value={state.context.baseContent}
-                    onChange={(value) =>
-                      send({
-                        type: "UPDATE_BASE_CONTENT",
-                        payload: value || "",
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-          </SidebarProvider>
-        ) : state.matches("applying") ? (
-          <CodeEditor value={state.context.applyResult} readOnly />
-        ) : state.matches("confirmable") ? (
-          <div className="flex gap-x-4">
-            {/* <div className="grow">
+          {isExpanded && (
+            <div className="mt-2">
+              {state.matches("preApply") ? (
+                <SidebarProvider className="relative mt-2">
+                  <div className="flex h-full grow">
+                    <Sidebar className="border-r absolute border-sidebar-border">
+                      <SidebarHeader className="p-0 border-b border-sidebar-border">
+                        <Input
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                          className="font-medium h-9 text-muted-foreground rounded-none border-none focus:ring-0"
+                          placeholder="Search"
+                        />
+                      </SidebarHeader>
+                      <SidebarContent>
+                        <FileTreeMenu
+                          paths={projectFiles
+                            .map((file) => file.replace(/^\//, ""))
+                            .filter((path) =>
+                              path.toLowerCase().includes(search.toLowerCase()),
+                            )}
+                          onFileSelect={(path) => {
+                            send({
+                              type: "UPDATE_SELECTED_PATH",
+                              payload: path,
+                            })
+                            send({
+                              type: "UPDATE_BASE_CONTENT",
+                              payload:
+                                state === "success"
+                                  ? projectFile?.content || ""
+                                  : "",
+                            })
+                          }}
+                        />
+                      </SidebarContent>
+                    </Sidebar>
+                    <div className="flex-1 w-full">
+                      <div className="grow ">
+                        <CodeEditor
+                          value={state.context.baseContent}
+                          onChange={(value) =>
+                            send({
+                              type: "UPDATE_BASE_CONTENT",
+                              payload: value || "",
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </SidebarProvider>
+              ) : state.matches("applying") ? (
+                <CodeEditor value={state.context.applyResult} readOnly />
+              ) : state.matches("confirmable") ? (
+                <div className="flex gap-x-4">
+                  {/* <div className="grow">
             <CodeEditor value={state.context.applyResult} readOnly />
           </div> */}
-            <div className="grow">
-              <PreDiffViewWithTokens
-                contextPadding={4}
-                diffArray={state.context.resultDiffArray}
-                className="text-sm"
-              />
+                  <div className="grow">
+                    <PreDiffViewWithTokens
+                      contextPadding={4}
+                      diffArray={state.context.resultDiffArray}
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <PreDiffViewWithTokens
+                  diffArray={state.context.diffArray}
+                  className="text-sm"
+                />
+              )}
             </div>
-          </div>
-        ) : (
-          <PreDiffViewWithTokens
-            diffArray={state.context.diffArray}
-            className="text-sm"
-          />
-        )}
+          )}
+        </div>
       </div>
-    </div>
+    </Card>
   )
 }
