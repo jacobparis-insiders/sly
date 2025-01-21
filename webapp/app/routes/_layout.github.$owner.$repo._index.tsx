@@ -38,14 +38,14 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       auth: user?.tokens.access_token,
     })
 
-    const [repoData, contributors, allCommits, recentActivity, contents] =
-      await Promise.all([
-        cachified({
-          key: `repo-${owner}-${repo}`,
-          getFreshValue: () => octokit.repos.get({ owner, repo }),
-          ttl: 1000 * 60 * 60 * 24, // 1 day
-        }),
+    const repoData = await cachified({
+      key: `repo-${owner}-${repo}`,
+      getFreshValue: () => octokit.repos.get({ owner, repo }),
+      ttl: 1000 * 60 * 60 * 24, // 1 day
+    })
 
+    const [contributors, allCommits, recentActivity, contents] =
+      await Promise.all([
         cachified({
           key: `contributors-${owner}-${repo}`,
           getFreshValue: () => octokit.repos.listContributors({ owner, repo }),
@@ -69,26 +69,18 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         cachified({
           key: `contents-${owner}-${repo}`,
           getFreshValue: async () => {
-            const allPaths: string[] = []
-            async function getContents(path = "") {
-              const response = await octokit.repos.getContent({
-                owner,
-                repo,
-                path,
-              })
+            const {
+              data: { tree },
+            } = await octokit.git.getTree({
+              owner,
+              repo,
+              tree_sha: repoData.data.default_branch,
+              recursive: "1",
+            })
 
-              if (Array.isArray(response.data)) {
-                for (const item of response.data) {
-                  if (item.type === "file") {
-                    allPaths.push(item.path)
-                  } else if (item.type === "dir") {
-                    await getContents(item.path)
-                  }
-                }
-              }
-            }
-            await getContents()
-            return allPaths
+            return tree
+              .filter((item) => item.type === "blob")
+              .map((item) => item.path)
           },
           ttl: 1000 * 60 * 60, // 1 hour
         }),

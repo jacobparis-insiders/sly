@@ -88,14 +88,17 @@ export function useFiles(paths: Array<string | null>) {
   return {
     state: fetcher.state,
     files: fetcher.data?.files || [],
+    cwd: fetcher.data?.cwd || "",
+    dir: fetcher.data?.cwd ? fetcher.data.cwd?.split("/").pop() : "",
   }
 }
 
 export function useFile(path: string | null) {
-  const { state, files } = useFiles([path])
+  const { files, ...data } = useFiles([path])
+
   return {
-    state,
     file: files[0],
+    ...data,
   }
 }
 

@@ -31,6 +31,7 @@ function _PreDiffViewWithTokens({
     let lineNumber = 1
     let hiddenLineCount = 0
     let isHiding = false
+    let visibleContextLines = 0
 
     const pushCurrentLine = () => {
       if (currentLine.length > 0) {
@@ -41,13 +42,13 @@ function _PreDiffViewWithTokens({
         if (isAllEqual) {
           unchangedLineCount++
 
-          if (unchangedLineCount > contextPadding && !isHiding) {
+          if (unchangedLineCount > contextPadding * 2 && !isHiding) {
             // Start hiding lines
             isHiding = true
-            hiddenLineCount = 1 // Reset to 1 since we're just starting to hide
-            // Remove the last contextPadding lines from currentChunk
+            hiddenLineCount = unchangedLineCount - contextPadding
+            visibleContextLines = 0
+            // Remove excess context lines, keeping only contextPadding lines
             currentChunk.splice(-contextPadding, contextPadding)
-            // Insert truncation message
             currentChunk.push(
               <div
                 key={`truncation-${chunkLineCount}`}
@@ -58,9 +59,8 @@ function _PreDiffViewWithTokens({
               </div>,
             )
           } else if (isHiding) {
-            // Increment hidden count while we're in hiding mode
             hiddenLineCount++
-            // Update the truncation message
+            // Update truncation message
             const lastElement = currentChunk[currentChunk.length - 1]
             if (React.isValidElement(lastElement)) {
               currentChunk[currentChunk.length - 1] = React.cloneElement(
@@ -77,9 +77,11 @@ function _PreDiffViewWithTokens({
           }
         } else {
           if (isHiding) {
-            // End hiding
+            // End hiding and reset counters
             isHiding = false
             unchangedLineCount = 0
+            hiddenLineCount = 0
+            visibleContextLines = 0
           } else {
             unchangedLineCount = 0
           }

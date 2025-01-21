@@ -21,6 +21,7 @@ import { Link } from "@remix-run/react"
 import { AutoDiffEditor } from "#app/components/diff-editor.js"
 import { minimatch } from "minimatch"
 import ignore from "ignore"
+import { ansiToDiff } from "#app/utils/ansi-to-diff.js"
 
 export const handle: BreadcrumbHandle = {
   breadcrumb: " ",
@@ -48,36 +49,73 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     ttl: 1000 * 60 * 60 * 24, // 1 day
   })
 
+  const files = await Promise.all(
+    data.files?.map(async (file) => {
+      console.log(file.patch)
+      return {
+        type: "file",
+        path: file.filename,
+        content: await cachified({
+          key: `rediff-1-${file.sha}`,
+          getFreshValue: () =>
+            fetch(`${process.env.DIFF_URL}/rediff`, {
+              method: "POST",
+              body: JSON.stringify({
+                unifiedDiff: file.patch,
+                ext: file.filename.split(".").pop(),
+              }),
+            })
+              .then((res) => res.text())
+              .then((text) => {
+                console.log(`
+test("test", () => {
+  const input = \``)
+                console.log({ text })
+                console.log(`\`
+  const output = ansiToDiff(input)
+  expect(output).toMatchInlineSnapshot()
+})`)
+                const diff = ansiToDiff(text)
+                return diff
+              }),
+        }),
+      }
+    }) ?? [],
+  )
+
+  console.log(files)
   invariant(data.files, "No files found in commit")
-  return { breadcrumbLabel: data.commit.message, commit: data }
+  return {
+    breadcrumbLabel: data.commit.message,
+    commit: {
+      // TODO: what do we actually need here?
+      ...data,
+      files: files,
+    },
+  }
 }
 
 export default function CommitPage() {
   const { updateConfigPartial } = useUpdateConfig()
   const { config } = useConfig()
-  const { commit } = useLoaderData<typeof loader>()
+  const { commit } = useLoaderData() as Awaited<ReturnType<typeof loader>>
   const navigate = useNavigate()
   // Create an ignore instance with the config patterns
   const ig = ignore().add(config?.ignore || [])
-
-  const files = commit.files.map((file) => ({
-    type: "file",
-    path: file.filename,
-    content: file.patch || "",
-  }))
 
   const [completedFiles, setCompletedFiles] = useState<Set<string>>(
     new Set(
       commit.files
         ?.filter((file) => {
-          return !ig.test(file.filename)
+          return !ig.test(file.path)
         })
-        .map((file) => file.filename),
+        .map((file) => file.path),
     ),
   )
 
-  console.log(config)
-  const allFilesCompleted = files.every((file) => completedFiles.has(file.path))
+  const allFilesCompleted = commit.files.every((file) =>
+    completedFiles.has(file.path),
+  )
   const { installFiles, state: installState } = useInstallFiles()
 
   return (
@@ -86,7 +124,7 @@ export default function CommitPage() {
         <Heading>{commit.commit.message || "Unnamed Commit"}</Heading>
 
         <div>
-          {files.map((file) => (
+          {commit.files.map((file) => (
             <AutoDiffEditor
               collapsed={completedFiles.has(file.path)}
               key={file.path}
@@ -105,7 +143,7 @@ export default function CommitPage() {
                 console.log("onSaveFile", newFile)
                 setCompletedFiles((prev) => new Set([...prev, file.path]))
                 installFiles({
-                  files: files.map((f) =>
+                  files: commit.files.map((f) =>
                     f.path === file.path
                       ? {
                           ...f,

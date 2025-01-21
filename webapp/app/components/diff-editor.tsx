@@ -1,7 +1,7 @@
 import { Button } from "#app/components/ui/button.js"
 import { Icon } from "#app/components/icon.js"
-import { CodeEditor } from "#app/components/code-editor.js"
-import { useEffect, useRef, useState } from "react"
+import { CodeDiffEditor, CodeEditor } from "#app/components/code-editor.js"
+import { useEffect, useRef, useState, useMemo } from "react"
 import {
   diffArrayToString,
   diffStringToArray,
@@ -419,8 +419,8 @@ const autoDiffStateMachine = setup({
       diffArray: Array<DiffOperation>
       applyResult: string
       baseContent: string
-      resultDiffArray: Array<DiffOperation>
       selectedProjectPath: string
+      initialSelectedProjectPath: string
     },
   },
   actors: {
@@ -431,14 +431,14 @@ const autoDiffStateMachine = setup({
     diffArray: diffStringToArray(input.content),
     baseContent: input.baseContent,
     applyResult: "",
-    resultDiffArray: [],
     selectedProjectPath: input.selectedProjectPath,
+    initialSelectedProjectPath: input.selectedProjectPath || "",
   }),
   initial: "view",
   states: {
     view: {
-      entry: assign(() => ({
-        selectedProjectPath: "",
+      entry: assign(({ context }) => ({
+        selectedProjectPath: context.initialSelectedProjectPath,
       })),
       on: {
         APPLY: [
@@ -497,18 +497,6 @@ const autoDiffStateMachine = setup({
         },
         onDone: {
           target: "confirmable",
-          actions: assign(({ context }) => ({
-            resultDiffArray: diffTokens({
-              a: tokenize({
-                content: context.baseContent,
-                language: "typescript",
-              }),
-              b: tokenize({
-                content: context.applyResult,
-                language: "typescript",
-              }),
-            }),
-          })),
         },
       },
       on: {
@@ -526,7 +514,7 @@ const autoDiffStateMachine = setup({
       on: {
         CONFIRM: {
           target: "view",
-          actions: "saveAsFile",
+          actions: ["saveAsFile", "collapse"],
         },
         CANCEL: {
           target: "view",
@@ -570,7 +558,7 @@ function IgnoreDropdown({
       <DropdownMenuTrigger asChild>
         <Button type="button" variant="primary" className="shadow-smooth">
           <Icon name="x" className="-ml-2 size-4" />
-          Ignore
+          ignore
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
@@ -610,6 +598,7 @@ export function AutoDiffEditor({
   className?: string
   collapsed?: boolean
 }) {
+  const trimmedPath = file.path.replace(/\.diff$/, "")
   const [isExpanded, setIsExpanded] = useState(!collapsed)
   const { files: projectFiles } = useFileTree()
 
@@ -628,11 +617,14 @@ export function AutoDiffEditor({
           onSaveFile({
             oldPath: file.path,
             newFile: {
-              path: file.path.replace(/\.diff$/, ""),
+              path: trimmedPath,
               content: context.applyResult,
               type: "file",
             },
           })
+        },
+        collapse: () => {
+          setIsExpanded(false)
         },
       },
     }),
@@ -640,16 +632,17 @@ export function AutoDiffEditor({
       input: {
         content: file.content,
         baseContent: "",
-        selectedProjectPath: file.path.replace(/\.diff$/, ""),
+        selectedProjectPath: trimmedPath,
       },
     },
   )
 
-  const { state: fileState, file: projectFile } = useFile(
-    state.context.selectedProjectPath,
-  )
+  const {
+    state: fileState,
+    file: projectFile,
+    dir,
+  } = useFile(state.context.selectedProjectPath)
 
-  console.log({ fileState, projectFile })
   const baseContent = fileState === "success" ? projectFile?.content || "" : ""
 
   // Track previous baseContent to update machine input
@@ -766,7 +759,7 @@ export function AutoDiffEditor({
                         onClick={() => send({ type: "APPLY" })}
                       >
                         <Icon name="play" className="-ml-2 size-4" />
-                        Apply
+                        apply
                       </Button>
                     ) : null}
                     <IgnoreDropdown
@@ -786,7 +779,9 @@ export function AutoDiffEditor({
 
           <div className="px-4 font-mono text-sm text-muted-foreground">
             {projectFile?.path ? (
-              <p>{projectFile.path}</p>
+              <p>
+                {dir}/{projectFile.path}
+              </p>
             ) : (
               <p> {file.path} not found </p>
             )}
@@ -844,31 +839,189 @@ export function AutoDiffEditor({
                     </div>
                   </div>
                 </SidebarProvider>
-              ) : state.matches("applying") ? (
-                <CodeEditor value={state.context.applyResult} readOnly />
-              ) : state.matches("confirmable") ? (
-                <div className="flex gap-x-4">
-                  {/* <div className="grow">
-            <CodeEditor value={state.context.applyResult} readOnly />
-          </div> */}
-                  <div className="grow">
-                    <PreDiffViewWithTokens
-                      contextPadding={4}
-                      diffArray={state.context.resultDiffArray}
-                      className="text-sm"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <PreDiffViewWithTokens
-                  diffArray={state.context.diffArray}
-                  className="text-sm"
+              ) : state.matches("applying") || state.matches("confirmable") ? (
+                <CodeDiffEditor
+                  original={state.context.baseContent}
+                  modified={state.context.applyResult}
+                  readOnly
                 />
+              ) : (
+                <DifftasticView content={file.content} className="text-sm" />
               )}
             </div>
           )}
         </div>
       </div>
     </Card>
+  )
+}
+
+function DifftasticView({
+  className,
+  content,
+}: {
+  className?: string
+  content: string
+}) {
+  const chunks = useMemo(() => {
+    const lines = content.split("\n")
+    const result = []
+    let currentChunk = []
+    let currentType = ""
+
+    for (const line of lines) {
+      console.log("line", `"${line}"`)
+      let cursor = 0
+      let lineNumber = ""
+      let originalWhitespace = ""
+
+      // Capture original whitespace
+      while (cursor < line.length && line[cursor] === " ") {
+        originalWhitespace += line[cursor]
+        cursor++
+      }
+
+      // Parse line number
+      while (cursor < line.length && /\d/.test(line[cursor])) {
+        lineNumber += line[cursor]
+        cursor++
+      }
+
+      // Skip single space after line number if present
+      if (cursor < line.length && line[cursor] === " ") {
+        cursor++
+      }
+
+      // Get content and determine type, preserving all remaining content
+      const lineContent = line.slice(cursor)
+      const type = lineContent.startsWith("+")
+        ? "add"
+        : lineContent.startsWith("-")
+          ? "delete"
+          : "context"
+
+      // Start new chunk if type changes
+      if (type !== currentType && currentChunk.length > 0) {
+        result.push({ type: currentType, lines: currentChunk })
+        currentChunk = []
+      }
+
+      currentType = type
+      currentChunk.push({
+        lineNumber,
+        content: lineContent,
+        whitespace: originalWhitespace,
+      })
+    }
+
+    // Push final chunk
+    if (currentChunk.length > 0) {
+      result.push({ type: currentType, lines: currentChunk })
+    }
+
+    return result
+  }, [content])
+
+  const renderLineContent = (content: string) => {
+    const parts = []
+    let currentText = ""
+    let cursor = 0
+
+    while (cursor < content.length) {
+      if (content[cursor] === "[" && content[cursor + 1] === "+") {
+        // Push any text before the diff marker
+        if (currentText) {
+          parts.push({ type: "text", content: currentText })
+          currentText = ""
+        }
+
+        cursor += 3 // Skip [+
+        let diffContent = ""
+        while (
+          cursor < content.length &&
+          !(content[cursor] === "+" && content[cursor + 1] === "]")
+        ) {
+          diffContent += content[cursor]
+          cursor++
+        }
+        cursor += 3 // Skip +]
+
+        parts.push({ type: "add", content: diffContent })
+      } else if (content[cursor] === "[" && content[cursor + 1] === "-") {
+        // Push any text before the diff marker
+        if (currentText) {
+          parts.push({ type: "text", content: currentText })
+          currentText = ""
+        }
+
+        cursor += 3 // Skip [-
+        let diffContent = ""
+        while (
+          cursor < content.length &&
+          !(content[cursor] === "-" && content[cursor + 1] === "]")
+        ) {
+          diffContent += content[cursor]
+          cursor++
+        }
+        cursor += 3 // Skip -]
+
+        parts.push({ type: "delete", content: diffContent })
+      } else {
+        currentText += content[cursor]
+        cursor++
+      }
+    }
+
+    // Push any remaining text
+    if (currentText) {
+      parts.push({ type: "text", content: currentText })
+    }
+
+    return parts.map((part, i) => {
+      if (part.type === "add") {
+        return (
+          <span key={i} className="bg-green-500/20">
+            {part.content}
+          </span>
+        )
+      }
+      if (part.type === "delete") {
+        return (
+          <span key={i} className="bg-red-500/20">
+            {part.content}
+          </span>
+        )
+      }
+      return <span key={i}>{part.content}</span>
+    })
+  }
+
+  return (
+    <pre className={className}>
+      {chunks.map((chunk, i) => (
+        <div
+          key={i}
+          className={cn("transition-all duration-100", {
+            "text-green-600 dark:text-green-600 bg-green-500/5":
+              chunk.type === "add",
+            "text-red-600 dark:text-red-600 bg-red-500/5":
+              chunk.type === "delete",
+            "opacity-30": chunk.type === "context",
+          })}
+        >
+          {chunk.lines.map((line, j) => (
+            <div key={j} className="px-4" style={{ whiteSpace: "pre-wrap" }}>
+              {line.whitespace}
+              {line.lineNumber && (
+                <span className="text-muted-foreground">
+                  {line.lineNumber}{" "}
+                </span>
+              )}
+              {renderLineContent(line.content)}
+            </div>
+          ))}
+        </div>
+      ))}
+    </pre>
   )
 }

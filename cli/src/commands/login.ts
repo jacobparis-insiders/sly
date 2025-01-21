@@ -251,6 +251,7 @@ export const login = new Command()
           JSON.stringify({
             type: "file-tree-response",
             files,
+            cwd: process.cwd(),
             messageId: payload.messageId,
           }),
         )
@@ -262,6 +263,7 @@ export const login = new Command()
           JSON.stringify({
             type: "files-response",
             files,
+            cwd: process.cwd(),
             messageId: payload.messageId,
           }),
         )
