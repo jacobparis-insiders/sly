@@ -751,17 +751,15 @@ export function AutoDiffEditor({
                   </>
                 ) : (
                   <>
-                    {hasChanges ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="shadow-smooth"
-                        onClick={() => send({ type: "APPLY" })}
-                      >
-                        <Icon name="play" className="-ml-2 size-4" />
-                        apply
-                      </Button>
-                    ) : null}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="shadow-smooth"
+                      onClick={() => send({ type: "APPLY" })}
+                    >
+                      <Icon name="play" className="-ml-2 size-4" />
+                      apply
+                    </Button>
                     <IgnoreDropdown
                       path={file.path}
                       version={version}
@@ -843,7 +841,6 @@ export function AutoDiffEditor({
                 <CodeDiffEditor
                   original={state.context.baseContent}
                   modified={state.context.applyResult}
-                  readOnly
                 />
               ) : (
                 <DifftasticView content={file.content} className="text-sm" />

@@ -1,62 +1,79 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { generateFileGrid } from "./generate-file-grid"
 
-interface FileStructureGridProps {
+type FileStructureGridProps = {
   paths: string[]
+  width?: number
+  ignore?: string[]
+  highlight?: string[]
 }
 
-export function FileStructureGrid({ paths }: FileStructureGridProps) {
-  const [grid, setGrid] = useState<ReturnType<typeof generateFileGrid>>(() =>
-    generateFileGrid(paths),
+export function FileStructureGrid({
+  paths,
+  width,
+  ignore = [],
+  highlight = [],
+}: FileStructureGridProps) {
+  const [grid, setGrid] = useState(() =>
+    generateFileGrid({ paths, ignore, highlight }),
   )
+
+  const graphWidth = width ?? grid[0]?.length ?? 1
+  const graphHeight = grid.length
   const [prevPaths, setPrevPaths] = useState(paths)
-  if (prevPaths !== paths) {
+  const [prevIgnore, setPrevIgnore] = useState(ignore)
+  const [prevHighlight, setPrevHighlight] = useState(highlight)
+  if (
+    prevPaths !== paths ||
+    prevIgnore !== ignore ||
+    prevHighlight !== highlight
+  ) {
     setPrevPaths(paths)
-    setGrid(generateFileGrid(paths))
+    setPrevIgnore(ignore)
+    setPrevHighlight(highlight)
+    setGrid(generateFileGrid({ paths, ignore, highlight }))
   }
 
-  const calculateSquareSize = (totalCells: number): number => {
-    const minSize = 3 // Minimum size in pixels
-    const maxSize = 12 // Maximum size in pixels
-    const size = Math.max(
-      minSize,
-      Math.min(maxSize, Math.floor(400 / Math.sqrt(totalCells))),
-    )
-    return size
-  }
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const context = canvas?.getContext("2d")
+    if (canvas && context) {
+      // Adjust for high-DPI displays
+      const dpr = window.devicePixelRatio || 1
+      const width = canvas.clientWidth * dpr
+      const height = canvas.clientHeight * dpr
+      canvas.width = width
+      canvas.height = height
+      context.scale(dpr, dpr)
 
-  const totalCells = grid.reduce((sum, row) => sum + row.length, 0)
-  const squareSize = calculateSquareSize(totalCells)
+      context.clearRect(0, 0, width, height)
 
-  const maxColumns = Math.max(...grid.map((row) => row.length))
+      grid.forEach((row, rowIndex) => {
+        row.forEach((cell, colIndex) => {
+          const x = ((colIndex / graphWidth) * width) / dpr
+          const y = ((rowIndex / graphHeight) * height) / dpr
+          const cellWidth = width / graphWidth / dpr
+          const cellHeight = height / graphHeight / dpr
+
+          if (cell.isOccupied) {
+            context.fillStyle = cell.color
+            context.fillRect(x, y, cellWidth, cellHeight)
+          } else {
+            context.clearRect(x, y, cellWidth, cellHeight)
+          }
+        })
+      })
+    }
+  }, [grid])
 
   return (
-    <div className="w-full" inert>
-      <div
-        className="grid"
-        style={{
-          gridTemplateColumns: `repeat(${maxColumns}, ${squareSize}px)`,
-          gridTemplateRows: `repeat(${grid.length}, ${squareSize}px)`,
-        }}
-      >
-        {grid.map((row, rowIndex) =>
-          row.map((cell, colIndex) => (
-            <div
-              key={`${rowIndex}-${colIndex}`}
-              className={`cursor-pointer ${cell.isOccupied ? "" : "bg-none"}`}
-              style={{
-                width: `${squareSize}px`,
-                height: `${squareSize}px`,
-                gridColumn: colIndex + 1,
-                gridRow: rowIndex + 1,
-                backgroundColor: cell.isOccupied ? cell.color : "transparent",
-              }}
-              title={cell.path}
-              role="gridcell"
-            />
-          )),
-        )}
-      </div>
-    </div>
+    <canvas
+      ref={canvasRef}
+      className="w-full"
+      style={{
+        aspectRatio: `${graphWidth} / ${graphHeight}`,
+      }}
+    />
   )
 }

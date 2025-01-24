@@ -67,14 +67,14 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
             })
               .then((res) => res.text())
               .then((text) => {
-                console.log(`
-test("test", () => {
-  const input = \``)
-                console.log({ text })
-                console.log(`\`
-  const output = ansiToDiff(input)
-  expect(output).toMatchInlineSnapshot()
-})`)
+                //                 console.log(`
+                // test("test", () => {
+                //   const input = \``)
+                //                 console.log({ text })
+                //                 console.log(`\`
+                //   const output = ansiToDiff(input)
+                //   expect(output).toMatchInlineSnapshot()
+                // })`)
                 const diff = ansiToDiff(text)
                 return diff
               }),

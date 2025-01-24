@@ -19,10 +19,14 @@ import { FileStructureGrid } from "#app/utils/skyline/file-structure-grid.js"
 import { Slider } from "#app/components/ui/slider.js"
 import { format } from "date-fns"
 import { useState } from "react"
-import { PreDiffViewWithTokens } from "#app/components/pre-diff-view.js"
-import { tokenize, diffTokens } from "@pkgless/diff"
-import { useUpdateConfig } from "#app/use-connection.js"
+import { useFileTree, useUpdateConfig } from "#app/use-connection.js"
 import { getConnection } from "#app/use-connection.js"
+import {
+  fetchAllCommits,
+  fetchAllContributors,
+} from "#app/utils/octokit.server.js"
+import { getFileGridWidth } from "#app/utils/skyline/generate-file-grid.js"
+import { cn } from "#app/utils/misc.js"
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { owner, repo } = params
@@ -44,79 +48,76 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       ttl: 1000 * 60 * 60 * 24, // 1 day
     })
 
-    const [contributors, allCommits, recentActivity, contents] =
-      await Promise.all([
-        cachified({
-          key: `contributors-${owner}-${repo}`,
-          getFreshValue: () => octokit.repos.listContributors({ owner, repo }),
-          ttl: 1000 * 60 * 60, // 1 hour
-        }),
+    const [contributors, allCommits, contents] = await Promise.all([
+      cachified({
+        key: `contributors-${owner}-${repo}`,
+        getFreshValue: () => fetchAllContributors({ octokit, owner, repo }),
+        swr: Infinity,
+        ttl: 1000 * 60 * 60 * 24, // 1 day
+      }),
 
-        cachified({
-          key: `commits-${owner}-${repo}`,
-          getFreshValue: () =>
-            octokit.repos.listCommits({ owner, repo, per_page: 100 }),
-          ttl: 1000 * 60 * 15, // 15 minutes
-        }),
+      cachified({
+        key: `commits-${owner}-${repo}`,
+        getFreshValue: () => fetchAllCommits({ octokit, owner, repo }),
+        swr: Infinity,
+        ttl: 1000 * 60 * 15, // 15 minutes
+      }),
 
-        cachified({
-          key: `activity-${owner}-${repo}`,
-          getFreshValue: () =>
-            octokit.activity.listRepoEvents({ owner, repo, per_page: 5 }),
-          ttl: 1000 * 60 * 5, // 5 minutes
-        }),
+      cachified({
+        key: `contents-${owner}-${repo}`,
+        getFreshValue: async () => {
+          const {
+            data: { tree },
+          } = await octokit.git.getTree({
+            owner,
+            repo,
+            tree_sha: repoData.data.default_branch,
+            recursive: "1",
+          })
 
-        cachified({
-          key: `contents-${owner}-${repo}`,
-          getFreshValue: async () => {
-            const {
-              data: { tree },
-            } = await octokit.git.getTree({
-              owner,
-              repo,
-              tree_sha: repoData.data.default_branch,
-              recursive: "1",
-            })
-
-            return tree
-              .filter((item) => item.type === "blob")
-              .map((item) => item.path)
-          },
-          ttl: 1000 * 60 * 60, // 1 hour
-        }),
-      ])
+          return tree
+            .filter((item) => item.type === "blob")
+            .map((item) => item.path)
+        },
+        ttl: 1000 * 60 * 60, // 1 hour
+      }),
+    ])
 
     invariant(repoData.data, "No repository data found")
 
+    for (const commit of allCommits) {
+      commit.files = await cachified({
+        key: `commit-${owner}-${repo}-${commit.sha}`,
+        getFreshValue: async () => {
+          const {
+            data: { tree },
+          } = await octokit.git.getTree({
+            owner,
+            repo,
+            tree_sha: commit.sha,
+            recursive: "1",
+          })
+
+          return tree
+            .filter((item) => item.type === "blob")
+            .map((item) => item.path)
+        },
+      })
+    }
     return {
       repo: {
         ...repoData.data,
-        contributors_count: contributors.data.length,
-        all_commits: allCommits.data.map((commit) => ({
+        contributors_count: contributors.length,
+        all_commits: allCommits.map((commit) => ({
           sha: commit.sha,
           message: commit.commit.message,
           date: commit.commit.author.date,
           time_ago: new Date(commit.commit.author.date).toLocaleString(),
+          files: commit.files,
         })),
-        recent_activity: recentActivity.data.map((event) => {
-          let message = "No message"
-
-          if (event.payload.issue) {
-            message = event.payload.issue.title || "No message"
-          } else if (event.payload.comment) {
-            message = event.payload.comment.body || "No message"
-          } else if (event.payload.pages) {
-            message = event.payload.pages[0]?.title || "No message"
-          }
-
-          return {
-            message,
-            time_ago: new Date(event.created_at).toLocaleString(),
-          }
-        }),
       },
       paths: contents,
-      config: config.value,
+      config: config?.value,
     }
   } finally {
     connection?.close()
@@ -125,32 +126,62 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
 export default function RepoPage() {
   const { repo, paths, config } = useLoaderData<typeof loader>()
-  console.log(config)
-  const params = useParams()
-  const navigate = useNavigate()
-  const [selectedCommitIndex, setSelectedCommitIndex] = useState(0)
   const { updateConfig } = useUpdateConfig()
+  const projectFiles = useFileTree()
+  const commits = repo.all_commits
+    .map((a) => a)
+    .filter((a) => !a.message?.includes("skip ci"))
+    .reverse()
 
-  if (!repo) return <div className="p-6">No repository found</div>
-
-  const currentVersionIndex = repo.all_commits.findIndex(
+  const currentVersionIndex = commits.findIndex(
     (commit) => commit.sha === config.template.version,
   )
+  const [selectedCommitIndex, setSelectedCommitIndex] = useState(() => {
+    if (!currentVersionIndex) return 0
+    if (!commits[currentVersionIndex]) return 0
+
+    return currentVersionIndex
+  })
 
   const updatesAvailable =
-    currentVersionIndex === -1 ? repo.all_commits.length : currentVersionIndex
+    currentVersionIndex === -1
+      ? commits.length
+      : commits.length - currentVersionIndex
 
   const handleSliderChange = (value: number[]) => {
     setSelectedCommitIndex(value[0])
   }
 
-  const selectedCommit = repo.all_commits[selectedCommitIndex]
-  const latestCommit = repo.all_commits[0]
+  const selectedCommit = commits[selectedCommitIndex]
+
+  console.log(selectedCommit)
 
   // Find the next commit after the current version
   const nextVersionIndex =
     currentVersionIndex === -1 ? 0 : currentVersionIndex - 1
-  const nextCommit = repo.all_commits[nextVersionIndex]
+  const nextCommit = commits[nextVersionIndex]
+
+  // Filter paths based on ignore settings from config
+  const ignorePatterns = config?.ignore || []
+  const ignoredPaths = selectedCommit.files.filter((path) =>
+    ignorePatterns.some((pattern) => path.includes(pattern)),
+  )
+  const includedPaths = selectedCommit.files.filter(
+    (path) => !ignorePatterns.some((pattern) => path.includes(pattern)),
+  )
+
+  console.log({ projectFiles })
+  const matchingFilesInProject = includedPaths.filter((path) =>
+    projectFiles.files?.some((file) => `/${path}` === file),
+  )
+
+  // Calculate matching files
+  const matchingFiles = matchingFilesInProject.length
+
+  console.log({ ignoredPaths, ignorePatterns })
+
+  const [skylineState, setSkylineState] = useState<"idle" | "version">("idle")
+  if (!repo) return <div className="p-6">No repository found</div>
 
   return (
     <div className="p-6">
@@ -166,23 +197,19 @@ export default function RepoPage() {
           <CardContent>
             <div className="text-muted-foreground font-mono">
               <p className="mb-4">{repo.description}</p>
-              <span className="font-bold text-foreground">
+              <strong className="font-bold text-foreground">
                 {repo.contributors_count}
-              </span>
+              </strong>
               <span className=""> contributors </span>
-              <span className="font-bold text-foreground">
+              <strong className="font-bold text-foreground">
                 {repo.all_commits.length}
-              </span>
+              </strong>
               <span className=""> commits</span>
             </div>
           </CardContent>
         </Card>
 
-        <Button
-          variant="outline"
-          className="shadow-smooth transition-colors mt-4"
-          asChild
-        >
+        <Button variant="outline" className="shadow-smooth mt-4" asChild>
           <a href={repo.html_url} target="_blank" rel="noopener noreferrer">
             <Icon name="github" className="-ml-2 size-4" />
             View on GitHub
@@ -190,94 +217,193 @@ export default function RepoPage() {
         </Button>
 
         <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Available Updates</CardTitle>
+          <CardHeader className="flex-col">
+            <div className="flex justify-between items-center w-full">
+              <CardTitle className="px-2"> Epic Stack </CardTitle>
+              {skylineState === "idle" ? (
+                <Button
+                  type="button"
+                  className="shadow-smooth"
+                  variant="outline"
+                  onClick={() => setSkylineState("version")}
+                >
+                  Change version
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shadow-smooth"
+                  onClick={() => setSkylineState("idle")}
+                >
+                  Cancel
+                </Button>
+              )}
+            </div>
+            <div className="px-2">
+              <FileStructureGrid
+                width={getFileGridWidth({ paths })}
+                paths={selectedCommit.files}
+                ignore={selectedCommit.files.filter((path) => {
+                  // if the path is ignored, grey out
+                  if (ignorePatterns.some((pattern) => path.includes(pattern)))
+                    return true
+
+                  // if the path is not in the project, grey out
+                  if (
+                    !projectFiles.files.some((file) => file.slice(1) === path)
+                  )
+                    return true
+
+                  return false
+                })}
+              />
+              {skylineState === "version" && (
+                <>
+                  <div className="relative z-10 mt-2">
+                    <Slider
+                      min={0}
+                      max={commits.length - 1}
+                      step={1}
+                      value={[selectedCommitIndex]}
+                      onValueChange={handleSliderChange}
+                      className="w-full"
+                    />
+                    <div className="absolute w-full flex justify-between top-3 px-[9px] -z-10">
+                      {commits.slice(0, 100).map((_, index) => (
+                        <div
+                          key={index}
+                          className="border-l-2 h-2 border-neutral-300"
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between text-sm text-muted-foreground mt-4">
+                    <span>
+                      {format(
+                        new Date(commits[selectedCommitIndex].date),
+                        "MMM d, yyyy",
+                      )}
+                      {" — "}
+                      {commits[selectedCommitIndex].sha.slice(0, 7)}
+                    </span>
+                    <span>
+                      {format(new Date(commits.at(-1).date), "MMM d, yyyy")}
+                    </span>
+                  </div>
+                </>
+              )}
+              <p className="font-mono text-muted-foreground mt-2">
+                <strong className="font-bold text-foreground">
+                  {matchingFiles}
+                </strong>{" "}
+                matching files,{" "}
+                <strong className="font-bold text-foreground">
+                  {ignoredPaths.length}
+                </strong>{" "}
+                ignored
+              </p>
+            </div>
           </CardHeader>
           <CardContent>
             {updatesAvailable > 0 && (
-              <div className="space-y-4 mt-4">
-                {repo.all_commits
-                  .slice(currentVersionIndex, currentVersionIndex + 3)
-                  .map((commit) => (
-                    <div key={commit.sha} className="font-mono">
-                      <p>{commit.message}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {commit.time_ago}
-                      </p>
+              <div className="mt-4">
+                {Array.from({ length: 7 }).map((_, index) => {
+                  const commit = commits[selectedCommitIndex - 3 + index]
+                  if (!commit) return null
+                  if (skylineState === "version" && index === 0) return null
+
+                  return (
+                    <div
+                      key={index}
+                      className={cn(
+                        "font-mono relative group hover:bg-neutral-100 p-2 rounded",
+                        index === 3 && "font-bold",
+                        skylineState === "idle" &&
+                          index === 3 &&
+                          "bg-neutral-100",
+                      )}
+                    >
+                      <div className="truncate whitespace-nowrap">
+                        <p>{commit.message}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {commit.time_ago}
+                        </p>
+                      </div>
+
+                      {skylineState === "idle" && (
+                        <div
+                          className={cn(
+                            "hidden group-hover:flex absolute right-2 -top-4 border border-border rounded-md  items-center bg-white shadow-smooth",
+                            index === 3 && "flex",
+                          )}
+                        >
+                          <Button
+                            variant="ghost"
+                            asChild
+                            size="icon"
+                            className="text-sm text-muted-foreground"
+                          >
+                            <Link
+                              to={`https://github.com/${repo.owner.login}/${repo.name}/commit/${commit.sha}`}
+                            >
+                              <Icon name="github" className="size-4" />
+                            </Link>
+                          </Button>
+                          {index === 3 && skylineState === "idle" && (
+                            <Button
+                              variant="ghost"
+                              asChild
+                              size="sm"
+                              className="text-sm text-muted-foreground"
+                            >
+                              <Link
+                                to={`/github/${repo.owner.login}/${repo.name}/commit/${nextCommit.sha}`}
+                              >
+                                Start updating
+                              </Link>
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  ))}
-                {updatesAvailable > 3 && (
-                  <div>
-                    <p className="font-mono text-sm text-muted-foreground">
-                      {" "}
-                      and {updatesAvailable - 3} more…
-                    </p>
-                  </div>
+                  )
+                })}
+                {commits.length - selectedCommitIndex > 3 && (
+                  <p className=" px-2 font-mono text-sm text-muted-foreground">
+                    {" "}
+                    and {commits.length - selectedCommitIndex - 3} more…
+                  </p>
                 )}
-                <Button
-                  variant="outline"
-                  asChild
-                  className="text-sm text-muted-foreground"
-                >
-                  <Link
-                    to={`/github/${repo.owner.login}/${repo.name}/commit/${nextCommit.sha}`}
-                  >
-                    View updates
-                  </Link>
-                </Button>
               </div>
             )}
           </CardContent>
         </Card>
 
-        <Card className="mt-6">
+        <Card className="mt-6 opacity-0">
           <CardHeader className="flex-col">
-            <div className="flex justify-between items-center w-full">
-              <Heading>Repository Timeline</Heading>
-            </div>
             <div className=" w-full overflow-hidden">
-              <FileStructureGrid paths={paths} />
-              <div className="relative z-10">
-                <Slider
-                  min={0}
-                  max={repo.all_commits.length - 1}
-                  step={1}
-                  value={[selectedCommitIndex]}
-                  onValueChange={handleSliderChange}
-                  className="w-full"
-                />
-                <div className="absolute w-full flex justify-between top-3 px-[9px] -z-10">
-                  {repo.all_commits.map((_, index) => (
-                    <div
-                      key={index}
-                      className="border-l-2 h-2 border-neutral-300"
-                    />
-                  ))}
-                </div>
+              <div className="flex justify-between items-center w-full">
+                <CardTitle>Epic Stack</CardTitle>
               </div>
-              <div className="flex justify-between text-sm text-muted-foreground mt-4">
-                <span>
-                  {format(
-                    new Date(repo.all_commits.at(-1).date),
-                    "MMM d, yyyy",
-                  )}
-                </span>
-                <span>
-                  {format(new Date(repo.all_commits[0].date), "MMM d, yyyy")}
-                </span>
+              <FileStructureGrid
+                width={getFileGridWidth({ paths })}
+                paths={paths}
+                ignore={projectFiles.files.map((file) => file.slice(1))}
+              />
+              <div className="flex justify-between items-center w-full">
+                <CardTitle>App from epic stack</CardTitle>
               </div>
+              <FileStructureGrid
+                width={getFileGridWidth({ paths })}
+                paths={projectFiles.files.map((file) => file.slice(1))}
+                highlight={paths}
+                // highlight={projectFiles.files.map((file) => file.slice(1))}
+              />
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="font-mono">
-              <p className="text-sm text-muted-foreground mb-2">
-                {selectedCommit.message}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {selectedCommit.time_ago}
-              </p>
-            </div>
-          </CardContent>
+          <CardContent></CardContent>
           <Button
             type="button"
             onClick={() => {

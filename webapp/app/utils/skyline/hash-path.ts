@@ -15,7 +15,18 @@ function hashSegment(segment: string): number {
   return Math.abs(hash)
 }
 
-function generateColor(path: string): string {
+function generateColor(
+  path: string,
+  {
+    hue: hueOffset = 0,
+    saturation: saturationOffset = 0,
+    lightness: lightnessOffset = 0,
+  }: {
+    hue?: number
+    saturation?: number
+    lightness?: number
+  },
+): string {
   const segments = path.split("/")
   const baseHue = hashSegment(segments[0]) % 360
   const depth = segments.length - 1
@@ -25,7 +36,8 @@ function generateColor(path: string): string {
   const hueVarianceHash =
     (lastSegmentHash % (LOCKED_HUE_RANGE_HASH * 2 + 1)) - LOCKED_HUE_RANGE_HASH
   const hueVarianceDepth = depth * LOCKED_HUE_RANGE_DEPTH
-  const finalHue = (baseHue + hueVarianceHash + hueVarianceDepth + 360) % 360
+  const finalHue =
+    (baseHue + hueVarianceHash + hueVarianceDepth + hueOffset + 360) % 360
 
   const saturationBase = 70
   const saturationVarianceHash =
@@ -36,7 +48,10 @@ function generateColor(path: string): string {
     0,
     Math.min(
       100,
-      saturationBase + saturationVarianceHash - saturationVarianceDepth,
+      saturationBase +
+        saturationVarianceHash -
+        saturationVarianceDepth +
+        saturationOffset,
     ),
   )
 
@@ -49,13 +64,27 @@ function generateColor(path: string): string {
     0,
     Math.min(
       100,
-      lightnessBase + lightnessVarianceHash - lightnessVarianceDepth,
+      lightnessBase +
+        lightnessVarianceHash -
+        lightnessVarianceDepth +
+        lightnessOffset,
     ),
   )
 
   return `hsl(${Math.round(finalHue)}, ${Math.round(saturation)}%, ${Math.round(lightness)}%)`
 }
 
-export function hashPath(path: string): string {
-  return generateColor(path)
+export function hashPath(
+  path: string,
+  {
+    hue = 0,
+    saturation = 0,
+    lightness = 0,
+  }: {
+    hue?: number
+    saturation?: number
+    lightness?: number
+  } = {},
+): string {
+  return generateColor(path, { hue, saturation, lightness })
 }

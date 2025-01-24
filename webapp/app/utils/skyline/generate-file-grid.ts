@@ -10,25 +10,46 @@ interface GridCell {
 function organizeDirectory(
   directoryPath: string,
   contents: (string | GridCell[])[],
+  ignore: string[],
+  highlight: string[],
 ): GridCell[][] {
+  const dimOptions = { saturation: -20, hue: 40, lightness: 40 }
   const result: GridCell[][] = []
   const directoryCells: GridCell[] = directoryPath
     .split("/")
-    .map((segment, index, array) => ({
-      isOccupied: true,
-      path: array.slice(0, index + 1).join("/"),
-      color: hashPath(array.slice(0, index + 1).join("/")),
-      isDirectory: true,
-    }))
+    .map((segment, index, array) => {
+      const item = array.slice(0, index + 1).join("/")
+      const hasHighlights = highlight.length > 0
+      const isDimmed = hasHighlights && !highlight.includes(item)
+      return {
+        isOccupied: true,
+        path: item,
+        color: isDimmed ? hashPath(item, dimOptions) : hashPath(item),
+        isDirectory: true,
+      }
+    })
 
   let files: GridCell[] = []
+  let allFilesIgnored = true
 
   contents.forEach((item) => {
     if (typeof item === "string") {
+      const isIgnored = ignore.includes(item)
+      const hasHighlights = highlight.length > 0
+      const isDimmed = hasHighlights && !highlight.includes(item)
+
+      if (!isIgnored) {
+        allFilesIgnored = false
+      }
+
       files.push({
         isOccupied: true,
         path: item,
-        color: hashPath(item),
+        color: isIgnored
+          ? "gray"
+          : isDimmed
+            ? hashPath(item, dimOptions)
+            : hashPath(item),
         isDirectory: false,
       })
     } else {
@@ -41,6 +62,11 @@ function organizeDirectory(
       result.push(...item)
     }
   })
+
+  // If all files are ignored, mark the directory as ignored
+  if (allFilesIgnored) {
+    directoryCells.forEach((cell) => (cell.color = "gray"))
+  }
 
   // Process any remaining files
   if (files.length > 0) {
@@ -94,14 +120,30 @@ function rotateGrid(grid: GridCell[][]): GridCell[][] {
   return rotatedGrid
 }
 
-export function generateFileGrid(paths: string[]): GridCell[][] {
+const createVerticalGridCache: { [key: string]: GridCell[][] } = {}
+
+function createVerticalGrid({
+  paths,
+  ignore,
+  highlight,
+}: {
+  paths: string[]
+  ignore: string[]
+  highlight: string[]
+}): GridCell[][] {
+  const cacheKey =
+    JSON.stringify(paths) + JSON.stringify(ignore) + JSON.stringify(highlight)
+  if (createVerticalGridCache[cacheKey]) {
+    return createVerticalGridCache[cacheKey]
+  }
+
   const grid: GridCell[][] = []
   const directoryContents: { [key: string]: (string | GridCell[])[] } = {}
 
   // Group files and directories
   paths.forEach((path) => {
     const parts = path.split("/")
-    const fileName = parts.pop() || ""
+    parts.pop()
     const dirPath = parts.join("/")
 
     if (!directoryContents[dirPath]) {
@@ -139,11 +181,37 @@ export function generateFileGrid(paths: string[]): GridCell[][] {
       }
       return item
     })
-    return organizeDirectory(dirPath, processedContents)
+    return organizeDirectory(dirPath, processedContents, ignore, highlight)
   }
 
   grid.push(...processDirectory(""))
 
-  // Rotate the entire grid 90 degrees counterclockwise
+  createVerticalGridCache[cacheKey] = grid
+  return grid
+}
+
+export function generateFileGrid({
+  paths,
+  ignore = [],
+  highlight = [],
+}: {
+  paths: string[]
+  ignore?: string[]
+  highlight?: string[]
+}): GridCell[][] {
+  const grid = createVerticalGrid({ paths, ignore, highlight })
   return rotateGrid(grid)
+}
+
+export function getFileGridWidth({
+  paths,
+  ignore = [],
+  highlight = [],
+}: {
+  paths: string[]
+  ignore?: string[]
+  highlight?: string[]
+}): number {
+  const grid = createVerticalGrid({ paths, ignore, highlight })
+  return grid.length
 }
