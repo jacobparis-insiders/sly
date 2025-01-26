@@ -13,18 +13,29 @@ import {
   CardHeader,
   CardTitle,
 } from "#app/components/ui/card.js"
-import { cachified } from "#app/cache.server.js"
+import { cache, cachified, lru } from "#app/cache.server.js"
 import { getUser } from "#app/auth.server.js"
 import { FileStructureGrid } from "#app/utils/skyline/file-structure-grid.js"
 import { Slider } from "#app/components/ui/slider.js"
 import { format } from "date-fns"
 import { useState } from "react"
-import { useFileTree, useUpdateConfig } from "#app/use-connection.js"
+import {
+  useFileTree,
+  useOptionalCli,
+  useUpdateConfig,
+} from "#app/use-connection.js"
 import { getConnection } from "#app/use-connection.js"
 import {
-  fetchAllCommits,
-  fetchAllContributors,
-} from "#app/utils/octokit.server.js"
+  fetchRepositoryData,
+  fetchContributors,
+  fetchCommits,
+  fetchRepositoryContents,
+  fetchCommitFiles,
+  fetchCommitDetails,
+  fetchFileContent,
+  fetchCommitsForPath,
+  fetchFileContentAtCommit,
+} from "#app/utils/octokit.server.ts"
 import { getFileGridWidth } from "#app/utils/skyline/generate-file-grid.js"
 import { cn } from "#app/utils/misc.js"
 
@@ -42,68 +53,37 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       auth: user?.tokens.access_token,
     })
 
-    const repoData = await cachified({
-      key: `repo-${owner}-${repo}`,
-      getFreshValue: () => octokit.repos.get({ owner, repo }),
-      ttl: 1000 * 60 * 60 * 24, // 1 day
-    })
+    const repoData = await fetchRepositoryData({ octokit, owner, repo })
 
     const [contributors, allCommits, contents] = await Promise.all([
-      cachified({
-        key: `contributors-${owner}-${repo}`,
-        getFreshValue: () => fetchAllContributors({ octokit, owner, repo }),
-        swr: Infinity,
-        ttl: 1000 * 60 * 60 * 24, // 1 day
-      }),
-
-      cachified({
-        key: `commits-${owner}-${repo}`,
-        getFreshValue: () => fetchAllCommits({ octokit, owner, repo }),
-        swr: Infinity,
-        ttl: 1000 * 60 * 15, // 15 minutes
-      }),
-
-      cachified({
-        key: `contents-${owner}-${repo}`,
-        getFreshValue: async () => {
-          const {
-            data: { tree },
-          } = await octokit.git.getTree({
-            owner,
-            repo,
-            tree_sha: repoData.data.default_branch,
-            recursive: "1",
-          })
-
-          return tree
-            .filter((item) => item.type === "blob")
-            .map((item) => item.path)
-        },
-        ttl: 1000 * 60 * 60, // 1 hour
+      fetchContributors({ octokit, owner, repo }),
+      fetchCommits({ octokit, owner, repo }),
+      fetchRepositoryContents({
+        octokit,
+        owner,
+        repo,
+        branch: repoData.data.default_branch,
       }),
     ])
 
     invariant(repoData.data, "No repository data found")
 
     for (const commit of allCommits) {
-      commit.files = await cachified({
-        key: `commit-${owner}-${repo}-${commit.sha}`,
-        getFreshValue: async () => {
-          const {
-            data: { tree },
-          } = await octokit.git.getTree({
-            owner,
-            repo,
-            tree_sha: commit.sha,
-            recursive: "1",
-          })
+      const [commitFiles, commitDetails] = await Promise.all([
+        fetchCommitFiles({ octokit, owner, repo, commitSha: commit.sha }),
+        fetchCommitDetails({ octokit, owner, repo, commitSha: commit.sha }),
+      ])
 
-          return tree
-            .filter((item) => item.type === "blob")
-            .map((item) => item.path)
-        },
+      commit.files = commitFiles
+
+      commit.affectedFiles = commitDetails.files?.map((file) => {
+        return {
+          path: file.filename,
+          status: file.status,
+        }
       })
     }
+
     return {
       repo: {
         ...repoData.data,
@@ -127,6 +107,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 export default function RepoPage() {
   const { repo, paths, config } = useLoaderData<typeof loader>()
   const { updateConfig } = useUpdateConfig()
+  const { cwd } = useOptionalCli()
   const projectFiles = useFileTree()
   const commits = repo.all_commits
     .map((a) => a)
@@ -298,11 +279,11 @@ export default function RepoPage() {
                 <strong className="font-bold text-foreground">
                   {matchingFiles}
                 </strong>{" "}
-                matching files,{" "}
+                matching,{" "}
                 <strong className="font-bold text-foreground">
                   {ignoredPaths.length}
                 </strong>{" "}
-                ignored
+                ignored in {cwd}
               </p>
             </div>
           </CardHeader>

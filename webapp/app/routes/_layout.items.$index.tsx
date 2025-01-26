@@ -16,7 +16,6 @@ import { PreDiffViewWithTokens } from "#app/components/pre-diff-view.js"
 import { tokenize, diffTokens, diffArrayToString } from "@pkgless/diff"
 import { Card, CardContent, CardHeader } from "#app/components/ui/card.js"
 import { Octokit } from "@octokit/rest"
-import { cachified } from "#app/cache.server.js"
 import { getUser } from "#app/auth.server.js"
 import { SidebarContent } from "#app/components/ui/sidebar.js"
 import {
@@ -30,6 +29,10 @@ import { FileEditor } from "#app/components/file-editor.js"
 import { AutoDiffEditor, DiffEditor } from "#app/components/diff-editor.js"
 import { Heading } from "#app/components/heading.js"
 import type { Config } from "../../../lib/schemas"
+import {
+  fetchFileContent,
+  fetchCommitsForPath,
+} from "#app/utils/octokit.server.ts"
 
 type GitHubFileInfo = {
   owner: string
@@ -52,51 +55,6 @@ async function parseGitHubUrl(url: string): Promise<GitHubFileInfo> {
 
   invariant(owner && repo && path, "Invalid GitHub URL format")
   return { owner, repo, branch, path }
-}
-
-async function getFileContent({
-  owner,
-  repo,
-  path,
-  ref,
-  octokit,
-}: GitHubFileInfo & { ref: string; octokit: Octokit }) {
-  const { data: fileData } = await cachified({
-    key: `github-file-${owner}-${repo}-${path}-${ref}`,
-    getFreshValue: () =>
-      octokit.repos.getContent({
-        owner,
-        repo,
-        path,
-        ref,
-      }),
-    ttl: 1000 * 60 * 60 * 24,
-  })
-
-  return {
-    content: Buffer.from(fileData.content, "base64").toString(),
-    sha: fileData.sha,
-  }
-}
-
-async function getFileHistory({
-  owner,
-  repo,
-  path,
-  branch,
-  octokit,
-}: GitHubFileInfo & { octokit: Octokit }) {
-  console.log("Getting file history")
-  const commits = await getAllCommitsWithRenames({
-    owner,
-    repo,
-    path,
-    branch,
-    octokit,
-  })
-
-  console.log("Got file history", commits)
-  return commits
 }
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
@@ -126,18 +84,26 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           invariant(fileConfig.source, "File source is required")
 
           const fileInfo = await parseGitHubUrl(fileConfig.source)
-          const currentContent = await getFileContent({
-            ...fileInfo,
-            ref: fileInfo.branch,
+          const currentContent = await fetchFileContent({
             octokit,
+            owner: fileInfo.owner,
+            repo: fileInfo.repo,
+            path: fileInfo.path,
+            ref: fileInfo.branch,
           })
-          const history = await getFileHistory({ ...fileInfo, octokit })
+          const history = await fetchCommitsForPath({
+            octokit,
+            owner: fileInfo.owner,
+            repo: fileInfo.repo,
+            path: fileInfo.path,
+            branch: fileInfo.branch,
+          })
 
           return {
             source: fileConfig.source,
             path: fileConfig.path,
-            content: currentContent.content,
-            version: currentContent.sha,
+            content: currentContent.data.content,
+            version: currentContent.data.sha,
             history,
           }
         }),
@@ -206,134 +172,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   } finally {
     connection?.close()
   }
-}
-
-async function getAllCommitsWithRenames({
-  owner,
-  repo,
-  path,
-  branch,
-  octokit,
-}: {
-  owner: string
-  repo: string
-  path: string
-  branch: string
-  octokit: Octokit
-}) {
-  let attemptedFilenames = new Set()
-  let fileHistory = []
-  let currentPath = path
-
-  let whileCount = 0
-  while (whileCount++ < 100) {
-    if (attemptedFilenames.has(currentPath)) {
-      console.log("Already attempted this path", currentPath)
-      console.log("Attempted filenames", attemptedFilenames)
-      break
-    }
-
-    attemptedFilenames.add(currentPath)
-    const { data: commits } = await cachified({
-      key: `github-commits-${owner}-${repo}-${currentPath}-${branch}`,
-      getFreshValue: () =>
-        octokit.repos.listCommits({
-          owner,
-          repo,
-          path: currentPath,
-          sha: branch,
-          per_page: 100,
-        }),
-      ttl: 1000 * 60 * 60 * 24,
-    })
-
-    console.log(`Found ${commits.length} commits for ${currentPath}`)
-
-    // Process each commit to get file content
-    for (const commit of commits) {
-      const { data: commitData } = await cachified({
-        key: `github-commit-${owner}-${repo}-${commit.sha}`,
-        getFreshValue: () =>
-          octokit.repos.getCommit({
-            owner,
-            repo,
-            ref: commit.sha,
-          }),
-        ttl: 1000 * 60 * 60 * 24,
-      })
-
-      let fileData = commitData.files?.find(
-        (file) => file.filename === currentPath,
-      )
-
-      // Handle large commits with pagination
-      if (!fileData && commitData.files?.length === 300) {
-        console.log("Large commit, fetching additional pages")
-        let page = 2
-
-        while (!fileData && page <= 10) {
-          const { data: fullCommitData } = await cachified({
-            key: `github-commit-${owner}-${repo}-${commit.sha}-page-${page}`,
-            getFreshValue: () =>
-              octokit.request("GET /repos/{owner}/{repo}/commits/{ref}", {
-                owner,
-                repo,
-                ref: commit.sha,
-                per_page: 300,
-                page,
-              }),
-            ttl: 1000 * 60 * 60 * 24,
-          })
-
-          if (!fullCommitData.files?.length) break
-
-          fileData = fullCommitData.files.find(
-            (file) => file.filename === currentPath,
-          )
-          page++
-        }
-      }
-
-      if (fileData) {
-        // Get the file content at this commit
-        const { data: fileContent } = await cachified({
-          key: `github-file-content-${owner}-${repo}-${path}-${commit.sha}`,
-          getFreshValue: () =>
-            octokit.repos.getContent({
-              owner,
-              repo,
-              path: currentPath,
-              ref: commit.sha,
-            }),
-          ttl: 1000 * 60 * 60 * 24,
-        })
-
-        // Decode base64 content
-        const content = Buffer.from(fileContent.content, "base64").toString()
-
-        if (fileHistory.at(-1)?.content !== content) {
-          fileHistory.push({
-            path: currentPath,
-            version: commit.sha,
-            content,
-            timestamp: new Date(commitData.commit.author?.date || ""),
-          })
-        }
-
-        if (fileData.previous_filename) {
-          currentPath = fileData.previous_filename
-        }
-      }
-    }
-
-    if (!commits.length) break
-  }
-
-  if (whileCount >= 100) {
-    console.log("Hit max depth")
-  }
-
-  return fileHistory.filter(Boolean).reverse()
 }
 
 export default function ItemPage() {

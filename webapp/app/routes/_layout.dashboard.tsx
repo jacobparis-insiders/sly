@@ -102,7 +102,7 @@ function TemplateCard({
   const { owner, repo } = parseGitHubUrl(template.source)
   const href = `/github/${owner}/${repo}`
   return (
-    <Card onClick={() => navigate(href)} className="hover:bg-neutral-50">
+    <Card onClick={() => navigate(href)} className="hover:bg-neutral-50 px-2">
       <CardHeader className="flex flex-col items-start">
         <CardTitle className="flex items-center gap-2">
           <Link to={href}>{template.name}</Link>
@@ -198,7 +198,10 @@ function IconLibraryCard({
   const navigate = useNavigate()
 
   return (
-    <Card onClick={() => navigate(libraryUrl)} className="hover:bg-neutral-50">
+    <Card
+      onClick={() => navigate(libraryUrl)}
+      className="hover:bg-neutral-50 px-2"
+    >
       <CardHeader>
         <CardTitle>
           <Link to={libraryUrl}>{lib.name || library}</Link>

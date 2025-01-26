@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node"
 import { invariant } from "@epic-web/invariant"
 import { getIconifyLibraryIndex } from "../../../lib/iconify.js"
-import { cachified } from "#app/cache.server.js"
+import { cachified, lru } from "#app/cache.server.js"
 import type { BreadcrumbHandle } from "#app/components/ui/breadcrumbs.js"
 
 export const handle: BreadcrumbHandle = {
@@ -13,6 +13,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   invariant(libraryId, "Library ID is required")
 
   const icons = await cachified({
+    cache: lru,
     key: `iconify-library-index-${libraryId}-icons`,
     forceFresh: true,
     async getFreshValue() {

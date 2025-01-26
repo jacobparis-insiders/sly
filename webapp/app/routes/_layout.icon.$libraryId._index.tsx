@@ -10,7 +10,7 @@ import { Button } from "#app/components/ui/button.tsx"
 import { invariant } from "@epic-web/invariant"
 import { getIconifyLibraryIndex } from "../../../lib/iconify.js"
 import { PaginationBar } from "#app/components/pagination-bar.js"
-import { cachified } from "#app/cache.server.js"
+import { cachified, lru } from "#app/cache.server.js"
 import { IconifyThumbnail } from "#app/components/iconify-thumbnail.js"
 import type { BreadcrumbHandle } from "#app/components/ui/breadcrumbs.js"
 import { CartProvider, useCart } from "#app/cart-context.tsx"
@@ -45,6 +45,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 
   try {
     const icons = await cachified({
+      cache: lru,
       key: `iconify-library-index-${libraryId}-icons-${query}-${skip}`,
       async getFreshValue() {
         const result = await getIconifyLibraryIndex(libraryId, {

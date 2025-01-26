@@ -25,6 +25,7 @@
     "@epic-web/invariant": "^1.0.0",
     "@epic-web/remember": "^1.1.0",
     "@iconify/react": "^5.1.0",
+    "@libsql/client": "^0.14.0",
     "@monaco-editor/react": "^4.6.0",
     "@pkgless/diff": "file:../../diff/packages/diff",
     "@radix-ui/react-alert-dialog": "^1.1.2",

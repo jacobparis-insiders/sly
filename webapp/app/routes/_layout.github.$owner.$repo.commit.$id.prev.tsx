@@ -1,9 +1,8 @@
 import { type LoaderFunctionArgs, redirect } from "@remix-run/node"
 import { Octokit } from "@octokit/rest"
 import { invariant } from "@epic-web/invariant"
-import { cachified } from "#app/cache.server.js"
 import { getUser } from "#app/auth.server.js"
-import { fetchAllCommits } from "#app/utils/octokit.server.js"
+import { fetchCommits } from "#app/utils/octokit.server.ts"
 
 export const handle = {
   breadcrumb: " ",
@@ -20,11 +19,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     auth: user?.tokens.access_token,
   })
 
-  const commits = await cachified({
-    key: `commits-${owner}-${repo}`,
-    getFreshValue: () => fetchAllCommits({ octokit, owner, repo }),
-    ttl: 1000 * 60 * 15, // 15 minutes
-  })
+  const commits = await fetchCommits({ octokit, owner, repo })
   const currentIndex = commits.findIndex((commit) => commit.sha === id)
 
   // If we found the commit and it's not the last one

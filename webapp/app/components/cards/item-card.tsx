@@ -30,7 +30,7 @@ export function ItemCard({
   return (
     <Card
       onClick={() => navigate(href)}
-      className="hover:bg-neutral-50 overflow-hidden"
+      className="hover:bg-neutral-50 overflow-hidden px-2"
     >
       <CardHeader className="pb-0">
         <CardTitle className="flex items-center text-lg truncate">
