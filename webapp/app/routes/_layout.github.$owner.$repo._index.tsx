@@ -381,13 +381,22 @@ export default function RepoPage() {
                   const deletedFiles = commit.affectedFiles.filter(
                     (file) => file.status === "deleted",
                   )
+
+                  const Component = skylineState === "idle" ? "div" : "button"
                   return (
-                    <div
+                    <Component
                       key={index}
                       className={cn(
-                        "font-mono relative group hover:bg-neutral-100 p-2 rounded",
+                        "text-left block w-full font-mono relative group hover:bg-neutral-100 p-2 rounded",
                         index === 3 && "font-bold bg-neutral-100",
                       )}
+                      onClick={() => {
+                        if (skylineState === "version") {
+                          setSelectedCommitIndex(
+                            selectedCommitIndex - 3 + index,
+                          )
+                        }
+                      }}
                     >
                       <div
                         className={cn(
@@ -457,7 +466,7 @@ export default function RepoPage() {
                           )}
                         </div>
                       )}
-                    </div>
+                    </Component>
                   )
                 })}
                 {commits.length - selectedCommitIndex > 3 && (
