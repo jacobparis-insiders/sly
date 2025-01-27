@@ -36,6 +36,8 @@ import {
   fetchCommitsForPath,
   fetchFileContentAtCommit,
 } from "#app/utils/octokit.server.ts"
+import ignore from "ignore"
+
 import { getFileGridWidth } from "#app/utils/skyline/generate-file-grid.js"
 import { cn } from "#app/utils/misc.js"
 import { Checkbox } from "#app/components/ui/checkbox.js"
@@ -114,6 +116,7 @@ export default function RepoPage() {
   const { cwd } = useOptionalCli()
   const projectFiles = useFileTree()
   const ignorePatterns = config?.ignore || []
+  const ig = ignore().add(ignorePatterns)
 
   const [hideNonMatching, setHideNonMatching] = useState(false)
   const [hideIgnored, setHideIgnored] = useState(false)
@@ -128,15 +131,9 @@ export default function RepoPage() {
     .filter((a) => !a.message?.includes("skip ci"))
     .map((commit) => {
       const hasMatchingFiles = commit.affectedFiles.some((file) => {
-        if (
-          hideIgnored &&
-          ignorePatterns.some((pattern) => file.path.includes(pattern))
-        ) {
-          return false
-        }
-        if (hideNonMatching && !projectFilesSet.has(file.path)) {
-          return false
-        }
+        if (hideIgnored && ig.test(file.path)) return false
+        if (hideNonMatching && !projectFilesSet.has(file.path)) return false
+
         return true
       })
 
@@ -168,10 +165,10 @@ export default function RepoPage() {
 
   const selectedCommit = commits[selectedCommitIndex] || commits[0]
 
-  // Find the next commit after the current version
-  const nextVersionIndex =
-    currentVersionIndex === -1 ? 0 : currentVersionIndex - 1
-  const nextCommit = commits[nextVersionIndex]
+  // // Find the next commit after the current version
+  // const nextVersionIndex =
+  //   currentVersionIndex === -1 ? 0 : currentVersionIndex - 1
+  // const nextCommit = commits[nextVersionIndex]
 
   // Filter paths based on ignore settings from config
   const ignoredPaths = selectedCommit.files.filter((path) =>
@@ -458,7 +455,7 @@ export default function RepoPage() {
                               className="text-sm text-muted-foreground"
                             >
                               <Link
-                                to={`/github/${repo.owner.login}/${repo.name}/commit/${nextCommit.sha}`}
+                                to={`/github/${repo.owner.login}/${repo.name}/commit/${commit.sha}`}
                               >
                                 Start updating
                               </Link>

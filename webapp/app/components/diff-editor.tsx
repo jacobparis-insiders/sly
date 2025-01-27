@@ -583,7 +583,8 @@ export function AutoDiffEditor({
   version,
   onIgnore,
   className,
-  collapsed = false,
+  isIgnored,
+  isNonMatching,
 }: {
   file: { path: string; content: string; type: string }
   onSaveFile: ({
@@ -596,10 +597,18 @@ export function AutoDiffEditor({
   version: string
   onIgnore: (version: string, ignorePattern: string | null) => void
   className?: string
-  collapsed?: boolean
+  isIgnored: boolean
+  isNonMatching: boolean
 }) {
   const trimmedPath = file.path.replace(/\.diff$/, "")
-  const [isExpanded, setIsExpanded] = useState(!collapsed)
+  const [isExpanded, setIsExpanded] = useState(!isIgnored && !isNonMatching)
+  const [prevIsIgnored, setPrevIsIgnored] = useState(isIgnored)
+  const [prevIsNonMatching, setPrevIsNonMatching] = useState(isNonMatching)
+  if (prevIsIgnored !== isIgnored || prevIsNonMatching !== isNonMatching) {
+    setPrevIsIgnored(isIgnored)
+    setPrevIsNonMatching(isNonMatching)
+    setIsExpanded(!isIgnored && !isNonMatching)
+  }
   const { files: projectFiles } = useFileTree()
 
   const [search, setSearch] = useState("")
@@ -666,7 +675,7 @@ export function AutoDiffEditor({
 
   return (
     <Card className={className}>
-      <div className="flex h-full grow overflow-hidden">
+      <div className="flex flex-col h-full grow overflow-hidden">
         <div className="max-w-full grow">
           <div className="p-2 flex gap-x-2 justify-between">
             <div className="flex items-center gap-x-2 px-1">
@@ -681,19 +690,7 @@ export function AutoDiffEditor({
               <div className="font-mono">{file.path}</div>
             </div>
 
-            {!isExpanded ? (
-              <div className="flex items-center gap-x-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="shadow-smooth"
-                  onClick={() => setIsExpanded(true)}
-                >
-                  <Icon name="play" className="-ml-2 size-4" />
-                  Ignored
-                </Button>
-              </div>
-            ) : (
+            {!isExpanded ? null : (
               <div className="flex items-center gap-x-2">
                 {state.matches("preApply") ? (
                   <>
@@ -764,7 +761,6 @@ export function AutoDiffEditor({
                       path={file.path}
                       version={version}
                       onIgnore={(version, ignorePattern) => {
-                        // TODO: don't think I need the version here
                         setIsExpanded(false)
                         onIgnore(version, ignorePattern)
                       }}
@@ -785,7 +781,7 @@ export function AutoDiffEditor({
             )}
           </div>
 
-          {isExpanded && (
+          {isExpanded ? (
             <div className="mt-2">
               {state.matches("preApply") ? (
                 <SidebarProvider className="relative mt-2">
@@ -846,9 +842,21 @@ export function AutoDiffEditor({
                 <DifftasticView content={file.content} className="text-sm" />
               )}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
+      {!isExpanded ? (
+        <div className="mt-2 -mb-2">
+          <Button
+            type="button"
+            variant="primary"
+            className="w-full rounded-t-none border-x-0 border-b-0 hover:border-border shadow-smooth"
+            onClick={() => setIsExpanded(true)}
+          >
+            expand
+          </Button>
+        </div>
+      ) : null}
     </Card>
   )
 }

@@ -13,8 +13,9 @@ import {
   useInstallFiles,
   useUpdateConfig,
   useConfig,
+  useFileTree,
 } from "#app/use-connection.js"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { getUser } from "#app/auth.server.js"
 import { Link } from "@remix-run/react"
 import { AutoDiffEditor } from "#app/components/diff-editor.js"
@@ -23,6 +24,8 @@ import {
   fetchCommitDetails,
   fetchCommitFiles,
 } from "#app/utils/octokit.server.ts"
+import { cachified, lru } from "#app/cache.server.js"
+import { ansiToDiff } from "#app/utils/ansi-to-diff.js"
 
 export const handle: BreadcrumbHandle = {
   breadcrumb: " ",
@@ -39,25 +42,53 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     auth: user?.tokens.access_token,
   })
 
-  const commitDetails = await fetchCommitDetails({
+  const data = await fetchCommitDetails({
     octokit,
     owner,
     repo,
     commitSha: id,
   })
 
-  const files = await fetchCommitFiles({
-    octokit,
-    owner,
-    repo,
-    commitSha: id,
-  })
+  const files = await Promise.all(
+    data.files?.map(async (file) => {
+      console.log(file.patch)
+      return {
+        type: "file",
+        path: file.filename,
+        content: await cachified({
+          cache: lru,
+          key: `rediff-1-${file.sha}`,
+          getFreshValue: () =>
+            fetch(`${process.env.DIFF_URL}/rediff`, {
+              method: "POST",
+              body: JSON.stringify({
+                unifiedDiff: file.patch,
+                ext: file.filename.split(".").pop(),
+              }),
+            })
+              .then((res) => res.text())
+              .then((text) => {
+                //                 console.log(`
+                // test("test", () => {
+                //   const input = \``)
+                //                 console.log({ text })
+                //                 console.log(`\`
+                //   const output = ansiToDiff(input)
+                //   expect(output).toMatchInlineSnapshot()
+                // })`)
+                const diff = ansiToDiff(text)
+                return diff
+              }),
+        }),
+      }
+    }) ?? [],
+  )
 
   return {
-    breadcrumbLabel: commitDetails.commit.message,
+    breadcrumbLabel: data.commit.message,
     commit: {
-      ...commitDetails,
-      files: files,
+      ...data,
+      files,
     },
   }
 }
@@ -67,21 +98,16 @@ export default function CommitPage() {
   const { config } = useConfig()
   const { commit } = useLoaderData() as Awaited<ReturnType<typeof loader>>
   const navigate = useNavigate()
+  const { files: projectFiles } = useFileTree()
+  console.log(config?.ignore)
   const ig = ignore().add(config?.ignore || [])
 
-  const [completedFiles, setCompletedFiles] = useState<Set<string>>(
-    new Set(
-      commit.files
-        ?.filter((file) => {
-          return !ig.test(file.path)
-        })
-        .map((file) => file.path),
-    ),
+  // Convert projectFiles to a Set for faster lookup
+  const projectFilesSet = useMemo(
+    () => new Set(projectFiles?.map((file) => file.slice(1))),
+    [projectFiles],
   )
 
-  const allFilesCompleted = commit.files.every((file) =>
-    completedFiles.has(file.path),
-  )
   const { installFiles, state: installState } = useInstallFiles()
 
   return (
@@ -90,38 +116,47 @@ export default function CommitPage() {
         <Heading>{commit.commit.message || "Unnamed Commit"}</Heading>
 
         <div>
-          {commit.files.map((file) => (
-            <AutoDiffEditor
-              collapsed={completedFiles.has(file.path)}
-              key={file.path}
-              className="mt-4 pt-0 shadow-smooth"
-              file={file}
-              version={commit.sha}
-              onIgnore={(version, ignorePattern) => {
-                setCompletedFiles((prev) => new Set([...prev, file.path]))
-                if (ignorePattern) {
-                  updateConfigPartial({
-                    jsonata: `$merge([$, {"ignore": $append($exists(ignore) ? ignore : [], "${ignorePattern}")}])`,
+          {commit.files.map((file) => {
+            console.log(file.path)
+            const isIgnored = ig.test(file.path).ignored
+            const isNonMatching = !projectFilesSet.has(file.path)
+
+            return (
+              <AutoDiffEditor
+                isIgnored={isIgnored}
+                isNonMatching={isNonMatching}
+                key={file.path}
+                className="mt-4 pt-0 shadow-smooth"
+                file={{
+                  path: file.path,
+                  content: file.content || "",
+                  type: file.type,
+                }}
+                version={commit.sha}
+                onIgnore={(version, ignorePattern) => {
+                  if (ignorePattern) {
+                    updateConfigPartial({
+                      jsonata: `$merge([$, {"ignore": $append($exists(ignore) ? ignore : [], "${ignorePattern}")}])`,
+                    })
+                  }
+                }}
+                onSaveFile={({ newFile }) => {
+                  console.log("onSaveFile", newFile)
+                  installFiles({
+                    files: commit.files.map((f) =>
+                      f.path === file.path
+                        ? {
+                            ...f,
+                            content: newFile.content,
+                            type: newFile.type,
+                          }
+                        : f,
+                    ),
                   })
-                }
-              }}
-              onSaveFile={({ newFile }) => {
-                console.log("onSaveFile", newFile)
-                setCompletedFiles((prev) => new Set([...prev, file.path]))
-                installFiles({
-                  files: commit.files.map((f) =>
-                    f.path === file.path
-                      ? {
-                          ...f,
-                          content: newFile.content,
-                          type: newFile.type,
-                        }
-                      : f,
-                  ),
-                })
-              }}
-            />
-          ))}
+                }}
+              />
+            )
+          })}
         </div>
 
         <div className="flex justify-between mt-8">

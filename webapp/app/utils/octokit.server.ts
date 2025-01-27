@@ -1,7 +1,5 @@
-import { LRUCache } from "lru-cache"
 import { Octokit } from "@octokit/rest"
 import { cache, cachified, doubleCachified, lru } from "#app/cache.server.js"
-import { CachifiedOptions } from "@epic-web/cachified"
 
 type FetchOctokitOptions = {
   octokit: Octokit

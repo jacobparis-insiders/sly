@@ -48,7 +48,6 @@ export function ansiToDiff(input: string | string[], options = {}) {
     }
   })
 
-  console.log({ lineData })
   return lineData
     .map(({ lineNumber, gutterWidth, content }) => {
       // If the line is empty after cleaning, return empty string
