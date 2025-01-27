@@ -18,7 +18,7 @@ import { getUser } from "#app/auth.server.js"
 import { FileStructureGrid } from "#app/utils/skyline/file-structure-grid.js"
 import { Slider } from "#app/components/ui/slider.js"
 import { format } from "date-fns"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import {
   useFileTree,
   useOptionalCli,
@@ -38,6 +38,8 @@ import {
 } from "#app/utils/octokit.server.ts"
 import { getFileGridWidth } from "#app/utils/skyline/generate-file-grid.js"
 import { cn } from "#app/utils/misc.js"
+import { Checkbox } from "#app/components/ui/checkbox.js"
+import { Label } from "#app/components/ui/label.js"
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { owner, repo } = params
@@ -76,12 +78,13 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
       commit.files = commitFiles
 
-      commit.affectedFiles = commitDetails.files?.map((file) => {
-        return {
-          path: file.filename,
-          status: file.status,
-        }
-      })
+      commit.affectedFiles =
+        commitDetails.files?.map((file) => {
+          return {
+            path: file.filename,
+            status: file.status,
+          }
+        }) || []
     }
 
     return {
@@ -94,6 +97,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           date: commit.commit.author.date,
           time_ago: new Date(commit.commit.author.date).toLocaleString(),
           files: commit.files,
+          affectedFiles: commit.affectedFiles,
         })),
       },
       paths: contents,
@@ -109,9 +113,38 @@ export default function RepoPage() {
   const { updateConfig } = useUpdateConfig()
   const { cwd } = useOptionalCli()
   const projectFiles = useFileTree()
+  const ignorePatterns = config?.ignore || []
+
+  const [hideNonMatching, setHideNonMatching] = useState(false)
+  const [hideIgnored, setHideIgnored] = useState(false)
+
+  // Convert projectFiles.files to a Set for faster lookup
+  const projectFilesSet = useMemo(
+    () => new Set(projectFiles.files?.map((file) => file.slice(1))),
+    [projectFiles.files],
+  )
+
   const commits = repo.all_commits
-    .map((a) => a)
     .filter((a) => !a.message?.includes("skip ci"))
+    .map((commit) => {
+      const hasMatchingFiles = commit.affectedFiles.some((file) => {
+        if (
+          hideIgnored &&
+          ignorePatterns.some((pattern) => file.path.includes(pattern))
+        ) {
+          return false
+        }
+        if (hideNonMatching && !projectFilesSet.has(file.path)) {
+          return false
+        }
+        return true
+      })
+
+      return {
+        ...commit,
+        hasMatchingFiles,
+      }
+    })
     .reverse()
 
   const currentVersionIndex = commits.findIndex(
@@ -133,9 +166,7 @@ export default function RepoPage() {
     setSelectedCommitIndex(value[0])
   }
 
-  const selectedCommit = commits[selectedCommitIndex]
-
-  console.log(selectedCommit)
+  const selectedCommit = commits[selectedCommitIndex] || commits[0]
 
   // Find the next commit after the current version
   const nextVersionIndex =
@@ -143,25 +174,32 @@ export default function RepoPage() {
   const nextCommit = commits[nextVersionIndex]
 
   // Filter paths based on ignore settings from config
-  const ignorePatterns = config?.ignore || []
   const ignoredPaths = selectedCommit.files.filter((path) =>
     ignorePatterns.some((pattern) => path.includes(pattern)),
   )
-  const includedPaths = selectedCommit.files.filter(
-    (path) => !ignorePatterns.some((pattern) => path.includes(pattern)),
-  )
 
-  console.log({ projectFiles })
-  const matchingFilesInProject = includedPaths.filter((path) =>
-    projectFiles.files?.some((file) => `/${path}` === file),
-  )
+  const includedPaths = selectedCommit.files.filter((path) => {
+    if (
+      hideIgnored &&
+      ignorePatterns.some((pattern) => path.includes(pattern))
+    ) {
+      return false
+    }
+    if (hideNonMatching && !projectFilesSet.has(path)) {
+      return false
+    }
+    return true
+  })
 
-  // Calculate matching files
-  const matchingFiles = matchingFilesInProject.length
-
-  console.log({ ignoredPaths, ignorePatterns })
+  const numberOfMatchingFiles = selectedCommit.files.filter((path) => {
+    if (!projectFilesSet.has(path)) {
+      return true
+    }
+    return false
+  }).length
 
   const [skylineState, setSkylineState] = useState<"idle" | "version">("idle")
+  const [showSettings, setShowSettings] = useState(false)
   if (!repo) return <div className="p-6">No repository found</div>
 
   return (
@@ -197,8 +235,8 @@ export default function RepoPage() {
           </a>
         </Button>
 
-        <Card className="mt-6">
-          <CardHeader className="flex-col">
+        <Card className="mt-6 pt-0 overflow-hidden">
+          <CardHeader className="flex-col bg-neutral-100 pt-2 rounded-t-lg shadow-smooth border-b border-border">
             <div className="flex justify-between items-center w-full">
               <CardTitle className="px-2"> Epic Stack </CardTitle>
               {skylineState === "idle" ? (
@@ -227,18 +265,22 @@ export default function RepoPage() {
                 paths={selectedCommit.files}
                 ignore={selectedCommit.files.filter((path) => {
                   // if the path is ignored, grey out
-                  if (ignorePatterns.some((pattern) => path.includes(pattern)))
+                  if (
+                    hideIgnored &&
+                    ignorePatterns.some((pattern) => path.includes(pattern))
+                  )
                     return true
 
                   // if the path is not in the project, grey out
-                  if (
-                    !projectFiles.files.some((file) => file.slice(1) === path)
-                  )
-                    return true
+                  if (hideNonMatching && !projectFilesSet.has(path)) return true
 
                   return false
                 })}
               />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="px-2">
               {skylineState === "version" && (
                 <>
                   <div className="relative z-10 mt-2">
@@ -275,41 +317,108 @@ export default function RepoPage() {
                   </div>
                 </>
               )}
-              <p className="font-mono text-muted-foreground mt-2">
+              <p className="font-mono text-muted-foreground mt-2 flex items-center gap-x-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="-ml-2"
+                  onClick={() => setShowSettings(!showSettings)}
+                >
+                  <Icon name="settings" className="size-5" />
+                </Button>
                 <strong className="font-bold text-foreground">
-                  {matchingFiles}
+                  {includedPaths.length}
                 </strong>{" "}
-                matching,{" "}
-                <strong className="font-bold text-foreground">
-                  {ignoredPaths.length}
-                </strong>{" "}
-                ignored in {cwd}
+                {hideNonMatching ? "matching files" : "files"}
+                {hideIgnored && (
+                  <>
+                    {","}
+                    <strong className="font-bold text-foreground">
+                      {ignoredPaths.length}
+                    </strong>{" "}
+                    ignored
+                  </>
+                )}{" "}
+                in {cwd}
               </p>
+              {showSettings && (
+                <div className="mt-2 font-mono space-y-3 border-l border-border pl-6 ml-2">
+                  <Label className="flex items-center gap-x-2">
+                    <Checkbox
+                      className="shadow-smooth"
+                      checked={hideNonMatching}
+                      onCheckedChange={() =>
+                        setHideNonMatching(!hideNonMatching)
+                      }
+                    />
+                    Hide {numberOfMatchingFiles} non-matching files
+                  </Label>
+                  <Label className="flex items-center gap-x-2">
+                    <Checkbox
+                      className="shadow-smooth"
+                      checked={hideIgnored}
+                      onCheckedChange={() => setHideIgnored(!hideIgnored)}
+                    />
+                    Hide {ignoredPaths.length} ignored files
+                  </Label>
+                </div>
+              )}
             </div>
-          </CardHeader>
-          <CardContent>
             {updatesAvailable > 0 && (
-              <div className="mt-4">
+              <div className="mt-2">
                 {Array.from({ length: 7 }).map((_, index) => {
                   const commit = commits[selectedCommitIndex - 3 + index]
                   if (!commit) return null
                   if (skylineState === "version" && index === 0) return null
 
+                  const modifiedFiles = commit.affectedFiles.filter(
+                    (file) => file.status === "modified",
+                  )
+                  const addedFiles = commit.affectedFiles.filter(
+                    (file) => file.status === "added",
+                  )
+                  const deletedFiles = commit.affectedFiles.filter(
+                    (file) => file.status === "deleted",
+                  )
                   return (
                     <div
                       key={index}
                       className={cn(
                         "font-mono relative group hover:bg-neutral-100 p-2 rounded",
-                        index === 3 && "font-bold",
-                        skylineState === "idle" &&
-                          index === 3 &&
-                          "bg-neutral-100",
+                        index === 3 && "font-bold bg-neutral-100",
                       )}
                     >
-                      <div className="truncate whitespace-nowrap">
+                      <div
+                        className={cn(
+                          "truncate whitespace-nowrap",
+                          !commit.hasMatchingFiles && "opacity-30",
+                        )}
+                      >
                         <p>{commit.message}</p>
                         <p className="text-sm text-muted-foreground">
                           {commit.time_ago}
+                          {modifiedFiles.length > 0 && (
+                            <span className="text-cyan-600 font-bold">
+                              {" "}
+                              {modifiedFiles.length}M
+                            </span>
+                          )}
+                          {addedFiles.length > 0 && (
+                            <span className="text-green-600 font-bold">
+                              {" "}
+                              {addedFiles.length}A
+                            </span>
+                          )}
+                          {deletedFiles.length > 0 && (
+                            <span className="text-red-600 font-bold">
+                              {" "}
+                              {deletedFiles.length}D
+                            </span>
+                          )}
+                          {!commit.hasMatchingFiles && (
+                            <span className="font-bold"> Hidden </span>
+                          )}
                         </p>
                       </div>
 
@@ -354,49 +463,18 @@ export default function RepoPage() {
                 {commits.length - selectedCommitIndex > 3 && (
                   <p className=" px-2 font-mono text-sm text-muted-foreground">
                     {" "}
-                    and {commits.length - selectedCommitIndex - 3} more…
+                    and{" "}
+                    {
+                      commits
+                        .slice(selectedCommitIndex + 1)
+                        .filter((commit) => commit.hasMatchingFiles).length
+                    }{" "}
+                    more…
                   </p>
                 )}
               </div>
             )}
           </CardContent>
-        </Card>
-
-        <Card className="mt-6 opacity-0">
-          <CardHeader className="flex-col">
-            <div className=" w-full overflow-hidden">
-              <div className="flex justify-between items-center w-full">
-                <CardTitle>Epic Stack</CardTitle>
-              </div>
-              <FileStructureGrid
-                width={getFileGridWidth({ paths })}
-                paths={paths}
-                ignore={projectFiles.files.map((file) => file.slice(1))}
-              />
-              <div className="flex justify-between items-center w-full">
-                <CardTitle>App from epic stack</CardTitle>
-              </div>
-              <FileStructureGrid
-                width={getFileGridWidth({ paths })}
-                paths={projectFiles.files.map((file) => file.slice(1))}
-                highlight={paths}
-                // highlight={projectFiles.files.map((file) => file.slice(1))}
-              />
-            </div>
-          </CardHeader>
-          <CardContent></CardContent>
-          <Button
-            type="button"
-            onClick={() => {
-              config.template.version = selectedCommit.sha
-              updateConfig({
-                value: config,
-              })
-            }}
-            className="mt-4"
-          >
-            Use this version
-          </Button>
         </Card>
       </FadeIn>
     </div>

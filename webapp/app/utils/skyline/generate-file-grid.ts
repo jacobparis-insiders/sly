@@ -46,7 +46,7 @@ function organizeDirectory(
         isOccupied: true,
         path: item,
         color: isIgnored
-          ? "gray"
+          ? "hsl(0 0 50)"
           : isDimmed
             ? hashPath(item, dimOptions)
             : hashPath(item),
@@ -65,7 +65,7 @@ function organizeDirectory(
 
   // If all files are ignored, mark the directory as ignored
   if (allFilesIgnored) {
-    directoryCells.forEach((cell) => (cell.color = "gray"))
+    directoryCells.forEach((cell) => (cell.color = "hsl(0 0 50)"))
   }
 
   // Process any remaining files

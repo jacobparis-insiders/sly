@@ -41,8 +41,8 @@ export function FileStructureGrid({
     if (canvas && context) {
       // Adjust for high-DPI displays
       const dpr = window.devicePixelRatio || 1
-      const width = canvas.clientWidth * dpr
-      const height = canvas.clientHeight * dpr
+      const width = canvas.clientWidth * dpr * 4
+      const height = canvas.clientHeight * dpr * 4
       canvas.width = width
       canvas.height = height
       context.scale(dpr, dpr)
@@ -59,6 +59,15 @@ export function FileStructureGrid({
           if (cell.isOccupied) {
             context.fillStyle = cell.color
             context.fillRect(x, y, cellWidth, cellHeight)
+
+            // add slight border
+            context.strokeStyle = cell.color.replace(
+              /hsl\((\d+) (\d+) (\d+)\)/,
+              (match, hue, saturation, lightness) =>
+                `hsl(${hue} ${saturation} ${String(parseInt(lightness, 10) - 10)})`,
+            )
+            context.strokeRect(x, y, cellWidth, 1)
+            context.strokeRect(x, y, 1, cellHeight)
           } else {
             context.clearRect(x, y, cellWidth, cellHeight)
           }

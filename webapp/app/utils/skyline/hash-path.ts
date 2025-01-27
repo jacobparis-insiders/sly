@@ -71,7 +71,7 @@ function generateColor(
     ),
   )
 
-  return `hsl(${Math.round(finalHue)}, ${Math.round(saturation)}%, ${Math.round(lightness)}%)`
+  return `hsl(${Math.round(finalHue)} ${Math.round(saturation)} ${Math.round(lightness)})`
 }
 
 export function hashPath(
