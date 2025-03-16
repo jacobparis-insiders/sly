@@ -1,6 +1,6 @@
 {
   "name": "@sly-cli/sly",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "Sly is a CLI tool to add components, icons, and utilities as code, not dependencies.",
   "type": "module",
   "exports": {
@@ -79,6 +79,5 @@
     "execa": "^7.1.1",
     "rimraf": "^5.0.1",
     "compare-versions": "^6.0.0"
-
   }
 }
