@@ -2,6 +2,7 @@ import {
   LibraryConfig,
   getConfig,
   libraryConfigSchema,
+  resolveLibraryConfig,
   setConfig,
 } from "~/src/get-config.js"
 import { logger } from "~/src/logger.js"
@@ -11,6 +12,7 @@ import prompts from "prompts"
 import { getRegistryIndex } from "~/src/registry.js"
 import { confirmOrQuit } from "../prompts.js"
 import { z } from "zod"
+import { getIconifyIndex } from "../iconify.js"
 
 export const libraryCommand = new Command()
   .name("library")
@@ -27,7 +29,7 @@ export const libraryCommand = new Command()
         process.exit(1)
       }
 
-      return initLibrary(library.name)
+      return initLibrary({ name: library.name })
     }
 
     // No library name provided, show the list
@@ -47,7 +49,7 @@ export const libraryCommand = new Command()
       return configureLibraries()
     }
 
-    return initLibrary(choice)
+    return initLibrary({ name: choice })
   })
 
 export async function configureLibraries() {
@@ -69,51 +71,110 @@ export async function configureLibraries() {
             title: library.name,
             description: library.description,
             value: library.name,
-            selected:
-              existingConfig?.libraries.some(
-                ({ name }) => library.name === name
-              ) ?? false,
+            selected: Boolean(existingConfig?.libraries[library.name]),
           })),
           min: 1,
         },
-      ])
+      ]),
     )
     .catch(() => process.exit(1))
 
-  const newLibraries = answers.libraries.filter(
-    (name: string) =>
-      !existingConfig?.libraries.some((library) => library.name === name)
+  const newLibraries = answers.libraries.filter((name: string) =>
+    Boolean(!existingConfig?.libraries[name]),
   )
 
   for (const name of newLibraries) {
-    await initLibrary(name)
+    await initLibrary({ name: name })
   }
 
-  const removedLibraries = existingConfig?.libraries.filter(
-    (library) => !answers.libraries.includes(library.name)
+  await new Promise((resolve) => setTimeout(resolve, 100))
+}
+
+export async function configureComponentLibraries() {
+  const existingConfig = await getConfig()
+
+  const shadcn = {
+    name: "@shadcn/ui",
+    displayName: "Shadcn",
+  }
+
+  const libraries = [shadcn]
+
+  const answers = await z
+    .object({
+      libraries: z.array(z.string()),
+    })
+    .parseAsync(
+      await prompts([
+        {
+          type: "autocompleteMultiselect",
+          name: "libraries",
+          message: `Which component libraries would you like to use?`,
+          choices: Object.entries(libraries).map(([prefix, library]) => ({
+            title: library.displayName ?? library.name,
+            value: library.name,
+            selected: Boolean(existingConfig?.libraries[library.name]),
+          })),
+        },
+      ]),
+    )
+    .catch(() => process.exit(1))
+
+  const newLibraries = answers.libraries.filter((name: string) =>
+    Boolean(!existingConfig?.libraries[name]),
   )
 
-  if (removedLibraries?.length) {
-    await confirmOrQuit(
-      `Are you sure you want to remove ${removedLibraries
-        .map((library) => chalk.cyan(library.name))
-        .join(", ")}?`
-    )
+  for (const name of newLibraries) {
+    await initLibrary({ name: name })
+  }
 
-    await setConfig((config) => {
-      return {
-        ...config,
-        libraries: config.libraries.filter(
-          ({ name }) =>
-            !removedLibraries.some((library) => library.name === name)
-        ),
-      }
+  await new Promise((resolve) => setTimeout(resolve, 100))
+}
+
+export async function configureIconLibraries() {
+  const existingConfig = await getConfig()
+
+  const libraries = await getIconifyIndex()
+
+  const answers = await z
+    .object({
+      libraries: z.array(z.string()),
+    })
+    .parseAsync(
+      await prompts([
+        {
+          type: "autocompleteMultiselect",
+          name: "libraries",
+          message: `Which icon libraries would you like to use?`,
+          choices: Object.entries(libraries)
+            .map(([prefix, library]) => ({
+              title: library.name,
+              value: `iconify:${prefix}`,
+              selected: Boolean(existingConfig?.libraries[library.name]),
+            }))
+            .toSorted((a, b) => a.title.localeCompare(b.title)),
+          min: 1,
+        },
+      ]),
+    )
+    .catch(() => process.exit(1))
+
+  const newLibraries = answers.libraries.filter((name: string) =>
+    Boolean(!existingConfig?.libraries[name]),
+  )
+
+  for (const name of newLibraries) {
+    await initLibrary({
+      name: name,
+      displayName: libraries[name.replace("iconify:", "")]?.name,
     })
   }
+
+  await new Promise((resolve) => setTimeout(resolve, 100))
 }
 
 export async function chooseLibrary(
-  libraries: { name: LibraryConfig["name"] }[]
+  libraries: { name: string; displayName?: string }[],
 ) {
   const { library } = await z
     .object({
@@ -124,27 +185,82 @@ export async function chooseLibrary(
         type: "select",
         name: "library",
         message: `Which library would you like to use?`,
-        choices: libraries.map((library) => ({
-          title: library.name,
-          value: library.name,
-        })),
-      })
+        choices: libraries
+          .map((library) => ({
+            title: library.displayName ?? library.name,
+            value: library.name.toLowerCase(),
+          }))
+          .toSorted((a, b) => {
+            if (a.title.startsWith("\n")) {
+              return 1
+            }
+
+            return a.title.localeCompare(b.title)
+          }),
+      }),
     )
     .catch(() => process.exit(1))
 
   return library
 }
 
-export async function initLibrary(name: string) {
+export async function initLibrary({
+  name,
+  displayName,
+}: {
+  name: string
+  displayName?: string
+}) {
   const config = await getConfig()
 
-  const existingConfig: LibraryConfig = config?.libraries.find(
-    (library) => library.name === name
-  ) ?? {
-    name,
+  const existingConfig = (config && resolveLibraryConfig(config, name)) ?? {
     directory: "./components",
     postinstall: [],
     transformers: [],
+  }
+
+  // Check for existing top-level configurations
+  const topLevelConfigs = config?.config
+    ? Object.entries(config.config).flatMap(([key, value]) => {
+        if ("directory" in value) {
+          return key
+        }
+
+        return []
+      })
+    : []
+
+  if (topLevelConfigs.length > 0) {
+    const { configChoice } = await prompts({
+      type: "select",
+      name: "configChoice",
+      message: `Use an existing config for ${chalk.cyan(
+        name,
+      )} or set up a new one?`,
+      choices: [
+        ...topLevelConfigs.map((key) => ({
+          title: key,
+          value: key,
+        })),
+        { title: "New settings", value: "new" },
+      ],
+    })
+
+    // If the user chooses "new", proceed to define new settings
+    if (configChoice !== "new") {
+      await setConfig((config) => {
+        config.libraries[name] = {
+          config: configChoice,
+        }
+
+        if (displayName) {
+          config.libraries[name].name = displayName
+        }
+
+        return config
+      })
+      return
+    }
   }
 
   const answers = await z
@@ -170,29 +286,32 @@ export async function initLibrary(name: string) {
             ? existingConfig.postinstall.join(" ")
             : existingConfig.postinstall,
         },
-      ])
+      ]),
     )
     .catch(() => process.exit(1))
 
-  const newSettings = libraryConfigSchema.parse({
-    name,
-    directory: answers.directory,
-    postinstall: answers.postinstall,
-    transformers: existingConfig.transformers,
+  const newConfig = libraryConfigSchema.parse({
+    config: {
+      directory: answers.directory,
+      postinstall: answers.postinstall,
+      transformers: existingConfig.transformers,
+    },
   })
 
+  // If a new configuration is defined or an existing one is selected, save the settings
   await confirmOrQuit(`Save settings to ${chalk.cyan("sly.json")}?`)
 
   await setConfig((config) => {
-    const existingLibraryConfig = config.libraries.find(
-      (library) => library.name === name
-    )
+    if (!config.libraries) {
+      config.libraries = {}
+    }
 
-    if (existingLibraryConfig) {
-      existingLibraryConfig.directory = newSettings.directory
-      existingLibraryConfig.postinstall = newSettings.postinstall
-    } else {
-      config.libraries.push(newSettings)
+    config.libraries[name] = {
+      config: newConfig.config,
+    }
+
+    if (displayName) {
+      config.libraries[name].name = displayName
     }
 
     return config

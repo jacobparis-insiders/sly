@@ -38,17 +38,12 @@ export async function getLibraryIndex(library: string) {
 /**
  * This is used in the "add" command to get the item contents
  */
-export async function fetchTree(
-  library: string,
-  tree: z.infer<typeof libraryIndexSchema>["resources"]
-) {
-  const result = await fetchRegistry(
-    tree.map((item) => `${library}/${item.name}.json`),
-    {
-      // When we're fetching the actual item for download, get fresh data
-      forceFresh: true,
-    }
-  ).catch((error) => {
+// TODO: remove this useless function
+export async function fetchTree(tree: Array<string>) {
+  const result = await fetchRegistry(tree, {
+    // When we're fetching the actual item for download, get fresh data
+    forceFresh: true,
+  }).catch((error) => {
     logger.error(error)
     throw new Error(`Failed to fetch tree from registry.`)
   })
@@ -64,26 +59,24 @@ export async function fetchTree(
 
 async function fetchRegistry<Value>(
   paths: string[],
-  options: Partial<Omit<CachifiedOptions<Value>, "key" | "getFreshValue">> = {}
+  options: Partial<Omit<CachifiedOptions<Value>, "key" | "getFreshValue">> = {},
 ) {
   try {
     const response = await Promise.all(
       paths.map((path) =>
         cachified<Value>({
           ...options,
-          key: `${baseUrl}/registry/${path}`,
+          key: `${path}`,
           async getFreshValue() {
-            return fetch(`${baseUrl}/registry/${path}`).then((response) =>
-              response.json()
-            )
+            return fetch(path).then((response) => response.json())
           },
-        })
-      )
+        }),
+      ),
     )
 
     return response
   } catch (error) {
     logger.error(error)
-    throw new Error(`Failed to fetch registry from ${baseUrl}.`)
+    throw new Error(`Failed to fetch registry from ${paths[0]}.`)
   }
 }

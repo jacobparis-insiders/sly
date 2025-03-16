@@ -33,7 +33,6 @@ export const libraryItemSchema = z.object({
  */
 export const libraryIndexSchema = z.object({
   version: z.string(),
-  meta: metaSchema,
   resources: z.array(libraryItemSchema),
 })
 
@@ -42,12 +41,14 @@ export const libraryIndexSchema = z.object({
  */
 export const libraryItemWithContentSchema = libraryItemSchema.extend({
   files: z.array(
-    z.object({
-      name: z.string(),
-      content: z.string(),
-    })
+    z.intersection(
+      z.object({
+        content: z.string(),
+        type: z.string().optional().default("file"),
+      }),
+      z.union([z.object({ path: z.string() }), z.object({ name: z.string() })])
+    )
   ),
-  meta: metaSchema,
 })
 
 /**
